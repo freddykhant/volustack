@@ -1,0 +1,67 @@
+/* App-shell design tokens (Tailwind v4 @theme) — cloned from the live ReadMe
+   reference via computed-style extraction (2026-07-24).
+   Wire-up: in src/styles/globals.css, after `@import "tailwindcss";` add
+   `@import "./theme.css";` (adjust the path to wherever you put this file).
+   Then give <body> the app defaults: className="bg-canvas font-sans text-fg antialiased"
+   — or just mount everything inside <AppShell> / <AppCanvas>, which apply them. */
+
+@theme {
+  --color-canvas: #0b0c0d;
+  --color-surface: rgba(255, 255, 255, 0.05);
+  --color-surface-raised: rgba(255, 255, 255, 0.075);
+  --color-selection: rgba(0, 146, 255, 0.09);
+  --color-callout: rgba(17, 140, 253, 0.05);
+
+  --color-fg: #ffffff;
+  --color-fg-soft: #c6cdd4;
+  --color-fg-muted: #aab4bc;
+  --color-fg-subtle: #9ba1a6;
+
+  --color-accent: #0092ff;
+  --color-accent-strong: #118cfd;
+
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+
+  --radius-card: 8px;
+  --radius-pill: 8px;
+  --radius-control: 6px;
+  --radius-callout: 2px;
+
+  --text-page-title: 39px;
+  --text-page-title--line-height: 50px;
+  --text-page-title--font-weight: 600;
+
+  --text-section: 24px;
+  --text-section--line-height: 30px;
+  --text-section--font-weight: 600;
+
+  --text-card-title: 16px;
+  --text-card-title--font-weight: 600;
+
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-body--font-weight: 400;
+
+  --text-card-desc: 16px;
+  --text-card-desc--line-height: 22.4px;
+  --text-card-desc--font-weight: 400;
+
+  --text-nav: 14px;
+  --text-nav--font-weight: 400;
+
+  --text-list: 16px;
+  --text-list--line-height: 20px;
+  --text-list--font-weight: 400;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Eyebrow helper: size/tracking/case only — weight and color come from
+   utilities at each use site (content eyebrow: font-medium text-fg-soft;
+   sidebar section labels: font-semibold text-fg-muted). */
+.text-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
