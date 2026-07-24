@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "../components/ui-kit/theme.css";
+@import "../components/ui-kit/app-shell-kit/theme.css";
 
 @theme {
   --font-sans:
