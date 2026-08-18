@@ -216,6 +216,7 @@ model AthleteProfile {
   landmarks MuscleLandmark[]
   constraintSets ConstraintSet[]
   mesocycles Mesocycle[]
+  checkIns   CheckIn[]
 
   @@map("athlete_profile")
 }
@@ -332,6 +333,7 @@ model Week {
 
   muscleVolumes WeekMuscleVolume[]
   sessions      TrainingSession[]
+  checkIns      CheckIn[]
 
   @@unique([mesocycleId, index])
   @@map("week")
@@ -376,4 +378,33 @@ model ExercisePrescription {
   targetRir         Int?
 
   @@map("exercise_prescription")
+}
+
+model CheckIn {
+  id               String         @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  weekId           String?
+  week             Week?          @relation(fields: [weekId], references: [id], onDelete: SetNull)
+  scope            CheckInScope
+  createdAt        DateTime       @default(now())
+
+  muscleFeedback CheckInMuscle[]
+
+  @@map("check_in")
+}
+
+model CheckInMuscle {
+  id          String      @id @default(cuid())
+  checkInId   String
+  checkIn     CheckIn     @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  muscle      MuscleGroup
+  recovery    Int? // 0=still smashed … 3=fully recovered
+  performance Int? // 0=regressed … 3=strong progression
+  jointStress Int? // 0=none … 3=painful
+  plannedSets Float?
+  actualSets  Float?
+
+  @@unique([checkInId, muscle])
+  @@map("check_in_muscle")
 }
