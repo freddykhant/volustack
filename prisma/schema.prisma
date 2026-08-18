@@ -215,6 +215,7 @@ model AthleteProfile {
 
   landmarks MuscleLandmark[]
   constraintSets ConstraintSet[]
+  mesocycles Mesocycle[]
 
   @@map("athlete_profile")
 }
@@ -274,6 +275,7 @@ model ConstraintSet {
 
   muscleTargets MuscleTarget[]
   exclusions    ExerciseExclusion[]
+  mesocycles    Mesocycle[]
 
   @@unique([athleteProfileId, version])
   @@map("constraint_set")
@@ -301,4 +303,45 @@ model ExerciseExclusion {
 
   @@unique([constraintSetId, exerciseId])
   @@map("exercise_exclusion")
+}
+
+model Mesocycle {
+  id               String         @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  constraintSetId  String
+  constraintSet    ConstraintSet  @relation(fields: [constraintSetId], references: [id])
+  name             String
+  status           BlockStatus    @default(DRAFT)
+  startDate        DateTime?
+  lengthWeeks      Int
+  createdAt        DateTime       @default(now())
+
+  weeks Week[]
+
+  @@map("mesocycle")
+}
+
+model Week {
+  id          String    @id @default(cuid())
+  mesocycleId String
+  mesocycle   Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  index       Int // 1-based position in the block
+  isDeload    Boolean   @default(false)
+
+  muscleVolumes WeekMuscleVolume[]
+
+  @@unique([mesocycleId, index])
+  @@map("week")
+}
+
+model WeekMuscleVolume {
+  id          String      @id @default(cuid())
+  weekId      String
+  week        Week        @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  muscle      MuscleGroup
+  plannedSets Float // fractional-attribution aware
+
+  @@unique([weekId, muscle])
+  @@map("week_muscle_volume")
 }
