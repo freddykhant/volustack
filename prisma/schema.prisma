@@ -243,6 +243,7 @@ model Exercise {
 
   muscles ExerciseMuscle[]
   exclusions ExerciseExclusion[]
+  prescriptions ExercisePrescription[]
 
   @@map("exercise")
 }
@@ -330,6 +331,7 @@ model Week {
   isDeload    Boolean   @default(false)
 
   muscleVolumes WeekMuscleVolume[]
+  sessions      TrainingSession[]
 
   @@unique([mesocycleId, index])
   @@map("week")
@@ -344,4 +346,34 @@ model WeekMuscleVolume {
 
   @@unique([weekId, muscle])
   @@map("week_muscle_volume")
+}
+
+model TrainingSession {
+  id                String @id @default(cuid())
+  weekId            String
+  week              Week   @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  order             Int // position within the week (0-based)
+  splitSlot         String // e.g. "Upper A", "Push"
+  dayOfWeek         Int? // 0=Mon … 6=Sun, if the user pins days
+  targetDurationMin Int?
+
+  prescriptions ExercisePrescription[]
+
+  @@unique([weekId, order])
+  @@map("training_session")
+}
+
+model ExercisePrescription {
+  id                String          @id @default(cuid())
+  trainingSessionId String
+  trainingSession   TrainingSession @relation(fields: [trainingSessionId], references: [id], onDelete: Cascade)
+  exerciseId        String
+  exercise          Exercise        @relation(fields: [exerciseId], references: [id])
+  order             Int
+  sets              Int
+  targetRepLow      Int?
+  targetRepHigh     Int?
+  targetRir         Int?
+
+  @@map("exercise_prescription")
 }
