@@ -214,6 +214,7 @@ model AthleteProfile {
   updatedAt     DateTime        @updatedAt
 
   landmarks MuscleLandmark[]
+  constraintSets ConstraintSet[]
 
   @@map("athlete_profile")
 }
@@ -240,6 +241,7 @@ model Exercise {
   createdAt         DateTime              @default(now())
 
   muscles ExerciseMuscle[]
+  exclusions ExerciseExclusion[]
 
   @@map("exercise")
 }
@@ -254,4 +256,49 @@ model ExerciseMuscle {
 
   @@unique([exerciseId, muscle])
   @@map("exercise_muscle")
+}
+
+model ConstraintSet {
+  id                  String         @id @default(cuid())
+  athleteProfileId    String
+  athleteProfile      AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  version             Int
+  isActive            Boolean        @default(true)
+  daysPerWeek         Int
+  splitType           SplitType
+  sessionLengthCapMin Int
+  blockLengthWeeks    Int
+  deloadWeekIndex     Int? // 1-based week that is the deload, if any
+  checkInCadence      CheckInCadence @default(WEEKLY)
+  createdAt           DateTime       @default(now())
+
+  muscleTargets MuscleTarget[]
+  exclusions    ExerciseExclusion[]
+
+  @@unique([athleteProfileId, version])
+  @@map("constraint_set")
+}
+
+model MuscleTarget {
+  id              String        @id @default(cuid())
+  constraintSetId String
+  constraintSet   ConstraintSet @relation(fields: [constraintSetId], references: [id], onDelete: Cascade)
+  muscle          MuscleGroup
+  weeklySetTarget Int? // explicit target if the user set one
+  priority        Int           @default(0) // higher = prioritise (e.g. grow shoulders)
+
+  @@unique([constraintSetId, muscle])
+  @@map("muscle_target")
+}
+
+model ExerciseExclusion {
+  id              String        @id @default(cuid())
+  constraintSetId String
+  constraintSet   ConstraintSet @relation(fields: [constraintSetId], references: [id], onDelete: Cascade)
+  exerciseId      String
+  exercise        Exercise      @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  reason          String? // e.g. "knee pain"
+
+  @@unique([constraintSetId, exerciseId])
+  @@map("exercise_exclusion")
 }
