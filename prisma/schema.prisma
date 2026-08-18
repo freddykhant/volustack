@@ -230,3 +230,28 @@ model MuscleLandmark {
   @@unique([athleteProfileId, muscle])
   @@map("muscle_landmark")
 }
+
+model Exercise {
+  id                String                @id @default(cuid())
+  name              String                @unique
+  movementPattern   MovementPattern
+  equipment         Equipment
+  contraindications ContraindicationTag[]
+  createdAt         DateTime              @default(now())
+
+  muscles ExerciseMuscle[]
+
+  @@map("exercise")
+}
+
+model ExerciseMuscle {
+  id         String      @id @default(cuid())
+  exerciseId String
+  exercise   Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  muscle     MuscleGroup
+  role       MuscleRole
+  fraction   Float // 1.0 = full set credit (PRIMARY), <1.0 = fractional (SECONDARY)
+
+  @@unique([exerciseId, muscle])
+  @@map("exercise_muscle")
+}
