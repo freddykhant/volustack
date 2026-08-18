@@ -17,6 +17,126 @@ datasource db {
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
+enum MuscleGroup {
+  CHEST
+  BACK
+  TRAPS
+  FRONT_DELTS
+  SIDE_DELTS
+  REAR_DELTS
+  BICEPS
+  TRICEPS
+  FOREARMS
+  ABS
+  QUADS
+  HAMSTRINGS
+  GLUTES
+  CALVES
+}
+
+enum TrainingPhase {
+  CUT
+  MAINTAIN
+  BULK
+}
+
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum SplitType {
+  FULL_BODY
+  UPPER_LOWER
+  PUSH_PULL_LEGS
+  BRO_SPLIT
+  CUSTOM
+}
+
+enum MovementPattern {
+  HORIZONTAL_PUSH
+  VERTICAL_PUSH
+  HORIZONTAL_PULL
+  VERTICAL_PULL
+  SQUAT
+  HINGE
+  LUNGE
+  ISOLATION
+}
+
+enum Equipment {
+  BARBELL
+  DUMBBELL
+  MACHINE
+  CABLE
+  BODYWEIGHT
+  SMITH
+  KETTLEBELL
+}
+
+enum MuscleRole {
+  PRIMARY
+  SECONDARY
+}
+
+enum ContraindicationTag {
+  KNEE
+  SHOULDER
+  LOWER_BACK
+  ELBOW
+  HIP
+  WRIST
+}
+
+enum CheckInScope {
+  WEEK
+  SESSION
+  AD_HOC
+}
+
+enum CheckInCadence {
+  WEEKLY
+  PER_SESSION
+  PER_BLOCK
+  AD_HOC
+}
+
+enum BlockStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum DecisionType {
+  GENERATE
+  PROGRESS
+  DELOAD
+  REDISTRIBUTE
+  MANUAL_ADJUST
+}
+
+enum DecisionStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  APPLIED
+}
+
 model User {
   id            String    @id
   name          String //@db.Text
