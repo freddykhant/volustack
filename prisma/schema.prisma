@@ -320,6 +320,7 @@ model Mesocycle {
   createdAt        DateTime       @default(now())
 
   weeks Week[]
+  decisions DecisionLog[]
 
   @@map("mesocycle")
 }
@@ -407,4 +408,21 @@ model CheckInMuscle {
 
   @@unique([checkInId, muscle])
   @@map("check_in_muscle")
+}
+
+model DecisionLog {
+  id          String         @id @default(cuid())
+  mesocycleId String
+  mesocycle   Mesocycle      @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  weekIndex   Int? // which week this decision applies to, if scoped
+  type        DecisionType
+  status      DecisionStatus @default(PROPOSED)
+  summary     String // short human label
+  reasoning   String // AI-phrased explanation
+  payload     Json // structured diff the engine produced
+  createdAt   DateTime       @default(now())
+  respondedAt DateTime?
+
+  @@index([mesocycleId, createdAt])
+  @@map("decision_log")
 }
