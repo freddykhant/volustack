@@ -147,6 +147,7 @@ model User {
   updatedAt     DateTime  @default(now()) @updatedAt
   sessions      Session[]
   accounts      Account[]
+  athleteProfile AthleteProfile?
 
   @@unique([email])
   @@map("user")
@@ -195,4 +196,37 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
+}
+
+model AthleteProfile {
+  id            String          @id @default(cuid())
+  userId        String          @unique
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  age           Int?
+  sex           Sex?
+  heightCm      Float?
+  weightKg      Float?
+  activityLevel ActivityLevel?
+  tdee          Float?
+  phase         TrainingPhase   @default(MAINTAIN)
+  experience    ExperienceLevel @default(INTERMEDIATE)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  landmarks MuscleLandmark[]
+
+  @@map("athlete_profile")
+}
+
+model MuscleLandmark {
+  id               String         @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  muscle           MuscleGroup
+  mev              Int
+  mav              Int
+  mrv              Int
+
+  @@unique([athleteProfileId, muscle])
+  @@map("muscle_landmark")
 }
