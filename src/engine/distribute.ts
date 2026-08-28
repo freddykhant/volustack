@@ -151,6 +151,19 @@ export function distributeVolume(
     }
   }
 
+  // ---- residual: any session still over cap after the repair pass above is a genuine
+  // infeasibility (repair converged short, hit its guard, or ran out of movable sets). ----
+  for (const s of slots) {
+    const minutes = slotMinutes(s.id);
+    if (minutes > spec.sessionLengthCapMin) {
+      facts.push({
+        kind: "infeasible",
+        constraint: "session_time",
+        detail: { session: s.id, requiredMin: minutes, capMin: spec.sessionLengthCapMin },
+      });
+    }
+  }
+
   // ---- repair: overshoot trim (fractional credit pushed a muscle past target + 0.5) ----
   for (const t of spec.targets) {
     if (achieved[t.muscle] - t.weeklySetTarget <= 0.5) continue;

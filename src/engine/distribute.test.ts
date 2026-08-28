@@ -71,4 +71,93 @@ describe("distributeVolume", () => {
     const b = distributeVolume(spec, EXERCISE_LIBRARY, slots);
     expect(a).toEqual(b);
   });
+
+  it("moves sets to a cooler session when the time cap is exceeded and room exists elsewhere", () => {
+    // BACK has 2 eligible sessions (Upper A / Upper B). A target of 5 (< FREQUENCY_THRESHOLD_SETS)
+    // forces minSessions=1, so all 5 sets land in Upper A alone, pushing it to 25 min against
+    // a 20-min cap while Upper B sits empty (8 min) — plenty of room to receive moved sets.
+    const spec = specWith({
+      sessionLengthCapMin: 20,
+      targets: [{ muscle: "BACK", weeklySetTarget: 5, priority: 1, mev: 10, effectiveMrv: 25 }],
+    });
+    const slots = buildSessionSlots(spec.splitType, spec.daysPerWeek);
+    const t = distributeVolume(spec, EXERCISE_LIBRARY, slots);
+
+    const movedFacts = t.facts.filter((f) => f.kind === "moved_sets" && f.muscle === "BACK");
+    expect(movedFacts.length).toBeGreaterThanOrEqual(1);
+    expect(t.facts.some((f) => f.kind === "infeasible")).toBe(false);
+    for (const s of t.sessions) {
+      expect(s.estimatedMinutes).toBeLessThanOrEqual(spec.sessionLengthCapMin);
+    }
+    // total BACK sets are conserved (moved, not dropped)
+    const totalBackSets = t.sessions
+      .flatMap((s) => s.exercises)
+      .filter((e) => e.exerciseName === "Barbell Row")
+      .reduce((sum, e) => sum + e.sets, 0);
+    expect(totalBackSets).toBe(5);
+  });
+
+  it("drops volume and records a session_time_cap deviation when no session has room to absorb it", () => {
+    // FULL_BODY at 1 day/week yields a single session slot, so BACK has only one eligible
+    // session — the time-cap repair pass can never find a destination and must drop sets.
+    const spec = specWith({
+      splitType: "FULL_BODY",
+      daysPerWeek: 1,
+      sessionLengthCapMin: 20,
+      targets: [{ muscle: "BACK", weeklySetTarget: 10, priority: 1, mev: 10, effectiveMrv: 25 }],
+    });
+    const slots = buildSessionSlots(spec.splitType, spec.daysPerWeek);
+    const t = distributeVolume(spec, EXERCISE_LIBRARY, slots);
+
+    expect(
+      t.facts.some(
+        (f) => f.kind === "deviation" && f.cause === "session_time_cap" && f.muscle === "BACK",
+      ),
+    ).toBe(true);
+    for (const s of t.sessions) {
+      expect(s.estimatedMinutes).toBeLessThanOrEqual(spec.sessionLengthCapMin);
+    }
+  });
+
+  it("trims isolation sets when secondary credit pushes a targeted muscle past target + 0.5", () => {
+    // BICEPS target is fully met by 6 isolation (Barbell Curl) sets alone. BACK is then
+    // trained with Barbell Row, whose secondary BICEPS credit (0.5/set × 3 sets = 1.5) pushes
+    // BICEPS to 7.5 — past target(6) + 0.5. The trim pass should remove 1 Curl set, landing
+    // BICEPS at 6.5 (within the +0.5 tolerance band).
+    const spec = specWith({
+      targets: [
+        { muscle: "BICEPS", weeklySetTarget: 6, priority: 2, mev: 6, effectiveMrv: 20 },
+        { muscle: "BACK", weeklySetTarget: 3, priority: 1, mev: 10, effectiveMrv: 25 },
+      ],
+    });
+    const slots = buildSessionSlots(spec.splitType, spec.daysPerWeek);
+    const t = distributeVolume(spec, EXERCISE_LIBRARY, slots);
+
+    const trim = t.facts.find((f) => f.kind === "trimmed_overshoot" && f.muscle === "BICEPS");
+    expect(trim).toBeDefined();
+    if (trim?.kind === "trimmed_overshoot") {
+      expect(trim.from).toBeGreaterThan(trim.to);
+    }
+    expect(Math.abs(t.achievedVolume.BICEPS - 6)).toBeLessThanOrEqual(0.5);
+  });
+
+  it("emits an infeasible fact when a session cannot be brought under an impossibly-low cap", () => {
+    // No targets at all — the single FULL_BODY session still costs WARMUP_MIN (8 min) with
+    // zero exercises, which already exceeds a 5-minute cap. The repair loop breaks immediately
+    // (empty exercise list, nothing to move or drop), so only the new residual check can flag it.
+    const spec = specWith({
+      splitType: "FULL_BODY",
+      daysPerWeek: 1,
+      sessionLengthCapMin: 5,
+      targets: [],
+    });
+    const slots = buildSessionSlots(spec.splitType, spec.daysPerWeek);
+    const t = distributeVolume(spec, EXERCISE_LIBRARY, slots);
+
+    expect(t.facts).toContainEqual({
+      kind: "infeasible",
+      constraint: "session_time",
+      detail: { session: "full-body-a", requiredMin: 8, capMin: 5 },
+    });
+  });
 });
