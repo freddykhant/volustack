@@ -1,4 +1,4 @@
-# VoluStack — AI Orchestration Layer Design
+# Mesodapt — AI Orchestration Layer Design
 
 **Date:** 2026-07-25
 **Status:** Approved design, ready for implementation planning

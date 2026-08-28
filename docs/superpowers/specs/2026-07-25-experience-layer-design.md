@@ -1,4 +1,4 @@
-# VoluStack — Experience Layer Design (Shell + Block + Analysis)
+# Mesodapt — Experience Layer Design (Shell + Block + Analysis)
 
 **Date:** 2026-07-25
 **Status:** Approved design, ready for implementation planning
@@ -10,7 +10,7 @@
 
 This spec covers the first buildable slice of the experience layer:
 
-- **App shell integration** — mounting VoluStack's navigation into the existing app-shell kit
+- **App shell integration** — mounting Mesodapt's navigation into the existing app-shell kit
 - **The Block view** — the mesocycle muscle × week grid (hero screen) + week detail drill-in
 - **The Analysis view** — landmark bars + anatomical body map (signature visualization)
 - **The landmark zone color system** — the one token extension the kit needs
@@ -29,7 +29,7 @@ zone rendering, and all components carry forward unchanged.
 ## 2. Posture Toward the App-Shell Kit
 
 The kit at `src/components/ui-kit/app-shell-kit/` is the **styling foundation, tailored into
-VoluStack** — an ideal starting point from a UI/styles perspective, up for modification.
+Mesodapt** — an ideal starting point from a UI/styles perspective, up for modification.
 
 **Keep as-is:**
 - Shell anatomy: 256px workspace nav → 288px contextual column → 49px top bar → content
@@ -38,14 +38,14 @@ VoluStack** — an ideal starting point from a UI/styles perspective, up for mod
 - Type scale, `PageHeader` / `SectionHeading` / `Card` rhythm on all standard pages
 - The accent-is-scarce house rule
 
-**Tailored for VoluStack:**
+**Tailored for Mesodapt:**
 1. **Full-bleed tools.** The Block and Analysis views opt out of the 756px content cap using
    the kit's own full-bleed escape hatch — they are planning tools (the Motion-calendar
    analog), the exact case the opt-out exists for. Every other page (settings, library,
    future onboarding) keeps the 756px article rhythm.
 2. **Data-viz token family.** The theme gains landmark zone tokens (§4).
 3. **Accent rebrand is a one-line decision.** The kit ships ReadMe blue (`#0092ff`); whether
-   VoluStack keeps or replaces it is decided by editing the `@theme` block in `theme.css`.
+   Mesodapt keeps or replaces it is decided by editing the `@theme` block in `theme.css`.
    This spec treats the current blue as placeholder and takes no dependency on its hue.
 
 ---
@@ -63,7 +63,7 @@ VoluStack** — an ideal starting point from a UI/styles perspective, up for mod
   /app/settings                         → stub
 ```
 
-**Column 1 (workspace nav):** VoluStack wordmark/workspace top slot → nav items **Block,
+**Column 1 (workspace nav):** Mesodapt wordmark/workspace top slot → nav items **Block,
 Analysis, Coach, Library, Settings** → user row at bottom (BetterAuth session: avatar, name,
 sign-out). Active states derive from `usePathname()` per the kit.
 
@@ -80,7 +80,7 @@ Analysis and stub sections render no Column 2 (shell's `column2` slot omitted).
 
 ## 4. Landmark Zone Color System
 
-The heat semantics are VoluStack's visual signature, so they are **first-class semantic
+The heat semantics are Mesodapt's visual signature, so they are **first-class semantic
 tokens** in `theme.css` — used identically by grid cells, analysis bars, and the body map.
 
 | Token | Zone | Meaning |

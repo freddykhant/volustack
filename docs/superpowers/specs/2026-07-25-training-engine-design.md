@@ -1,4 +1,4 @@
-# VoluStack — Training Engine Design
+# Mesodapt — Training Engine Design
 
 **Date:** 2026-07-25
 **Status:** Approved design, ready for implementation planning
