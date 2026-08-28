@@ -13,19 +13,128 @@ generator client {
 // prisma/schema.prisma
 datasource db {
   provider  = "postgresql"
-  url  	    = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum MuscleGroup {
+  CHEST
+  BACK
+  TRAPS
+  FRONT_DELTS
+  SIDE_DELTS
+  REAR_DELTS
+  BICEPS
+  TRICEPS
+  FOREARMS
+  ABS
+  QUADS
+  HAMSTRINGS
+  GLUTES
+  CALVES
+}
 
-  createdBy   User   @relation(fields: [createdById], references: [id])
-  createdById String
+enum TrainingPhase {
+  CUT
+  MAINTAIN
+  BULK
+}
 
-  @@index([name])
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum SplitType {
+  FULL_BODY
+  UPPER_LOWER
+  PUSH_PULL_LEGS
+  BRO_SPLIT
+  CUSTOM
+}
+
+enum MovementPattern {
+  HORIZONTAL_PUSH
+  VERTICAL_PUSH
+  HORIZONTAL_PULL
+  VERTICAL_PULL
+  SQUAT
+  HINGE
+  LUNGE
+  ISOLATION
+}
+
+enum Equipment {
+  BARBELL
+  DUMBBELL
+  MACHINE
+  CABLE
+  BODYWEIGHT
+  SMITH
+  KETTLEBELL
+}
+
+enum MuscleRole {
+  PRIMARY
+  SECONDARY
+}
+
+enum ContraindicationTag {
+  KNEE
+  SHOULDER
+  LOWER_BACK
+  ELBOW
+  HIP
+  WRIST
+}
+
+enum CheckInScope {
+  WEEK
+  SESSION
+  AD_HOC
+}
+
+enum CheckInCadence {
+  WEEKLY
+  PER_SESSION
+  PER_BLOCK
+  AD_HOC
+}
+
+enum BlockStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum DecisionType {
+  GENERATE
+  PROGRESS
+  DELOAD
+  REDISTRIBUTE
+  MANUAL_ADJUST
+}
+
+enum DecisionStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  APPLIED
 }
 
 model User {
@@ -38,7 +147,7 @@ model User {
   updatedAt     DateTime  @default(now()) @updatedAt
   sessions      Session[]
   accounts      Account[]
-  posts         Post[]
+  athleteProfile AthleteProfile?
 
   @@unique([email])
   @@map("user")
@@ -87,4 +196,233 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
+}
+
+model AthleteProfile {
+  id            String          @id @default(cuid())
+  userId        String          @unique
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  age           Int?
+  sex           Sex?
+  heightCm      Float?
+  weightKg      Float?
+  activityLevel ActivityLevel?
+  tdee          Float?
+  phase         TrainingPhase   @default(MAINTAIN)
+  experience    ExperienceLevel @default(INTERMEDIATE)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  landmarks MuscleLandmark[]
+  constraintSets ConstraintSet[]
+  mesocycles Mesocycle[]
+  checkIns   CheckIn[]
+
+  @@map("athlete_profile")
+}
+
+model MuscleLandmark {
+  id               String         @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  muscle           MuscleGroup
+  mev              Int
+  mav              Int
+  mrv              Int
+
+  @@unique([athleteProfileId, muscle])
+  @@map("muscle_landmark")
+}
+
+model Exercise {
+  id                String                @id @default(cuid())
+  name              String                @unique
+  movementPattern   MovementPattern
+  equipment         Equipment
+  contraindications ContraindicationTag[]
+  createdAt         DateTime              @default(now())
+
+  muscles ExerciseMuscle[]
+  exclusions ExerciseExclusion[]
+  prescriptions ExercisePrescription[]
+
+  @@map("exercise")
+}
+
+model ExerciseMuscle {
+  id         String      @id @default(cuid())
+  exerciseId String
+  exercise   Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  muscle     MuscleGroup
+  role       MuscleRole
+  fraction   Float // 1.0 = full set credit (PRIMARY), <1.0 = fractional (SECONDARY)
+
+  @@unique([exerciseId, muscle])
+  @@map("exercise_muscle")
+}
+
+model ConstraintSet {
+  id                  String         @id @default(cuid())
+  athleteProfileId    String
+  athleteProfile      AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  version             Int
+  isActive            Boolean        @default(true)
+  daysPerWeek         Int
+  splitType           SplitType
+  sessionLengthCapMin Int
+  blockLengthWeeks    Int
+  deloadWeekIndex     Int? // 1-based week that is the deload, if any
+  checkInCadence      CheckInCadence @default(WEEKLY)
+  createdAt           DateTime       @default(now())
+
+  muscleTargets MuscleTarget[]
+  exclusions    ExerciseExclusion[]
+  mesocycles    Mesocycle[]
+
+  @@unique([athleteProfileId, version])
+  @@map("constraint_set")
+}
+
+model MuscleTarget {
+  id              String        @id @default(cuid())
+  constraintSetId String
+  constraintSet   ConstraintSet @relation(fields: [constraintSetId], references: [id], onDelete: Cascade)
+  muscle          MuscleGroup
+  weeklySetTarget Int? // explicit target if the user set one
+  priority        Int           @default(0) // higher = prioritise (e.g. grow shoulders)
+
+  @@unique([constraintSetId, muscle])
+  @@map("muscle_target")
+}
+
+model ExerciseExclusion {
+  id              String        @id @default(cuid())
+  constraintSetId String
+  constraintSet   ConstraintSet @relation(fields: [constraintSetId], references: [id], onDelete: Cascade)
+  exerciseId      String
+  exercise        Exercise      @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  reason          String? // e.g. "knee pain"
+
+  @@unique([constraintSetId, exerciseId])
+  @@map("exercise_exclusion")
+}
+
+model Mesocycle {
+  id               String         @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  constraintSetId  String
+  constraintSet    ConstraintSet  @relation(fields: [constraintSetId], references: [id])
+  name             String
+  status           BlockStatus    @default(DRAFT)
+  startDate        DateTime?
+  lengthWeeks      Int
+  createdAt        DateTime       @default(now())
+
+  weeks Week[]
+  decisions DecisionLog[]
+
+  @@map("mesocycle")
+}
+
+model Week {
+  id          String    @id @default(cuid())
+  mesocycleId String
+  mesocycle   Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  index       Int // 1-based position in the block
+  isDeload    Boolean   @default(false)
+
+  muscleVolumes WeekMuscleVolume[]
+  sessions      TrainingSession[]
+  checkIns      CheckIn[]
+
+  @@unique([mesocycleId, index])
+  @@map("week")
+}
+
+model WeekMuscleVolume {
+  id          String      @id @default(cuid())
+  weekId      String
+  week        Week        @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  muscle      MuscleGroup
+  plannedSets Float // fractional-attribution aware
+
+  @@unique([weekId, muscle])
+  @@map("week_muscle_volume")
+}
+
+model TrainingSession {
+  id                String @id @default(cuid())
+  weekId            String
+  week              Week   @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  order             Int // position within the week (0-based)
+  splitSlot         String // e.g. "Upper A", "Push"
+  dayOfWeek         Int? // 0=Mon … 6=Sun, if the user pins days
+  targetDurationMin Int?
+
+  prescriptions ExercisePrescription[]
+
+  @@unique([weekId, order])
+  @@map("training_session")
+}
+
+model ExercisePrescription {
+  id                String          @id @default(cuid())
+  trainingSessionId String
+  trainingSession   TrainingSession @relation(fields: [trainingSessionId], references: [id], onDelete: Cascade)
+  exerciseId        String
+  exercise          Exercise        @relation(fields: [exerciseId], references: [id])
+  order             Int
+  sets              Int
+  targetRepLow      Int?
+  targetRepHigh     Int?
+  targetRir         Int?
+
+  @@map("exercise_prescription")
+}
+
+model CheckIn {
+  id               String         @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  weekId           String?
+  week             Week?          @relation(fields: [weekId], references: [id], onDelete: SetNull)
+  scope            CheckInScope
+  createdAt        DateTime       @default(now())
+
+  muscleFeedback CheckInMuscle[]
+
+  @@map("check_in")
+}
+
+model CheckInMuscle {
+  id          String      @id @default(cuid())
+  checkInId   String
+  checkIn     CheckIn     @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  muscle      MuscleGroup
+  recovery    Int? // 0=still smashed … 3=fully recovered
+  performance Int? // 0=regressed … 3=strong progression
+  jointStress Int? // 0=none … 3=painful
+  plannedSets Float?
+  actualSets  Float?
+
+  @@unique([checkInId, muscle])
+  @@map("check_in_muscle")
+}
+
+model DecisionLog {
+  id          String         @id @default(cuid())
+  mesocycleId String
+  mesocycle   Mesocycle      @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  weekIndex   Int? // which week this decision applies to, if scoped
+  type        DecisionType
+  status      DecisionStatus @default(PROPOSED)
+  summary     String // short human label
+  reasoning   String // AI-phrased explanation
+  payload     Json // structured diff the engine produced
+  createdAt   DateTime       @default(now())
+  respondedAt DateTime?
+
+  @@index([mesocycleId, createdAt])
+  @@map("decision_log")
 }
