@@ -45,4 +45,20 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ["src/engine/**/*.ts"],
+    ignores: ["src/engine/**/*.test.ts", "src/engine/_fixtures/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["next", "next/*"], message: "Engine is pure: no Next.js imports." },
+            { group: ["react", "react-dom"], message: "Engine is pure: no React imports." },
+            { group: ["@prisma/*", "~/generated/*", "~/server/*"], message: "Engine is pure: no DB/server imports." },
+          ],
+        },
+      ],
+    },
+  },
 );
