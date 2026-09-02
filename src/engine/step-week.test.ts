@@ -75,4 +75,95 @@ describe("stepWeek rule table", () => {
     const low = stepWeek(planWith({ 1: 10, 2: 11 }), 1, null, ctx);
     expect(low.checkInValue).toBe("low");
   });
+
+  it("feedback that hits none of rules 1–4 falls through to on_track (rule 5) and holds", () => {
+    // recovery 2 fails rule 2 (rec <= RECOVERY_LOW=1); performance 1 fails
+    // rules 3/4 (perf >= SCORE_GOOD=2). Neither joint-stress nor
+    // under-recovered nor responding-well/approaching-mrv applies.
+    const r = stepWeek(
+      planWith({ 1: 12, 2: 14 }),
+      1,
+      { weekIndex: 1, muscles: [{ muscle: "CHEST", recovery: 2, performance: 1 }] },
+      ctx,
+    );
+    const a = r.adjustments.find((x) => x.muscle === "CHEST")!;
+    expect(a.cause).toBe("on_track");
+    expect(a.adjustedSets).toBe(a.plannedSets); // hold at plannedNext (14)
+  });
+
+  it("checkInValue is high when the upcoming ramp crosses MAV, even without near-MRV or fatigue feedback", () => {
+    // current 12 < mav 14, plannedNext 14 >= mav 14 → crossesMav.
+    // plannedNext 14 is nowhere near effMRV 22 (nearMrv false), and there's
+    // no feedback at all (flaggedNow false) — crossesMav alone must drive it.
+    const r = stepWeek(planWith({ 1: 12, 2: 14 }), 1, null, ctx);
+    expect(r.checkInValue).toBe("high");
+  });
+
+  it("checkInValue is high from flaggedNow even when the upcoming week is the deload (Fix 1)", () => {
+    // Before the fix, flaggedNow was gated inside `upcoming && !upcomingIsDeload`,
+    // so severe joint pain reported going into a deload week silently produced
+    // checkInValue "low" — dropping a safety signal. Week 6 is the deload
+    // (see planWith), so weekIndex 5 → appliesTo 6, upcomingIsDeload === true.
+    const r = stepWeek(
+      planWith({ 5: 14, 6: 7 }),
+      5,
+      { weekIndex: 5, muscles: [{ muscle: "CHEST", joint: 3 }] },
+      ctx,
+    );
+    expect(r.checkInValue).toBe("high");
+  });
+
+  it("clamps a plan carried over at a volume above the current effective MRV (genuine ceiling truncation)", () => {
+    // plannedNext (24) exceeds effectiveMrv (22), simulating a plan carried
+    // into a lower-MRV phase. Good feedback would otherwise hold/step up,
+    // but the MRV ceiling clamp must truncate it down to effectiveMrv.
+    const r = stepWeek(
+      planWith({ 1: 23, 2: 24 }),
+      1,
+      { weekIndex: 1, muscles: [{ muscle: "CHEST", recovery: 3, performance: 3 }] },
+      ctx,
+    );
+    const a = r.adjustments.find((x) => x.muscle === "CHEST")!;
+    expect(a.adjustedSets).toBe(22); // clamped to effectiveMrv
+    expect(a.adjustedSets).toBeLessThan(a.plannedSets); // proves the ceiling clamp actually fired
+  });
+
+  it("adjusts each muscle independently based on its own feedback (multi-muscle)", () => {
+    const multiCtx = ctxWith([target("CHEST"), target("BACK")]);
+    const plan: MesocyclePlan = {
+      splitType: "UPPER_LOWER",
+      blockLengthWeeks: 6,
+      deloadWeekIndex: 6,
+      weeks: [
+        { index: 1, isDeload: false, sessions: [], muscleVolume: { CHEST: 12, BACK: 12 } as MesocyclePlan["weeks"][number]["muscleVolume"] },
+        { index: 2, isDeload: false, sessions: [], muscleVolume: { CHEST: 14, BACK: 14 } as MesocyclePlan["weeks"][number]["muscleVolume"] },
+      ],
+      facts: [],
+    };
+    const r = stepWeek(
+      plan,
+      1,
+      {
+        weekIndex: 1,
+        muscles: [
+          { muscle: "CHEST", joint: 3 },
+          { muscle: "BACK", recovery: 3, performance: 3 },
+        ],
+      },
+      multiCtx,
+    );
+    const chest = r.adjustments.find((x) => x.muscle === "CHEST")!;
+    const back = r.adjustments.find((x) => x.muscle === "BACK")!;
+
+    expect(chest.cause).toBe("joint_stress");
+    expect(chest.delta).toBe(-2);
+    expect(chest.swapCandidate).toBe(true);
+
+    expect(back.cause).toBe("responding_well");
+    expect(back.delta).toBe(1);
+    expect(back.swapCandidate).toBe(false);
+
+    expect(r.facts.some((f) => f.kind === "stepped" && f.muscle === "CHEST" && f.cause === "joint_stress")).toBe(true);
+    expect(r.facts.some((f) => f.kind === "stepped" && f.muscle === "BACK" && f.cause === "responding_well")).toBe(true);
+  });
 });

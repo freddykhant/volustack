@@ -91,13 +91,20 @@ export function stepWeek(
       swapCandidate: swap,
     });
 
+    // flaggedNow reflects the COMPLETED week's feedback (spec §6) and must be
+    // evaluated unconditionally — even when the upcoming week is the deload
+    // or there is no upcoming week — so it never silently drops the safety
+    // signal. crossesMav/nearMrv describe the UPCOMING ramp, so they stay
+    // gated on a real non-deload upcoming week.
+    const flaggedNow =
+      (joint !== undefined && joint >= JOINT_PAIN) ||
+      (rec !== undefined && rec <= RECOVERY_LOW);
+    if (flaggedNow) anyHigh = true;
+
     if (upcoming && !upcomingIsDeload) {
       const crossesMav = currentVol < t.mav && plannedNext >= t.mav;
       const nearMrv = plannedNext >= t.effectiveMrv - MRV_PROXIMITY_SETS;
-      const flaggedNow =
-        (joint !== undefined && joint >= JOINT_PAIN) ||
-        (rec !== undefined && rec <= RECOVERY_LOW);
-      if (crossesMav || nearMrv || flaggedNow) anyHigh = true;
+      if (crossesMav || nearMrv) anyHigh = true;
     }
   }
 
