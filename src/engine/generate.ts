@@ -67,6 +67,11 @@ export function generateMesocycle(
       let vol = computeVolume(weekAssignments, library)[t.muscle];
       if (vol >= t.mev) continue;
       const from = vol;
+      const hasPrimarySomewhere = scaledSessions.some((s) =>
+        s.exercises.some(
+          (a) => byName.get(a.exerciseName)?.muscles.some((m) => m.muscle === t.muscle && m.role === "PRIMARY"),
+        ),
+      );
       let guard = 0;
       while (vol < t.mev && guard++ < 100) {
         const eligible = scaledSessions.filter((s) => {
@@ -92,7 +97,7 @@ export function generateMesocycle(
         facts.push({ kind: "raised_to_mev", muscle: t.muscle, from: round1(from), to: round1(vol), cause: "mev_floor" });
       }
       if (vol < t.mev) {
-        facts.push({ kind: "deviation", muscle: t.muscle, target: t.mev, achieved: round1(vol), cause: "session_time_cap" });
+        facts.push({ kind: "deviation", muscle: t.muscle, target: t.mev, achieved: round1(vol), cause: hasPrimarySomewhere ? "session_time_cap" : "no_eligible_exercise" });
       }
     }
   }
