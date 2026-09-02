@@ -102,25 +102,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
       ],
     },
     {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
+      "cause": "frequency_floor",
+      "kind": "split_volume",
       "muscle": "CALVES",
-      "target": 6,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "TRAPS",
-      "target": 4,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "FOREARMS",
-      "target": 2,
+      "sessions": [
+        "lower-a",
+        "lower-b",
+      ],
     },
     {
       "achieved": 19,
@@ -134,13 +122,6 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
       "cause": "secondary_credit_overshoot",
       "kind": "deviation",
       "muscle": "BICEPS",
-      "target": 6,
-    },
-    {
-      "achieved": 0,
-      "cause": "insufficient_capacity",
-      "kind": "deviation",
-      "muscle": "CALVES",
       "target": 6,
     },
     {
@@ -158,20 +139,6 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
       "target": 6,
     },
     {
-      "achieved": 0,
-      "cause": "insufficient_capacity",
-      "kind": "deviation",
-      "muscle": "TRAPS",
-      "target": 4,
-    },
-    {
-      "achieved": 0,
-      "cause": "insufficient_capacity",
-      "kind": "deviation",
-      "muscle": "FOREARMS",
-      "target": 2,
-    },
-    {
       "achieved": 8,
       "cause": "secondary_credit_overshoot",
       "kind": "deviation",
@@ -186,11 +153,11 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
       "target": 0,
     },
     {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
+      "cause": "mev_floor",
+      "from": 4,
+      "kind": "raised_to_mev",
       "muscle": "CALVES",
-      "target": 6,
+      "to": 6,
     },
     {
       "cause": "mev_floor",
@@ -200,25 +167,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
       "to": 4,
     },
     {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
+      "cause": "mev_floor",
+      "from": 3,
+      "kind": "raised_to_mev",
       "muscle": "TRAPS",
-      "target": 4,
+      "to": 4,
     },
     {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "FOREARMS",
-      "target": 2,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
+      "cause": "mev_floor",
+      "from": 4,
+      "kind": "raised_to_mev",
       "muscle": "CALVES",
-      "target": 6,
+      "to": 6,
     },
     {
       "cause": "mev_floor",
@@ -228,81 +188,11 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
       "to": 4,
     },
     {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
+      "cause": "mev_floor",
+      "from": 3,
+      "kind": "raised_to_mev",
       "muscle": "TRAPS",
-      "target": 4,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "FOREARMS",
-      "target": 2,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "CALVES",
-      "target": 6,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "TRAPS",
-      "target": 4,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "FOREARMS",
-      "target": 2,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "CALVES",
-      "target": 6,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "TRAPS",
-      "target": 4,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "FOREARMS",
-      "target": 2,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "CALVES",
-      "target": 6,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "TRAPS",
-      "target": 4,
-    },
-    {
-      "achieved": 0,
-      "cause": "no_eligible_exercise",
-      "kind": "deviation",
-      "muscle": "FOREARMS",
-      "target": 2,
+      "to": 4,
     },
   ],
   "splitType": "UPPER_LOWER",
@@ -314,21 +204,21 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
         "ABS": 0,
         "BACK": 15,
         "BICEPS": 7,
-        "CALVES": 0,
+        "CALVES": 6,
         "CHEST": 12,
-        "FOREARMS": 0,
+        "FOREARMS": 2,
         "FRONT_DELTS": 6,
         "GLUTES": 7,
         "HAMSTRINGS": 4,
         "QUADS": 10,
         "REAR_DELTS": 7,
         "SIDE_DELTS": 12,
-        "TRAPS": 0,
+        "TRAPS": 4,
         "TRICEPS": 6,
       },
       "sessions": [
         {
-          "estimatedMinutes": 51,
+          "estimatedMinutes": 59,
           "label": "Upper A",
           "prescriptions": [
             {
@@ -345,11 +235,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 7,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Wrist Curl",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 2,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-a",
         },
         {
-          "estimatedMinutes": 39,
+          "estimatedMinutes": 47,
           "label": "Lower A",
           "prescriptions": [
             {
@@ -358,6 +255,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 5,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 2,
+              "targetRir": 1,
             },
             {
               "exerciseName": "Romanian Deadlift",
@@ -370,7 +274,7 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
           "slotId": "lower-a",
         },
         {
-          "estimatedMinutes": 48,
+          "estimatedMinutes": 62,
           "label": "Upper B",
           "prescriptions": [
             {
@@ -387,11 +291,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 6,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Shrug",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 4,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-b",
         },
         {
-          "estimatedMinutes": 25,
+          "estimatedMinutes": 39,
           "label": "Lower B",
           "prescriptions": [
             {
@@ -400,6 +311,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 5,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 4,
+              "targetRir": 1,
             },
           ],
           "slotId": "lower-b",
@@ -434,21 +352,21 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
         "ABS": 0,
         "BACK": 15,
         "BICEPS": 7,
-        "CALVES": 0,
+        "CALVES": 6,
         "CHEST": 14,
-        "FOREARMS": 0,
+        "FOREARMS": 2,
         "FRONT_DELTS": 7,
         "GLUTES": 7,
         "HAMSTRINGS": 4,
         "QUADS": 10,
         "REAR_DELTS": 7,
         "SIDE_DELTS": 14,
-        "TRAPS": 0,
+        "TRAPS": 4,
         "TRICEPS": 7,
       },
       "sessions": [
         {
-          "estimatedMinutes": 54,
+          "estimatedMinutes": 62,
           "label": "Upper A",
           "prescriptions": [
             {
@@ -465,11 +383,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 7,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Wrist Curl",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 2,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-a",
         },
         {
-          "estimatedMinutes": 39,
+          "estimatedMinutes": 47,
           "label": "Lower A",
           "prescriptions": [
             {
@@ -478,6 +403,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 5,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 2,
+              "targetRir": 1,
             },
             {
               "exerciseName": "Romanian Deadlift",
@@ -490,7 +422,7 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
           "slotId": "lower-a",
         },
         {
-          "estimatedMinutes": 54,
+          "estimatedMinutes": 68,
           "label": "Upper B",
           "prescriptions": [
             {
@@ -507,11 +439,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 7,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Shrug",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 4,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-b",
         },
         {
-          "estimatedMinutes": 25,
+          "estimatedMinutes": 39,
           "label": "Lower B",
           "prescriptions": [
             {
@@ -520,6 +459,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 5,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 4,
+              "targetRir": 1,
             },
           ],
           "slotId": "lower-b",
@@ -554,21 +500,21 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
         "ABS": 0,
         "BACK": 17,
         "BICEPS": 8,
-        "CALVES": 0,
+        "CALVES": 6,
         "CHEST": 14,
-        "FOREARMS": 0,
+        "FOREARMS": 2,
         "FRONT_DELTS": 7,
         "GLUTES": 7,
         "HAMSTRINGS": 4,
         "QUADS": 10,
         "REAR_DELTS": 8,
         "SIDE_DELTS": 14,
-        "TRAPS": 0,
+        "TRAPS": 4,
         "TRICEPS": 7,
       },
       "sessions": [
         {
-          "estimatedMinutes": 57,
+          "estimatedMinutes": 65,
           "label": "Upper A",
           "prescriptions": [
             {
@@ -585,11 +531,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 8,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Wrist Curl",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 2,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-a",
         },
         {
-          "estimatedMinutes": 39,
+          "estimatedMinutes": 50,
           "label": "Lower A",
           "prescriptions": [
             {
@@ -598,6 +551,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 5,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 3,
+              "targetRir": 1,
             },
             {
               "exerciseName": "Romanian Deadlift",
@@ -610,7 +570,7 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
           "slotId": "lower-a",
         },
         {
-          "estimatedMinutes": 54,
+          "estimatedMinutes": 68,
           "label": "Upper B",
           "prescriptions": [
             {
@@ -627,11 +587,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 7,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Shrug",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 4,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-b",
         },
         {
-          "estimatedMinutes": 25,
+          "estimatedMinutes": 36,
           "label": "Lower B",
           "prescriptions": [
             {
@@ -640,6 +607,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 5,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 3,
+              "targetRir": 1,
             },
           ],
           "slotId": "lower-b",
@@ -674,21 +648,21 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
         "ABS": 0,
         "BACK": 17,
         "BICEPS": 8,
-        "CALVES": 0,
+        "CALVES": 6,
         "CHEST": 16,
-        "FOREARMS": 0,
+        "FOREARMS": 2,
         "FRONT_DELTS": 8,
         "GLUTES": 8,
         "HAMSTRINGS": 4,
         "QUADS": 12,
         "REAR_DELTS": 8,
         "SIDE_DELTS": 16,
-        "TRAPS": 0,
+        "TRAPS": 4,
         "TRICEPS": 8,
       },
       "sessions": [
         {
-          "estimatedMinutes": 60,
+          "estimatedMinutes": 68,
           "label": "Upper A",
           "prescriptions": [
             {
@@ -705,11 +679,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 8,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Wrist Curl",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 2,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-a",
         },
         {
-          "estimatedMinutes": 42,
+          "estimatedMinutes": 53,
           "label": "Lower A",
           "prescriptions": [
             {
@@ -718,6 +699,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 6,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 3,
+              "targetRir": 1,
             },
             {
               "exerciseName": "Romanian Deadlift",
@@ -730,7 +718,7 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
           "slotId": "lower-a",
         },
         {
-          "estimatedMinutes": 60,
+          "estimatedMinutes": 74,
           "label": "Upper B",
           "prescriptions": [
             {
@@ -747,11 +735,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 8,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Shrug",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 4,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-b",
         },
         {
-          "estimatedMinutes": 28,
+          "estimatedMinutes": 39,
           "label": "Lower B",
           "prescriptions": [
             {
@@ -760,6 +755,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 6,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 3,
+              "targetRir": 1,
             },
           ],
           "slotId": "lower-b",
@@ -794,21 +796,21 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
         "ABS": 0,
         "BACK": 19,
         "BICEPS": 9,
-        "CALVES": 0,
+        "CALVES": 6,
         "CHEST": 16,
-        "FOREARMS": 0,
+        "FOREARMS": 2,
         "FRONT_DELTS": 8,
         "GLUTES": 8,
         "HAMSTRINGS": 4,
         "QUADS": 12,
         "REAR_DELTS": 9,
         "SIDE_DELTS": 16,
-        "TRAPS": 0,
+        "TRAPS": 4,
         "TRICEPS": 8,
       },
       "sessions": [
         {
-          "estimatedMinutes": 63,
+          "estimatedMinutes": 71,
           "label": "Upper A",
           "prescriptions": [
             {
@@ -825,11 +827,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 9,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Wrist Curl",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 2,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-a",
         },
         {
-          "estimatedMinutes": 42,
+          "estimatedMinutes": 53,
           "label": "Lower A",
           "prescriptions": [
             {
@@ -838,6 +847,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 6,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 3,
+              "targetRir": 1,
             },
             {
               "exerciseName": "Romanian Deadlift",
@@ -850,7 +866,7 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
           "slotId": "lower-a",
         },
         {
-          "estimatedMinutes": 60,
+          "estimatedMinutes": 74,
           "label": "Upper B",
           "prescriptions": [
             {
@@ -867,11 +883,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 8,
               "targetRir": 2,
             },
+            {
+              "exerciseName": "Barbell Shrug",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 4,
+              "targetRir": 1,
+            },
           ],
           "slotId": "upper-b",
         },
         {
-          "estimatedMinutes": 28,
+          "estimatedMinutes": 39,
           "label": "Lower B",
           "prescriptions": [
             {
@@ -880,6 +903,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeLow": 6,
               "sets": 6,
               "targetRir": 2,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 3,
+              "targetRir": 1,
             },
           ],
           "slotId": "lower-b",
@@ -914,21 +944,21 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
         "ABS": 0,
         "BACK": 6.5,
         "BICEPS": 3,
-        "CALVES": 0,
+        "CALVES": 2,
         "CHEST": 6,
-        "FOREARMS": 0,
+        "FOREARMS": 1,
         "FRONT_DELTS": 3,
         "GLUTES": 3,
         "HAMSTRINGS": 2,
         "QUADS": 4,
         "REAR_DELTS": 3,
         "SIDE_DELTS": 6,
-        "TRAPS": 0,
+        "TRAPS": 2,
         "TRICEPS": 3,
       },
       "sessions": [
         {
-          "estimatedMinutes": 30,
+          "estimatedMinutes": 35,
           "label": "Upper A",
           "prescriptions": [
             {
@@ -945,11 +975,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 3,
               "targetRir": 4,
             },
+            {
+              "exerciseName": "Barbell Wrist Curl",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 1,
+              "targetRir": 4,
+            },
           ],
           "slotId": "upper-a",
         },
         {
-          "estimatedMinutes": 24,
+          "estimatedMinutes": 29,
           "label": "Lower A",
           "prescriptions": [
             {
@@ -957,6 +994,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeHigh": 10,
               "repRangeLow": 6,
               "sets": 2,
+              "targetRir": 4,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 1,
               "targetRir": 4,
             },
             {
@@ -970,7 +1014,7 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
           "slotId": "lower-a",
         },
         {
-          "estimatedMinutes": 30,
+          "estimatedMinutes": 38,
           "label": "Upper B",
           "prescriptions": [
             {
@@ -987,11 +1031,18 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "sets": 3,
               "targetRir": 4,
             },
+            {
+              "exerciseName": "Barbell Shrug",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 2,
+              "targetRir": 4,
+            },
           ],
           "slotId": "upper-b",
         },
         {
-          "estimatedMinutes": 16,
+          "estimatedMinutes": 21,
           "label": "Lower B",
           "prescriptions": [
             {
@@ -999,6 +1050,13 @@ exports[`golden: canonical mesocycle > matches the frozen snapshot 1`] = `
               "repRangeHigh": 10,
               "repRangeLow": 6,
               "sets": 2,
+              "targetRir": 4,
+            },
+            {
+              "exerciseName": "Standing Calf Raise",
+              "repRangeHigh": 15,
+              "repRangeLow": 10,
+              "sets": 1,
               "targetRir": 4,
             },
           ],

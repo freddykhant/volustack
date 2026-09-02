@@ -9,7 +9,7 @@ describe("exercise seed round-trip", () => {
 
   it("persists exercises with their fractional attribution", async () => {
     const count = await seedExercises();
-    expect(count).toBe(12);
+    expect(count).toBe(15);
 
     const row = await db.exercise.findUnique({
       where: { name: "Barbell Row" },

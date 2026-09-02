@@ -119,4 +119,25 @@ export const EXERCISE_LIBRARY: ExerciseDef[] = [
     contraindications: ["ELBOW"],
     muscles: [P("TRICEPS")],
   },
+  {
+    name: "Standing Calf Raise",
+    movementPattern: "ISOLATION",
+    equipment: "MACHINE",
+    contraindications: [],
+    muscles: [P("CALVES")],
+  },
+  {
+    name: "Barbell Shrug",
+    movementPattern: "ISOLATION",
+    equipment: "BARBELL",
+    contraindications: [],
+    muscles: [P("TRAPS")],
+  },
+  {
+    name: "Barbell Wrist Curl",
+    movementPattern: "ISOLATION",
+    equipment: "BARBELL",
+    contraindications: [],
+    muscles: [P("FOREARMS")],
+  },
 ];
