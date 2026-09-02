@@ -28,6 +28,37 @@ function week(): WeekPlan {
   };
 }
 
+// Week where the missed session (upper-b) mixes a priority>0 muscle (CHEST, via
+// Barbell Bench Press) with a priority-0 muscle (BACK, via Barbell Row). MAKE_UP
+// recovers both into upper-a (which starts empty, so there's ample cap headroom);
+// PARTIAL only recovers the CHEST sets, leaving the BACK sets dropped — so its
+// recovered count is strictly between 0 and MAKE_UP's.
+function mixedPriorityWeek(): WeekPlan {
+  const px = (exerciseName: string, sets: number) => ({ exerciseName, sets, repRangeLow: 6, repRangeHigh: 10, targetRir: 2 });
+  return {
+    index: 2,
+    isDeload: false,
+    sessions: [
+      { slotId: "upper-a", label: "Upper A", prescriptions: [], estimatedMinutes: sessionMinutes([]) },
+      {
+        slotId: "upper-b",
+        label: "Upper B",
+        prescriptions: [px("Barbell Bench Press", 6), px("Barbell Row", 6)],
+        estimatedMinutes: sessionMinutes([{ sets: 6 }, { sets: 6 }]),
+      },
+    ],
+    muscleVolume: { CHEST: 6, BACK: 6 } as WeekPlan["muscleVolume"],
+  };
+}
+
+// Same shape as `week()` but pushed to a late-block week with CHEST volume
+// already sitting within 2 sets of its effectiveMrv (22), so the recommendation
+// policy should prefer LET_GO over the fallback MAKE_UP.
+function lateBlockNearMrvWeek(): WeekPlan {
+  const base = week();
+  return { ...base, index: 5, muscleVolume: { CHEST: 22, BACK: 6 } as WeekPlan["muscleVolume"] };
+}
+
 describe("redistributeWeek", () => {
   it("returns candidates that are all complete valid plans within the cap", () => {
     const cands = redistributeWeek(week(), ["upper-b"], ctx());
@@ -67,5 +98,50 @@ describe("redistributeWeek", () => {
   it("marks exactly one candidate recommended", () => {
     const cands = redistributeWeek(week(), ["upper-b"], ctx());
     expect(cands.filter((c) => c.recommended).length).toBe(1);
+  });
+
+  it("emits a PARTIAL candidate distinct from MAKE_UP when priorities diverge", () => {
+    const cands = redistributeWeek(mixedPriorityWeek(), ["upper-b"], ctx());
+    const makeUp = cands.find((c) => c.kind === "MAKE_UP");
+    const partial = cands.find((c) => c.kind === "PARTIAL");
+
+    expect(makeUp).toBeDefined();
+    expect(partial).toBeDefined();
+    // MAKE_UP recovers both the CHEST (priority>0) and BACK (priority 0) sets.
+    expect(makeUp!.tradeoff.recovered).toBe(12);
+    // PARTIAL only recovers the priority>0 muscle's sets, strictly less than MAKE_UP.
+    expect(partial!.tradeoff.recovered).toBeGreaterThan(0);
+    expect(partial!.tradeoff.recovered).toBeLessThan(makeUp!.tradeoff.recovered);
+    expect(partial!.tradeoff.recovered).toBe(6);
+
+    const upperA = partial!.week.sessions.find((s) => s.slotId === "upper-a")!;
+    const bench = upperA.prescriptions.find((p) => p.exerciseName === "Barbell Bench Press");
+    const row = upperA.prescriptions.find((p) => p.exerciseName === "Barbell Row");
+    expect(bench?.sets).toBe(6); // priority>0 (CHEST) muscle's sets were recovered
+    expect(row).toBeUndefined(); // priority-0 (BACK) muscle's sets were not recovered
+  });
+
+  it("recommends LET_GO in a late-block, near-MRV week", () => {
+    const cands = redistributeWeek(lateBlockNearMrvWeek(), ["upper-b"], ctx({ blockLengthWeeks: 6 }));
+    const recommended = cands.filter((c) => c.recommended);
+    expect(recommended.length).toBe(1);
+    expect(recommended[0]!.kind).toBe("LET_GO");
+  });
+
+  it("redistributed facts point from the missed slot to a remaining slot; recovered+dropped covers all missed sets", () => {
+    const cands = redistributeWeek(week(), ["upper-b"], ctx());
+    const makeUp = cands.find((c) => c.kind === "MAKE_UP")!;
+    const redistributed = makeUp.facts.find((f) => f.kind === "redistributed");
+    expect(redistributed).toBeDefined();
+    if (redistributed?.kind === "redistributed") {
+      expect(redistributed.from).toBe("upper-b");
+      expect(redistributed.to).toBe("upper-a");
+    }
+
+    const totalMissedSets = week()
+      .sessions.filter((s) => s.slotId === "upper-b")
+      .flatMap((s) => s.prescriptions)
+      .reduce((sum, p) => sum + p.sets, 0);
+    expect(makeUp.tradeoff.recovered + makeUp.tradeoff.dropped).toBe(totalMissedSets);
   });
 });
