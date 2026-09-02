@@ -1,8 +1,9 @@
 // src/engine/_fixtures/arbitraries.ts
 import fc from "fast-check";
 import { DEFAULT_LANDMARKS } from "~/domain/landmarks";
+import { EXERCISE_LIBRARY as _LIB } from "~/domain/exercise-library";
 import type { ConstraintSetInput } from "~/schema";
-import type { AthleteContext } from "../types";
+import type { AdaptationContext, AthleteContext, ResolvedSpec } from "../types";
 import { ALL_MUSCLES } from "../util";
 
 export function arbAthlete(): fc.Arbitrary<AthleteContext> {
@@ -34,4 +35,18 @@ export function arbConstraintSet(): fc.Arbitrary<ConstraintSetInput> {
       checkInCadence: "WEEKLY" as const,
       excludedExerciseNames: [],
     }));
+}
+
+/** Build an AdaptationContext from a resolved spec (adds MAV from default landmarks). */
+export function ctxFromSpec(spec: ResolvedSpec): AdaptationContext {
+  return {
+    targets: spec.targets,
+    splitType: spec.splitType,
+    daysPerWeek: spec.daysPerWeek,
+    sessionLengthCapMin: spec.sessionLengthCapMin,
+    blockLengthWeeks: spec.blockLengthWeeks,
+    deloadWeekIndex: spec.deloadWeekIndex,
+    isBeginner: spec.isBeginner,
+    library: _LIB,
+  };
 }
