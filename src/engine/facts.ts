@@ -10,6 +10,7 @@ export type DecisionFact =
   | { kind: "filled_default"; muscle: MuscleGroup; setTarget: number; cause: "unspecified_target" }
   | { kind: "phase_modulated"; muscle: MuscleGroup; baseMrv: number; effectiveMrv: number; phaseFactor: number }
   | { kind: "clamped_to_mrv"; muscle: MuscleGroup; requested: number; effectiveMrv: number }
+  | { kind: "raised_to_mev"; muscle: MuscleGroup; from: number; to: number; cause: "mev_floor" }
   | { kind: "beginner_locked"; detail: string }
   | { kind: "split_volume"; muscle: MuscleGroup; sessions: string[]; cause: "frequency_floor" }
   | { kind: "moved_sets"; muscle: MuscleGroup; from: string; to: string; count: number; cause: "session_time_cap" }
