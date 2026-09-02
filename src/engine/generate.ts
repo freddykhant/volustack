@@ -51,7 +51,9 @@ export function generateMesocycle(
   }
 
   /** Bring any muscle below its MEV back up by adding sets to its largest primary
-   * assignment (honors week 1 = max(MEV, 75%·peak)). Accumulation weeks only. */
+   * assignment (honors week 1 = max(MEV, 75%·peak)). Accumulation weeks only.
+   * Operates on the WEEK-AGGREGATED assignment list (all sessions), since MEV/MRV
+   * are weekly targets and a single session's slice is never representative. */
   function applyMevFloor(assignments: ExerciseAssignment[]): void {
     for (const t of spec.targets) {
       let vol = computeVolume(assignments, library)[t.muscle];
@@ -62,7 +64,7 @@ export function generateMesocycle(
       const target = primaries[0];
       if (!target) continue;
       let guard = 0;
-      while (vol < t.mev && guard++ < 50) {
+      while (vol < t.mev && guard++ < 100) {
         target.sets += 1;
         vol = computeVolume(assignments, library)[t.muscle];
       }
@@ -82,8 +84,9 @@ export function generateMesocycle(
     };
   }
 
-  function clampToMrv(assignments: ExerciseAssignment[], weekIndex: number, isDeload: boolean): void {
-    if (isDeload) return;
+  /** Clamp a muscle's WEEK-AGGREGATED volume down to its effective MRV by trimming
+   * isolation sets. Called on accumulation weeks only (deload never exceeds MRV). */
+  function clampToMrv(assignments: ExerciseAssignment[], weekIndex: number): void {
     for (const t of spec.targets) {
       let vol = computeVolume(assignments, library)[t.muscle];
       if (vol <= t.effectiveMrv) continue;
@@ -92,7 +95,7 @@ export function generateMesocycle(
         .sort((a, b) => b.sets - a.sets || a.exerciseName.localeCompare(b.exerciseName));
       let guard = 0;
       for (const iso of isos) {
-        while (vol > t.effectiveMrv && iso.sets > 1 && guard++ < 50) {
+        while (vol > t.effectiveMrv && iso.sets > 1 && guard++ < 100) {
           iso.sets -= 1;
           vol = computeVolume(assignments, library)[t.muscle];
         }
@@ -107,22 +110,27 @@ export function generateMesocycle(
     const isDeload = index === spec.deloadWeekIndex;
     const fraction = fractionForWeek(index);
 
-    const sessions: SessionPlan[] = template.sessions.map((s) => {
-      const scaled = s.exercises.map((a) => scaleAssignment(a, fraction));
-      if (!isDeload) applyMevFloor(scaled);
-      // clamp to effective MRV: if scaling/flooring pushed a muscle over, drop isolation sets
-      clampToMrv(scaled, index, isDeload);
-      return {
-        slotId: s.slotId,
-        label: s.label,
-        prescriptions: scaled.map((a) => prescribe(a, isDeload)),
-        estimatedMinutes: sessionMinutes(scaled),
-      };
-    });
+    // Scale every session; collect assignment refs so week-level floor/clamp
+    // mutate through the same objects the sessions hold.
+    const scaledSessions = template.sessions.map((s) => ({
+      slotId: s.slotId,
+      label: s.label,
+      exercises: s.exercises.map((a) => scaleAssignment(a, fraction)),
+    }));
+    const weekAssignments = scaledSessions.flatMap((s) => s.exercises);
 
-    const weekAssignments = sessions.flatMap((s) =>
-      s.prescriptions.map((p) => ({ exerciseName: p.exerciseName, sets: p.sets })),
-    );
+    if (!isDeload) {
+      applyMevFloor(weekAssignments);
+      clampToMrv(weekAssignments, index);
+    }
+
+    const sessions: SessionPlan[] = scaledSessions.map((s) => ({
+      slotId: s.slotId,
+      label: s.label,
+      prescriptions: s.exercises.map((a) => prescribe(a, isDeload)),
+      estimatedMinutes: sessionMinutes(s.exercises),
+    }));
+
     return {
       index,
       isDeload,
