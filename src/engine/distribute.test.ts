@@ -18,9 +18,9 @@ function specWith(overrides: Partial<ResolvedSpec>): ResolvedSpec {
     excludedExerciseNames: [],
     facts: [],
     targets: [
-      { muscle: "CHEST", weeklySetTarget: 12, priority: 1, mev: 8, effectiveMrv: 22 },
-      { muscle: "BACK", weeklySetTarget: 12, priority: 1, mev: 10, effectiveMrv: 25 },
-      { muscle: "QUADS", weeklySetTarget: 10, priority: 0, mev: 8, effectiveMrv: 20 },
+      { muscle: "CHEST", weeklySetTarget: 12, priority: 1, mev: 8, mav: 14, effectiveMrv: 22 },
+      { muscle: "BACK", weeklySetTarget: 12, priority: 1, mev: 10, mav: 16, effectiveMrv: 25 },
+      { muscle: "QUADS", weeklySetTarget: 10, priority: 0, mev: 8, mav: 14, effectiveMrv: 20 },
     ],
     ...overrides,
   };
@@ -53,7 +53,7 @@ describe("distributeVolume", () => {
 
   it("spreads a high-volume muscle across ≥2 sessions and records a fact", () => {
     const spec = specWith({
-      targets: [{ muscle: "BACK", weeklySetTarget: 12, priority: 2, mev: 10, effectiveMrv: 25 }],
+      targets: [{ muscle: "BACK", weeklySetTarget: 12, priority: 2, mev: 10, mav: 16, effectiveMrv: 25 }],
     });
     const slots = buildSessionSlots(spec.splitType, spec.daysPerWeek);
     const t = distributeVolume(spec, EXERCISE_LIBRARY, slots);
@@ -78,7 +78,7 @@ describe("distributeVolume", () => {
     // a 20-min cap while Upper B sits empty (8 min) — plenty of room to receive moved sets.
     const spec = specWith({
       sessionLengthCapMin: 20,
-      targets: [{ muscle: "BACK", weeklySetTarget: 5, priority: 1, mev: 10, effectiveMrv: 25 }],
+      targets: [{ muscle: "BACK", weeklySetTarget: 5, priority: 1, mev: 10, mav: 16, effectiveMrv: 25 }],
     });
     const slots = buildSessionSlots(spec.splitType, spec.daysPerWeek);
     const t = distributeVolume(spec, EXERCISE_LIBRARY, slots);
@@ -104,7 +104,7 @@ describe("distributeVolume", () => {
       splitType: "FULL_BODY",
       daysPerWeek: 1,
       sessionLengthCapMin: 20,
-      targets: [{ muscle: "BACK", weeklySetTarget: 10, priority: 1, mev: 10, effectiveMrv: 25 }],
+      targets: [{ muscle: "BACK", weeklySetTarget: 10, priority: 1, mev: 10, mav: 16, effectiveMrv: 25 }],
     });
     const slots = buildSessionSlots(spec.splitType, spec.daysPerWeek);
     const t = distributeVolume(spec, EXERCISE_LIBRARY, slots);
@@ -126,8 +126,8 @@ describe("distributeVolume", () => {
     // BICEPS at 6.5 (within the +0.5 tolerance band).
     const spec = specWith({
       targets: [
-        { muscle: "BICEPS", weeklySetTarget: 6, priority: 2, mev: 6, effectiveMrv: 20 },
-        { muscle: "BACK", weeklySetTarget: 3, priority: 1, mev: 10, effectiveMrv: 25 },
+        { muscle: "BICEPS", weeklySetTarget: 6, priority: 2, mev: 6, mav: 14, effectiveMrv: 20 },
+        { muscle: "BACK", weeklySetTarget: 3, priority: 1, mev: 10, mav: 16, effectiveMrv: 25 },
       ],
     });
     const slots = buildSessionSlots(spec.splitType, spec.daysPerWeek);

@@ -17,9 +17,9 @@ function spec(overrides: Partial<ResolvedSpec> = {}): ResolvedSpec {
     excludedExerciseNames: [],
     facts: [],
     targets: [
-      { muscle: "CHEST", weeklySetTarget: 16, priority: 1, mev: 8, effectiveMrv: 22 },
-      { muscle: "BACK", weeklySetTarget: 16, priority: 1, mev: 10, effectiveMrv: 25 },
-      { muscle: "QUADS", weeklySetTarget: 12, priority: 0, mev: 8, effectiveMrv: 20 },
+      { muscle: "CHEST", weeklySetTarget: 16, priority: 1, mev: 8, mav: 14, effectiveMrv: 22 },
+      { muscle: "BACK", weeklySetTarget: 16, priority: 1, mev: 10, mav: 16, effectiveMrv: 25 },
+      { muscle: "QUADS", weeklySetTarget: 12, priority: 0, mev: 8, mav: 14, effectiveMrv: 20 },
     ],
     ...overrides,
   };
@@ -68,8 +68,8 @@ describe("generateMesocycle", () => {
     const s = spec({
       sessionLengthCapMin: 300, // remove the time cap as a confound; we're isolating MRV behavior
       targets: [
-        { muscle: "CHEST", weeklySetTarget: 37, priority: 1, mev: 8, effectiveMrv: 50 },
-        { muscle: "TRICEPS", weeklySetTarget: 1, priority: 0, mev: 1, effectiveMrv: 18 },
+        { muscle: "CHEST", weeklySetTarget: 37, priority: 1, mev: 8, mav: 14, effectiveMrv: 50 },
+        { muscle: "TRICEPS", weeklySetTarget: 1, priority: 0, mev: 1, mav: 12, effectiveMrv: 18 },
       ],
     });
     const plan = generateMesocycle(s, EXERCISE_LIBRARY, DEFAULT_LANDMARKS);

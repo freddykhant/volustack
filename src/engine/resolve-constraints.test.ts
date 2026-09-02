@@ -28,6 +28,7 @@ describe("resolveConstraints", () => {
     if (r.kind !== "resolved") return;
     const chest = r.targets.find((t) => t.muscle === "CHEST")!;
     expect(chest.weeklySetTarget).toBe(16);
+    expect(chest.mav).toBe(DEFAULT_LANDMARKS.CHEST.mav);
     const biceps = r.targets.find((t) => t.muscle === "BICEPS")!;
     expect(biceps.weeklySetTarget).toBe(DEFAULT_LANDMARKS.BICEPS.mev);
     expect(r.facts.some((f) => f.kind === "filled_default" && f.muscle === "BICEPS")).toBe(true);

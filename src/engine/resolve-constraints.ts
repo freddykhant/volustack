@@ -34,6 +34,7 @@ export function resolveConstraints(
         weeklySetTarget: Math.round((lm.mev + lm.mav) / 2),
         priority: 0,
         mev: lm.mev,
+        mav: lm.mav,
         effectiveMrv,
       };
     }
@@ -45,12 +46,12 @@ export function resolveConstraints(
         facts.push({ kind: "clamped_to_mrv", muscle, requested: weeklySetTarget, effectiveMrv });
         weeklySetTarget = effectiveMrv;
       }
-      return { muscle, weeklySetTarget, priority: p.priority, mev: lm.mev, effectiveMrv };
+      return { muscle, weeklySetTarget, priority: p.priority, mev: lm.mev, mav: lm.mav, effectiveMrv };
     }
 
     // Untargeted → maintenance at MEV.
     facts.push({ kind: "filled_default", muscle, setTarget: lm.mev, cause: "unspecified_target" });
-    return { muscle, weeklySetTarget: lm.mev, priority: p?.priority ?? 0, mev: lm.mev, effectiveMrv };
+    return { muscle, weeklySetTarget: lm.mev, priority: p?.priority ?? 0, mev: lm.mev, mav: lm.mav, effectiveMrv };
   });
 
   if (isBeginner) {

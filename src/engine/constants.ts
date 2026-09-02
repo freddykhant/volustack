@@ -27,3 +27,23 @@ export const ISOLATION_REPS = { low: 10, high: 15 } as const;
 export const COMPOUND_RIR = 2;
 export const ISOLATION_RIR = 1;
 export const DELOAD_RIR = 4;
+
+// ─── Adaptation path ───
+
+/** Feedback thresholds (scores are 0–3). */
+export const JOINT_PAIN = 2; // joint ≥ this → back off + flag swap
+export const RECOVERY_LOW = 1; // recovery ≤ this → under-recovered
+export const SCORE_GOOD = 2; // recovery/performance ≥ this → good
+
+/** Auto-regulation step deltas (sets). */
+export const STEP_UP = 1;
+export const STEP_DOWN = 1;
+export const STEP_DOWN_HARD = 2;
+
+/** How close to effective MRV counts as "approaching" (sets). */
+export const MRV_PROXIMITY_SETS = 2;
+
+/** Reactive deload: ≥ FATIGUE_MUSCLE_THRESHOLD muscles at/over MRV with low
+ * recovery, sustained CONSECUTIVE_FATIGUE_WEEKS weeks. */
+export const CONSECUTIVE_FATIGUE_WEEKS = 2;
+export const FATIGUE_MUSCLE_THRESHOLD = 2;
