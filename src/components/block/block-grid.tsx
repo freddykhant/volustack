@@ -53,7 +53,7 @@ function RowFragment({
   return (
     <>
       <div className="sticky left-0 z-10 flex items-center gap-1 bg-canvas pr-3 text-nav text-fg-soft">
-        {isPriority ? <span className="text-accent" title="Prioritized">▲</span> : null}
+        {isPriority ? <span className="text-fg-soft" title="Prioritized">▲</span> : null}
         {muscleLabel}
       </div>
       {block.weeks.map((w) => {

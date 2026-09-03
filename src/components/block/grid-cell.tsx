@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { zoneFor } from "~/components/viz/zone";
-import type { MesocycleView, MuscleWeekCell, WeekView } from "~/views/types";
+import type { MesocycleView, MuscleWeekCell, WeekView, Zone } from "~/views/types";
 
-const SOFT: Record<string, string> = {
+const SOFT: Record<Zone, string> = {
   rest: "bg-zone-rest-soft",
   building: "bg-zone-building-soft",
   optimal: "bg-zone-optimal-soft",
