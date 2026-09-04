@@ -12,6 +12,20 @@
   --color-selection: rgba(0, 146, 255, 0.09);
   --color-callout: rgba(17, 140, 253, 0.05);
 
+  /* Landmark zone tokens (Mesodapt data-viz family) — reserved for DATA, never
+     decorative UI. Progression grey→blue→green→amber is colorblind-safe on the
+     #0b0c0d canvas and keeps "max" a warning, not an alarm. Full-strength for
+     small marks (bars, chips, markers); -soft translucent fills for large areas
+     (grid cells, body regions). Hues may be refined with the dataviz skill. */
+  --color-zone-rest: #64748b;
+  --color-zone-rest-soft: rgba(100, 116, 139, 0.14);
+  --color-zone-building: #38bdf8;
+  --color-zone-building-soft: rgba(56, 189, 248, 0.16);
+  --color-zone-optimal: #34d399;
+  --color-zone-optimal-soft: rgba(52, 211, 153, 0.18);
+  --color-zone-max: #f59e0b;
+  --color-zone-max-soft: rgba(245, 158, 11, 0.22);
+
   --color-fg: #ffffff;
   --color-fg-soft: #c6cdd4;
   --color-fg-muted: #aab4bc;
