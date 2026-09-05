@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell } from "lucide-react";
-import type { SessionView } from "~/views/types";
+import type { ReadinessLabel, SessionView } from "~/views/types";
+import { SessionSwapControl } from "~/components/home/session-swap-control";
 
 export function NextSessionCard({
   session,
   blockId,
   weekIndex,
+  readinessLabel,
 }: {
   session: SessionView | undefined;
   blockId: string;
   weekIndex: number;
+  readinessLabel?: ReadinessLabel;
 }) {
   if (!session) {
     return (
@@ -44,6 +47,9 @@ export function NextSessionCard({
         Start session
         <ArrowRight className="size-4" aria-hidden />
       </Link>
+      {session.swapOptions && session.swapOptions.length > 0 ? (
+        <SessionSwapControl options={session.swapOptions} readinessLabel={readinessLabel} />
+      ) : null}
     </div>
   );
 }
