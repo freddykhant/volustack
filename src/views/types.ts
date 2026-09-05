@@ -2,6 +2,27 @@ import type { MuscleGroup } from "~/schema";
 
 export type Zone = "rest" | "building" | "optimal" | "max";
 
+export type ReadinessLabel = "Fresh" | "Productive" | "Fatigued" | "Overreaching";
+
+export interface ReadinessPoint {
+  weekIndex: number; // 1-based, aligned to the block's weeks
+  fitness: number;
+  fatigue: number;
+  form: number; // = fitness - fatigue
+}
+
+export interface ReadinessView {
+  series: ReadinessPoint[];
+  currentWeekIndex: number;
+}
+
+export interface SwapOption {
+  id: string;
+  intent: "easier" | "harder";
+  label: string; // "Easier" | "Harder"
+  summary: string; // "−2 sets · RIR 3 · ~46 min"
+}
+
 export interface CoachNote {
   id: string;
   tone: "info" | "caution" | "positive";
@@ -39,6 +60,7 @@ export interface SessionView {
   dayTag?: string; // optional day-of-week tag
   estimatedMinutes: number;
   prescriptions: PrescriptionView[];
+  swapOptions?: SwapOption[];
 }
 
 /** One muscle's planned volume in one week, with that muscle's landmarks for zone/tooltip. */
