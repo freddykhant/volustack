@@ -13,7 +13,7 @@ export interface TrainingStatusView {
   label: "Recovering" | "Overreaching" | "Optimal" | "Building";
   counts: Record<Zone, number>; // rest | building | optimal | max
   inRange: number; // building + optimal + max (muscles at or above MEV)
-  total: number; // trained muscles this week
+  total: number; // muscles with a planned cell this week
 }
 
 export type MuscleRole = "PRIMARY" | "SECONDARY";

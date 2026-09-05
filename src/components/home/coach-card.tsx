@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import type { CoachNote } from "~/views/types";
 
 const TONE: Record<CoachNote["tone"], string> = {
@@ -18,6 +20,13 @@ export function CoachCard({ notes }: { notes: CoachNote[] }) {
           </li>
         ))}
       </ul>
+      <Link
+        href="/app/coach"
+        className="mt-4 inline-flex items-center gap-1 text-nav text-fg-muted transition-colors hover:text-fg"
+      >
+        View all
+        <ArrowRight className="size-4" aria-hidden />
+      </Link>
     </div>
   );
 }
