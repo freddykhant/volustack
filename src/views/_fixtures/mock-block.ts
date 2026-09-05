@@ -1,6 +1,7 @@
 import { DEFAULT_LANDMARKS } from "~/domain/landmarks";
 import type { MuscleGroup } from "~/schema";
 import type {
+  CoachNote,
   MesocycleView,
   MuscleChip,
   MuscleWeekCell,
@@ -142,4 +143,23 @@ export const mockMesocycle: MesocycleView = {
   muscles: MUSCLES,
   priorityMuscles: PRIORITY,
   weeks: Array.from({ length: 6 }, (_, i) => week(i + 1)),
+  coachNotes: [
+    {
+      id: "note-chest-ceiling",
+      tone: "caution",
+      text: "Chest is near its recoverable ceiling — I'm holding its volume steady this week rather than adding more.",
+      factKind: "ramp_flattened",
+    },
+    {
+      id: "note-deload",
+      tone: "info",
+      text: "Deload lands in week 6 to shed the fatigue you're banking now.",
+      factKind: "deload_scheduled",
+    },
+    {
+      id: "note-priority",
+      tone: "positive",
+      text: "Side delts are your priority this block, so they're taking the most direct volume.",
+    },
+  ],
 };

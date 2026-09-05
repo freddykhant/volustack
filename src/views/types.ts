@@ -2,6 +2,20 @@ import type { MuscleGroup } from "~/schema";
 
 export type Zone = "rest" | "building" | "optimal" | "max";
 
+export interface CoachNote {
+  id: string;
+  tone: "info" | "caution" | "positive";
+  text: string;
+  factKind?: string; // the DecisionFact kind this note will later derive from
+}
+
+export interface TrainingStatusView {
+  label: "Recovering" | "Overreaching" | "Optimal" | "Building";
+  counts: Record<Zone, number>; // rest | building | optimal | max
+  inRange: number; // building + optimal + max (muscles at or above MEV)
+  total: number; // trained muscles this week
+}
+
 export type MuscleRole = "PRIMARY" | "SECONDARY";
 
 export interface MuscleChip {
@@ -69,4 +83,5 @@ export interface MesocycleView {
   muscles: MuscleGroup[]; // grid rows, in display order
   priorityMuscles: MuscleGroup[]; // show a ▲ marker
   weeks: WeekView[];
+  coachNotes: CoachNote[];
 }
