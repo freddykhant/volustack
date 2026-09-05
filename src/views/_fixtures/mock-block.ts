@@ -55,6 +55,10 @@ function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
         px("Barbell Row", 4, 6, 10, [chip("BACK", "PRIMARY", 1), chip("BICEPS", "SECONDARY", 0.5), chip("REAR_DELTS", "SECONDARY", 0.5)]),
         px("Lateral Raise", 4, 10, 15, [chip("SIDE_DELTS", "PRIMARY", 1)]),
       ],
+      swapOptions: [
+        { id: "upper-a-easier", intent: "easier", label: "Easier", summary: "−2 sets · RIR 3 · ~46 min" },
+        { id: "upper-a-harder", intent: "harder", label: "Harder", summary: "+2 sets · RIR 1 · ~64 min" },
+      ],
     },
     {
       slotId: "lower-a", label: "Lower A", dayTag: "Tue",
