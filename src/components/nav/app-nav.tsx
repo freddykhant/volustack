@@ -1,6 +1,6 @@
 "use client";
 
-import { Dumbbell, Home, LineChart, MessageSquare, Library, Settings, LogOut } from "lucide-react";
+import { Dumbbell, Home, LineChart, MessageSquare, Library, Settings, LogOut, HeartPulse } from "lucide-react";
 import { NavItem } from "~/components/ui-kit/app-shell-kit";
 import { authClient } from "~/server/better-auth/client";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ export function AppNav({ userName, userEmail }: { userName: string; userEmail: s
         <NavItem appearance="neutral" href="/app" label="Now" icon={Home} matchPatterns={["/app"]} />
         <NavItem appearance="neutral" href="/app/block" label="Block" icon={Dumbbell} matchPatterns={["/app/block", "/app/block/*"]} />
         <NavItem appearance="neutral" href="/app/analysis" label="Analysis" icon={LineChart} matchPatterns={["/app/analysis", "/app/analysis/*"]} />
+        <NavItem appearance="neutral" href="/app/readiness" label="Readiness" icon={HeartPulse} matchPatterns={["/app/readiness"]} />
         <NavItem appearance="neutral" href="/app/coach" label="Coach" icon={MessageSquare} matchPatterns={["/app/coach"]} />
         <NavItem appearance="neutral" href="/app/library" label="Library" icon={Library} matchPatterns={["/app/library"]} />
         <NavItem appearance="neutral" href="/app/settings" label="Settings" icon={Settings} matchPatterns={["/app/settings"]} />
