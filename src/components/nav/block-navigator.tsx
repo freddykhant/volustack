@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { mockMesocycle } from "~/views/_fixtures/mock-block";
+import type { MesocycleView } from "~/views/types";
 
-export function BlockNavigator() {
+export function BlockNavigator({ block }: { block: MesocycleView }) {
   const pathname = usePathname() ?? "";
-  const block = mockMesocycle;
   return (
     <div className="flex flex-col gap-4">
       <div>
