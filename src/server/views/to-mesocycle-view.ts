@@ -4,7 +4,6 @@ import { MUSCLE_GROUPS, type MuscleGroup } from "~/schema";
 import type {
   MesocycleView,
   MuscleChip,
-  MuscleRole,
   MuscleWeekCell,
   PrescriptionView,
   SessionView,
@@ -76,7 +75,7 @@ function toPrescriptionView(p: PrescriptionWithRelations): PrescriptionView {
     muscles: p.exercise.muscles.map(
       (em): MuscleChip => ({
         muscle: em.muscle,
-        role: em.role as MuscleRole,
+        role: em.role,
         fraction: em.fraction,
       }),
     ),
