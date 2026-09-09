@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { EXERCISE_LIBRARY } from "~/domain/exercise-library";
 import { db } from "~/server/db";
+import { seedMesocycle } from "./mesocycle";
 
 /**
  * Writes the MVP exercise library to the database. Idempotent: matches on the
@@ -45,6 +46,8 @@ export async function seedExercises(): Promise<number> {
 async function main() {
   const count = await seedExercises();
   console.log(`Seeded ${count} exercises.`);
+  const { mesocycleId, weeks } = await seedMesocycle();
+  console.log(`Seeded mesocycle ${mesocycleId} (${weeks} weeks).`);
 }
 
 // Only run (and disconnect) when executed directly, e.g. `prisma db seed`.
