@@ -3,12 +3,15 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { SessionCard } from "~/components/block/session-card";
 import { zoneFor } from "~/components/viz/zone";
-import { mockMesocycle } from "~/views/_fixtures/mock-block";
+import { EmptyBlockState } from "~/components/app/empty-block-state";
+import { api } from "~/trpc/server";
 
 export default async function WeekDetail({ params }: { params: Promise<{ blockId: string; n: string }> }) {
   const { blockId, n } = await params;
-  if (blockId !== mockMesocycle.id) notFound();
-  const week = mockMesocycle.weeks.find((w) => w.index === Number(n));
+  const block = await api.mesocycle.getCurrentBlock();
+  if (!block) return <EmptyBlockState />;
+  if (blockId !== block.id) notFound();
+  const week = block.weeks.find((w) => w.index === Number(n));
   if (!week) notFound();
 
   const optimal = week.cells.filter((c) => zoneFor(c.plannedSets, c) === "optimal").length;
@@ -17,7 +20,7 @@ export default async function WeekDetail({ params }: { params: Promise<{ blockId
   return (
     <div className="flex min-h-full flex-col">
       <header className="border-b border-border-subtle px-6 py-5">
-        <Link href={`/app/block/${mockMesocycle.id}`} className="mb-2 inline-flex items-center gap-1 text-nav text-fg-muted hover:text-fg">
+        <Link href={`/app/block/${block.id}`} className="mb-2 inline-flex items-center gap-1 text-nav text-fg-muted hover:text-fg">
           <ChevronLeft className="size-4" /> Block
         </Link>
         <h1 className="text-section text-fg">

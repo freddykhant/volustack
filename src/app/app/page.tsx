@@ -3,13 +3,15 @@ import { rollUpStatus } from "~/components/viz/roll-up-status";
 import { NextSessionCard } from "~/components/home/next-session-card";
 import { TrainingStatusCard } from "~/components/home/training-status-card";
 import { CoachCard } from "~/components/home/coach-card";
-import { mockMesocycle } from "~/views/_fixtures/mock-block";
 import { readinessState } from "~/components/viz/readiness-state";
 import { ReadinessChip } from "~/components/readiness/readiness-chip";
 import { mockReadiness } from "~/views/_fixtures/mock-readiness";
+import { EmptyBlockState } from "~/components/app/empty-block-state";
+import { api } from "~/trpc/server";
 
-export default function NowHome() {
-  const block = mockMesocycle;
+export default async function NowHome() {
+  const block = await api.mesocycle.getCurrentBlock();
+  if (!block) return <EmptyBlockState />;
   const week =
     block.weeks.find((w) => w.index === block.currentWeekIndex) ?? block.weeks[0];
   const session = week ? nextSession(week) : undefined;
