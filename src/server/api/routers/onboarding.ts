@@ -41,30 +41,16 @@ export const onboardingRouter = createTRPCRouter({
         throw new TRPCError({ code: "CONFLICT", message: "You already have an active block." });
       }
 
-      // Persist bio + experience (proficiency legitimately drives THIS generation).
-      const profile = await ctx.db.athleteProfile.upsert({
+      // Read phase for the engine context without writing — an infeasible combo must persist nothing.
+      const existingProfile = await ctx.db.athleteProfile.findUnique({
         where: { userId },
-        update: {
-          sex: input.sex,
-          age: input.age,
-          heightCm: input.heightCm,
-          weightKg: input.weightKg,
-          experience: input.proficiency,
-        },
-        create: {
-          userId,
-          sex: input.sex,
-          age: input.age,
-          heightCm: input.heightCm,
-          weightKg: input.weightKg,
-          experience: input.proficiency,
-        },
+        select: { phase: true },
       });
 
       const csInput = buildConstraintSetInput(input);
       const athlete: AthleteContext = {
         experienceLevel: input.proficiency,
-        phase: profile.phase,
+        phase: existingProfile?.phase ?? "MAINTAIN",
         landmarks: DEFAULT_LANDMARKS,
       };
       const spec = resolveConstraints(csInput, athlete);
@@ -76,6 +62,25 @@ export const onboardingRouter = createTRPCRouter({
 
       const { mesocycleId } = await ctx.db.$transaction(
         async (tx) => {
+          const profile = await tx.athleteProfile.upsert({
+            where: { userId },
+            update: {
+              sex: input.sex,
+              age: input.age,
+              heightCm: input.heightCm,
+              weightKg: input.weightKg,
+              experience: input.proficiency,
+            },
+            create: {
+              userId,
+              sex: input.sex,
+              age: input.age,
+              heightCm: input.heightCm,
+              weightKg: input.weightKg,
+              experience: input.proficiency,
+            },
+          });
+
           const last = await tx.constraintSet.findFirst({
             where: { athleteProfileId: profile.id },
             orderBy: { version: "desc" },
