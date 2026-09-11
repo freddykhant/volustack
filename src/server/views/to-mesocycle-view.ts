@@ -95,13 +95,22 @@ function toSessionView(s: SessionWithRelations): SessionView {
   };
 }
 
-function toWeekView(w: WeekWithRelations, curIdx: number): WeekView {
+function toWeekView(w: WeekWithRelations, curIdx: number, muscles: readonly MuscleGroup[]): WeekView {
   const sessions = [...w.sessions].sort((a, b) => a.order - b.order).map(toSessionView);
-  const cells: MuscleWeekCell[] = MUSCLE_GROUPS.flatMap((muscle): MuscleWeekCell[] => {
+  // A cell for every block-trained muscle every week, reconciled with
+  // block.muscles by construction — a week that omits a muscle yields a
+  // factual plannedSets:0 cell (BlockGrid force-unwraps these; it must never miss).
+  const cells: MuscleWeekCell[] = muscles.map((muscle): MuscleWeekCell => {
     const v = w.muscleVolumes.find((x) => x.muscle === muscle);
-    if (!v) return [];
     const lm = DEFAULT_LANDMARKS[muscle];
-    return [{ muscle, weekIndex: w.index, plannedSets: v.plannedSets, mev: lm.mev, mav: lm.mav, mrv: lm.mrv }];
+    return {
+      muscle,
+      weekIndex: w.index,
+      plannedSets: v?.plannedSets ?? 0,
+      mev: lm.mev,
+      mav: lm.mav,
+      mrv: lm.mrv,
+    };
   });
   const totalSets = sessions.reduce(
     (s, sess) => s + sess.prescriptions.reduce((n, p) => n + p.sets, 0),
@@ -131,7 +140,7 @@ export function toMesocycleView(m: MesocycleWithRelations): MesocycleView {
     cs.muscleTargets.some((t) => t.muscle === mm && t.priority > 0),
   );
 
-  const weeks = [...m.weeks].sort((a, b) => a.index - b.index).map((w) => toWeekView(w, curIdx));
+  const weeks = [...m.weeks].sort((a, b) => a.index - b.index).map((w) => toWeekView(w, curIdx, muscles));
 
   return {
     id: m.id,
