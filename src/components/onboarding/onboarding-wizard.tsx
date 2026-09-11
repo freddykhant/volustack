@@ -26,7 +26,10 @@ const STEP_TITLES = ["About you", "Your schedule", "Your split", "Experience & p
 export function OnboardingWizard() {
   const router = useRouter();
   const createPlan = api.onboarding.createPlan.useMutation({
-    onSuccess: () => router.push("/app/block"),
+    onSuccess: () => {
+      router.refresh();
+      router.push("/app/block");
+    },
   });
 
   const [step, setStep] = useState(0);
@@ -162,39 +165,49 @@ export function OnboardingWizard() {
                   <CardChoice
                     key={o.value}
                     selected={proficiency === o.value}
-                    onClick={() => setProficiency(o.value)}
+                    onClick={() => {
+                      setProficiency(o.value);
+                      if (o.value === "BEGINNER") setPriorityMuscles([]);
+                    }}
                     title={o.label}
                     hint={o.hint}
                   />
                 ))}
               </div>
             </Field>
-            <Field label={`Priority muscles (optional, up to 3 — ${priorityMuscles.length}/3)`}>
-              <div className="flex flex-wrap gap-2">
-                {MUSCLE_GROUPS.map((m) => {
-                  const on = priorityMuscles.includes(m);
-                  const disabled = !on && priorityMuscles.length >= 3;
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => togglePriority(m)}
-                      className={
-                        "rounded-pill border px-3 py-1.5 text-nav transition-colors " +
-                        (on
-                          ? "border-accent bg-selection text-accent"
-                          : disabled
-                            ? "border-border-subtle text-fg-subtle"
-                            : "border-border-subtle text-fg-muted hover:text-fg")
-                      }
-                    >
-                      {muscleLabel(m)}
-                    </button>
-                  );
-                })}
-              </div>
-            </Field>
+            {proficiency === "BEGINNER" ? (
+              <p className="text-nav text-fg-subtle">
+                Beginners train every muscle evenly — priority muscles unlock once you progress past the beginner
+                template.
+              </p>
+            ) : (
+              <Field label={`Priority muscles (optional, up to 3 — ${priorityMuscles.length}/3)`}>
+                <div className="flex flex-wrap gap-2">
+                  {MUSCLE_GROUPS.map((m) => {
+                    const on = priorityMuscles.includes(m);
+                    const disabled = !on && priorityMuscles.length >= 3;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => togglePriority(m)}
+                        className={
+                          "rounded-pill border px-3 py-1.5 text-nav transition-colors " +
+                          (on
+                            ? "border-accent bg-selection text-accent"
+                            : disabled
+                              ? "border-border-subtle text-fg-subtle"
+                              : "border-border-subtle text-fg-muted hover:text-fg")
+                        }
+                      >
+                        {muscleLabel(m)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+            )}
           </>
         )}
       </div>

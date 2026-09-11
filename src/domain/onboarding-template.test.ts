@@ -53,6 +53,11 @@ describe("buildConstraintSetInput", () => {
     expect(buildConstraintSetInput(base).muscleTargets).toEqual([]);
   });
 
+  it("drops priority muscles for BEGINNER (the engine ignores priority for beginners)", () => {
+    const cs = buildConstraintSetInput({ ...base, proficiency: "BEGINNER", priorityMuscles: ["SIDE_DELTS", "BACK"] });
+    expect(cs.muscleTargets).toEqual([]);
+  });
+
   it("sets weekly cadence and no exclusions", () => {
     const cs = buildConstraintSetInput(base);
     expect(cs.checkInCadence).toBe("WEEKLY");

@@ -29,7 +29,13 @@ export function buildConstraintSetInput(input: OnboardingInput): ConstraintSetIn
     blockLengthWeeks: template.blockLengthWeeks,
     deloadWeekIndex: template.deloadWeekIndex,
     checkInCadence: "WEEKLY",
-    muscleTargets: input.priorityMuscles.map((muscle) => ({ muscle, priority: 3 })),
+    // The engine ignores per-muscle priority for BEGINNER athletes (flat
+    // MEV-MAV volume for every muscle), so persisting priority targets here
+    // would be a no-op that misleadingly shows as "prioritized" in the UI.
+    muscleTargets:
+      input.proficiency === "BEGINNER"
+        ? []
+        : input.priorityMuscles.map((muscle) => ({ muscle, priority: 3 })),
     excludedExerciseNames: [],
   };
 }
