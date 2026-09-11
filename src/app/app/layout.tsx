@@ -7,6 +7,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await getSession();
   if (!session) redirect("/");
   const block = await api.mesocycle.getCurrentBlock();
+  if (!block) redirect("/onboarding");
   return (
     <AppFrame userName={session.user.name} userEmail={session.user.email} block={block}>
       {children}
