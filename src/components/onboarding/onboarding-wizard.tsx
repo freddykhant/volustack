@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { MUSCLE_GROUPS, type ExperienceLevel, type MuscleGroup, type Sex, type SplitType } from "~/schema";
 import { api } from "~/trpc/react";
 
@@ -21,7 +22,12 @@ function muscleLabel(m: string): string {
   return m.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-const STEP_TITLES = ["About you", "Your schedule", "Your split", "Experience & priorities"];
+const STEPS: { title: string; subtitle: string }[] = [
+  { title: "About you", subtitle: "A few basics so we can tailor volume and recovery." },
+  { title: "Your schedule", subtitle: "How much you can train — we'll fit the plan to it." },
+  { title: "Your split", subtitle: "How you like to structure your training week." },
+  { title: "Experience & priorities", subtitle: "This sets your starting template. You can fine-tune later." },
+];
 
 export function OnboardingWizard() {
   const router = useRouter();
@@ -65,7 +71,7 @@ export function OnboardingWizard() {
   };
 
   const canContinue = stepValid(step);
-  const isLast = step === STEP_TITLES.length - 1;
+  const isLast = step === STEPS.length - 1;
 
   function togglePriority(m: MuscleGroup) {
     setPriorityMuscles((prev) =>
@@ -90,24 +96,34 @@ export function OnboardingWizard() {
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-1.5">
-          {STEP_TITLES.map((_, i) => (
-            <span
-              key={i}
-              className={"h-1.5 w-8 rounded-pill " + (i <= step ? "bg-accent" : "bg-border-subtle")}
-            />
-          ))}
+      {/* Brand + progress */}
+      <header className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <span className="text-eyebrow font-semibold text-fg-soft">Mesodapt</span>
+          <span className="text-nav tabular-nums text-fg-subtle">
+            Step {step + 1} of {STEPS.length}
+          </span>
         </div>
-        <h1 className="text-list font-semibold text-fg">{STEP_TITLES[step]}</h1>
-        <p className="text-nav text-fg-muted">Let&apos;s build your first training block.</p>
+        <div className="h-1 w-full overflow-hidden rounded-pill bg-border-subtle">
+          <div
+            className="h-full rounded-pill bg-accent transition-[width] duration-300 ease-out"
+            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+          />
+        </div>
       </header>
 
-      <div className="flex flex-col gap-5">
+      {/* Step heading */}
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-section text-fg">{STEPS[step]!.title}</h1>
+        <p className="text-card-desc text-fg-muted">{STEPS[step]!.subtitle}</p>
+      </div>
+
+      {/* Fields */}
+      <div className="flex flex-col gap-5 rounded-card border border-border bg-surface p-6">
         {step === 0 && (
           <>
             <Field label="Sex">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {(["MALE", "FEMALE"] as const).map((s) => (
                   <Choice key={s} selected={sex === s} onClick={() => setSex(s)}>
                     {s === "MALE" ? "Male" : "Female"}
@@ -116,15 +132,17 @@ export function OnboardingWizard() {
               </div>
             </Field>
             <NumberField label="Age" value={age} onChange={setAge} placeholder="28" />
-            <NumberField label="Height (cm)" value={heightCm} onChange={setHeightCm} placeholder="180" />
-            <NumberField label="Weight (kg)" value={weightKg} onChange={setWeightKg} placeholder="82" />
+            <div className="grid grid-cols-2 gap-4">
+              <NumberField label="Height" value={heightCm} onChange={setHeightCm} placeholder="180" unit="cm" />
+              <NumberField label="Weight" value={weightKg} onChange={setWeightKg} placeholder="82" unit="kg" />
+            </div>
           </>
         )}
 
         {step === 1 && (
           <>
             <Field label="Training days per week">
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-7 gap-1.5">
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                   <Choice key={d} selected={daysPerWeek === d} onClick={() => setDaysPerWeek(d)}>
                     {d}
@@ -133,28 +151,27 @@ export function OnboardingWizard() {
               </div>
             </Field>
             <NumberField
-              label="Session length cap (min)"
+              label="Session length cap"
               value={sessionLengthCapMin}
               onChange={setSessionLengthCapMin}
               placeholder="75"
+              unit="min"
             />
           </>
         )}
 
         {step === 2 && (
-          <Field label="Split">
-            <div className="flex flex-col gap-2">
-              {SPLIT_OPTIONS.map((o) => (
-                <CardChoice
-                  key={o.value}
-                  selected={splitType === o.value}
-                  onClick={() => setSplitType(o.value)}
-                  title={o.label}
-                  hint={o.hint}
-                />
-              ))}
-            </div>
-          </Field>
+          <div className="flex flex-col gap-2">
+            {SPLIT_OPTIONS.map((o) => (
+              <CardChoice
+                key={o.value}
+                selected={splitType === o.value}
+                onClick={() => setSplitType(o.value)}
+                title={o.label}
+                hint={o.hint}
+              />
+            ))}
+          </div>
         )}
 
         {step === 3 && (
@@ -176,12 +193,12 @@ export function OnboardingWizard() {
               </div>
             </Field>
             {proficiency === "BEGINNER" ? (
-              <p className="text-nav text-fg-subtle">
+              <p className="rounded-control border border-border-subtle bg-canvas px-3 py-2.5 text-nav text-fg-subtle">
                 Beginners train every muscle evenly — priority muscles unlock once you progress past the beginner
                 template.
               </p>
             ) : (
-              <Field label={`Priority muscles (optional, up to 3 — ${priorityMuscles.length}/3)`}>
+              <Field label={`Priority muscles — optional (${priorityMuscles.length}/3)`}>
                 <div className="flex flex-wrap gap-2">
                   {MUSCLE_GROUPS.map((m) => {
                     const on = priorityMuscles.includes(m);
@@ -197,8 +214,8 @@ export function OnboardingWizard() {
                           (on
                             ? "border-accent bg-selection text-accent"
                             : disabled
-                              ? "border-border-subtle text-fg-subtle"
-                              : "border-border-subtle text-fg-muted hover:text-fg")
+                              ? "cursor-not-allowed border-border-subtle text-fg-subtle opacity-50"
+                              : "border-border-subtle text-fg-muted hover:border-border hover:text-fg")
                         }
                       >
                         {muscleLabel(m)}
@@ -213,27 +230,29 @@ export function OnboardingWizard() {
       </div>
 
       {createPlan.isError && (
-        <p className="rounded-control border border-border px-3 py-2 text-nav text-fg-soft">
+        <p className="rounded-control border border-border bg-callout px-3 py-2.5 text-nav text-fg-soft">
           {createPlan.error.message}
         </p>
       )}
 
+      {/* Footer nav */}
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
           disabled={step === 0 || createPlan.isPending}
-          className="text-nav text-fg-muted transition-colors hover:text-fg disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg disabled:pointer-events-none disabled:opacity-0"
         >
-          Back
+          <ArrowLeft className="size-4" aria-hidden /> Back
         </button>
         {isLast ? (
           <button
             type="button"
             onClick={submit}
             disabled={createPlan.isPending}
-            className="rounded-control bg-accent px-4 py-2 text-nav font-semibold text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2.5 text-nav font-medium text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
           >
+            <Sparkles className="size-4" aria-hidden />
             {createPlan.isPending ? "Building your plan…" : "Create my plan"}
           </button>
         ) : (
@@ -241,9 +260,9 @@ export function OnboardingWizard() {
             type="button"
             onClick={() => setStep((s) => s + 1)}
             disabled={!canContinue}
-            className="rounded-control border border-border px-4 py-2 text-nav text-fg transition-colors hover:border-fg-muted disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2.5 text-nav font-medium text-white transition-colors hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Continue
+            Continue <ArrowRight className="size-4" aria-hidden />
           </button>
         )}
       </div>
@@ -265,22 +284,34 @@ function NumberField({
   value,
   onChange,
   placeholder,
+  unit,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  unit?: string;
 }) {
   return (
     <Field label={label}>
-      <input
-        type="number"
-        inputMode="numeric"
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-control border border-border-subtle bg-canvas px-3 py-2 text-nav text-fg outline-none focus:border-border"
-      />
+      <div className="relative">
+        <input
+          type="number"
+          inputMode="numeric"
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className={
+            "w-full rounded-control border border-border-subtle bg-canvas px-3 py-2.5 text-body text-fg outline-none transition-colors placeholder:text-fg-subtle focus:border-accent " +
+            (unit ? "pr-12" : "")
+          }
+        />
+        {unit ? (
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-nav text-fg-subtle">
+            {unit}
+          </span>
+        ) : null}
+      </div>
     </Field>
   );
 }
@@ -299,8 +330,10 @@ function Choice({
       type="button"
       onClick={onClick}
       className={
-        "rounded-control border px-4 py-2 text-nav transition-colors " +
-        (selected ? "border-accent bg-selection text-accent" : "border-border-subtle text-fg-muted hover:text-fg")
+        "rounded-control border px-4 py-2.5 text-nav transition-colors " +
+        (selected
+          ? "border-accent bg-selection text-accent"
+          : "border-border-subtle text-fg-muted hover:border-border hover:text-fg")
       }
     >
       {children}
@@ -324,12 +357,23 @@ function CardChoice({
       type="button"
       onClick={onClick}
       className={
-        "flex flex-col gap-0.5 rounded-control border px-4 py-3 text-left transition-colors " +
+        "flex items-start gap-3 rounded-control border p-4 text-left transition-colors " +
         (selected ? "border-accent bg-selection" : "border-border-subtle hover:border-border")
       }
     >
-      <span className={"text-nav " + (selected ? "text-accent" : "text-fg")}>{title}</span>
-      <span className="text-[12px] text-fg-muted">{hint}</span>
+      <span
+        className={
+          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors " +
+          (selected ? "border-accent" : "border-border")
+        }
+        aria-hidden
+      >
+        {selected ? <span className="size-2 rounded-full bg-accent" /> : null}
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className={"text-list " + (selected ? "text-accent" : "text-fg")}>{title}</span>
+        <span className="text-nav text-fg-muted">{hint}</span>
+      </span>
     </button>
   );
 }
