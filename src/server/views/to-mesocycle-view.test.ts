@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MesocycleWithRelations } from "./to-mesocycle-view";
 import { currentWeekIndex, toMesocycleView } from "./to-mesocycle-view";
+import type { MuscleGroup } from "~/schema";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -11,6 +12,7 @@ function makeMesocycle(over: Partial<{
   splitType: MesocycleWithRelations["constraintSet"]["splitType"];
   deloadIndex: number | null; // which week has isDeload=true
   csDeloadWeekIndex: number | null;
+  omitMuscleInWeek: { week: number; muscle: MuscleGroup };
 }> = {}): MesocycleWithRelations {
   const lengthWeeks = over.lengthWeeks ?? 6;
   const deloadIndex = over.deloadIndex === undefined ? 6 : over.deloadIndex;
@@ -24,7 +26,9 @@ function makeMesocycle(over: Partial<{
       muscleVolumes: [
         { id: `wmv-${index}-quads`, weekId: `week-${index}`, muscle: "QUADS" as const, plannedSets: 12 },
         { id: `wmv-${index}-chest`, weekId: `week-${index}`, muscle: "CHEST" as const, plannedSets: 10 },
-      ],
+      ].filter(
+        (mv) => !(over.omitMuscleInWeek?.week === index && over.omitMuscleInWeek?.muscle === mv.muscle),
+      ),
       sessions: [
         {
           id: `sess-${index}-b`,
@@ -197,5 +201,25 @@ describe("toMesocycleView", () => {
     const v = toMesocycleView(makeMesocycle());
     expect(v.coachNotes).toEqual([]);
     expect(v.weeks[0]!.sessions[0]!.swapOptions).toBeUndefined();
+  });
+
+  it("emits a plannedSets:0 cell for a muscle a week omits (union reconciliation)", () => {
+    const v = toMesocycleView(makeMesocycle({ omitMuscleInWeek: { week: 2, muscle: "QUADS" } }));
+    expect(v.muscles).toEqual(["CHEST", "QUADS"]); // union across weeks unchanged
+    const wk2 = v.weeks.find((w) => w.index === 2)!;
+    // every union muscle has a cell in week 2, even the omitted one
+    expect(wk2.cells.map((c) => c.muscle)).toEqual(["CHEST", "QUADS"]);
+    const quads = wk2.cells.find((c) => c.muscle === "QUADS")!;
+    expect(quads.plannedSets).toBe(0);
+    expect(quads.mev).toBe(8); // DEFAULT_LANDMARKS.QUADS.mev
+    expect(quads.mrv).toBe(20); // DEFAULT_LANDMARKS.QUADS.mrv
+  });
+
+  it("adds no spurious cells when every week trains the full muscle set", () => {
+    const v = toMesocycleView(makeMesocycle());
+    for (const w of v.weeks) {
+      expect(w.cells.map((c) => c.muscle)).toEqual(["CHEST", "QUADS"]);
+      expect(w.cells.every((c) => c.plannedSets > 0)).toBe(true);
+    }
   });
 });
