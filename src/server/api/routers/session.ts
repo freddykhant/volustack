@@ -126,6 +126,24 @@ export const sessionRouter = createTRPCRouter({
       const weekIndex = session.week.index;
       await ctx.db.$transaction(
         async (tx) => {
+          // Re-assert inside the tx that the missed session and every rewrite target are
+          // still SCHEDULED. Statuses were read before the tx; without this a session
+          // logged concurrently could be flipped to MISSED, or (worse) have its freshly
+          // written SetLogs cascade-deleted when applyWeekPlanToDb rewrites its prescriptions.
+          const guardIds = [
+            session.id,
+            ...(chosen.kind === "LET_GO" ? [] : chosen.week.sessions.map((s) => s.slotId)),
+          ];
+          const stillScheduled = await tx.trainingSession.count({
+            where: { id: { in: guardIds }, status: "SCHEDULED" },
+          });
+          if (stillScheduled !== guardIds.length) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "A session changed while you were rescheduling — please try again.",
+            });
+          }
+
           await tx.trainingSession.update({ where: { id: session.id }, data: { status: "MISSED" } });
           if (chosen.kind !== "LET_GO") {
             await applyWeekPlanToDb(tx, session.week.id, chosen.week);
