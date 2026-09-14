@@ -122,6 +122,12 @@ enum BlockStatus {
   ARCHIVED
 }
 
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  MISSED
+}
+
 enum DecisionType {
   GENERATE
   PROGRESS
@@ -359,6 +365,8 @@ model TrainingSession {
   splitSlot         String // e.g. "Upper A", "Push"
   dayOfWeek         Int? // 0=Mon … 6=Sun, if the user pins days
   targetDurationMin Int?
+  status            SessionStatus @default(SCHEDULED)
+  completedAt       DateTime?
 
   prescriptions ExercisePrescription[]
 
@@ -377,8 +385,23 @@ model ExercisePrescription {
   targetRepLow      Int?
   targetRepHigh     Int?
   targetRir         Int?
+  setLogs SetLog[]
 
   @@map("exercise_prescription")
+}
+
+model SetLog {
+  id                     String               @id @default(cuid())
+  exercisePrescriptionId String
+  exercisePrescription   ExercisePrescription @relation(fields: [exercisePrescriptionId], references: [id], onDelete: Cascade)
+  setNumber              Int
+  weightKg               Float
+  reps                   Int
+  achievedRir            Int?
+  createdAt              DateTime             @default(now())
+
+  @@unique([exercisePrescriptionId, setNumber])
+  @@map("set_log")
 }
 
 model CheckIn {
