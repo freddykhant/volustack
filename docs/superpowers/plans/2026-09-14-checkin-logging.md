@@ -1107,8 +1107,6 @@ export function SessionPanel({ session }: { session: SessionView }) {
     logSession.mutate({ sessionId: session.slotId, sets });
   }
 
-  const completed = session.status === "COMPLETED";
-
   return (
     <div className="rounded-card border border-border bg-surface p-4">
       <div className="flex items-baseline justify-between gap-2">
@@ -1179,7 +1177,6 @@ export function SessionPanel({ session }: { session: SessionView }) {
               <PencilLine className="size-4" aria-hidden /> Log session
             </button>
           ) : null}
-          {completed ? null : null}
         </>
       )}
     </div>
@@ -1398,7 +1395,6 @@ Replace the read-only-mode action block — change:
               <PencilLine className="size-4" aria-hidden /> Log session
             </button>
           ) : null}
-          {completed ? null : null}
 ```
 to:
 ```tsx
