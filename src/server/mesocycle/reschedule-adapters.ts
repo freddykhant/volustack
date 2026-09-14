@@ -7,7 +7,7 @@ import {
   type MuscleVolumeMap,
   type WeekPlan,
 } from "~/engine";
-import { MUSCLE_GROUPS, type ConstraintSetInput, type MuscleGroup } from "~/schema";
+import { MUSCLE_GROUPS, type ConstraintSetInput } from "~/schema";
 
 /** The week shape `weekPlanFromDb` needs: sessions (+prescriptions+exercise) and muscle volumes. */
 export const WEEK_FOR_PLAN_INCLUDE = {
