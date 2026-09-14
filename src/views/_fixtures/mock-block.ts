@@ -32,12 +32,14 @@ function rampSets(peakSets: number, weekIndex: number, isDeload: boolean): numbe
 function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
   const rir = isDeload ? 4 : 2;
   const px = (
+    id: string,
     exerciseName: string,
     peakSets: number,
     lo: number,
     hi: number,
     muscles: MuscleChip[],
   ): PrescriptionView => ({
+    id: `${id}-w${weekIndex}`,
     exerciseName,
     sets: rampSets(peakSets, weekIndex, isDeload),
     repRangeLow: lo,
@@ -51,9 +53,9 @@ function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
       slotId: "upper-a", label: "Upper A", dayTag: "Mon", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 32 : 58,
       prescriptions: [
-        px("Barbell Bench Press", 8, 6, 10, [chip("CHEST", "PRIMARY", 1), chip("TRICEPS", "SECONDARY", 0.5), chip("FRONT_DELTS", "SECONDARY", 0.5)]),
-        px("Barbell Row", 4, 6, 10, [chip("BACK", "PRIMARY", 1), chip("BICEPS", "SECONDARY", 0.5), chip("REAR_DELTS", "SECONDARY", 0.5)]),
-        px("Lateral Raise", 4, 10, 15, [chip("SIDE_DELTS", "PRIMARY", 1)]),
+        px("upper-a-bench", "Barbell Bench Press", 8, 6, 10, [chip("CHEST", "PRIMARY", 1), chip("TRICEPS", "SECONDARY", 0.5), chip("FRONT_DELTS", "SECONDARY", 0.5)]),
+        px("upper-a-row", "Barbell Row", 4, 6, 10, [chip("BACK", "PRIMARY", 1), chip("BICEPS", "SECONDARY", 0.5), chip("REAR_DELTS", "SECONDARY", 0.5)]),
+        px("upper-a-lateral-raise", "Lateral Raise", 4, 10, 15, [chip("SIDE_DELTS", "PRIMARY", 1)]),
       ],
       swapOptions: [
         { id: "upper-a-easier", intent: "easier", label: "Easier", summary: "−2 sets · RIR 3 · ~46 min" },
@@ -64,33 +66,33 @@ function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
       slotId: "lower-a", label: "Lower A", dayTag: "Tue", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 24 : 46,
       prescriptions: [
-        px("Leg Press", 4, 6, 10, [chip("QUADS", "PRIMARY", 1), chip("GLUTES", "SECONDARY", 0.5)]),
-        px("Romanian Deadlift", 4, 6, 10, [chip("HAMSTRINGS", "PRIMARY", 1), chip("GLUTES", "SECONDARY", 0.5)]),
+        px("lower-a-leg-press", "Leg Press", 4, 6, 10, [chip("QUADS", "PRIMARY", 1), chip("GLUTES", "SECONDARY", 0.5)]),
+        px("lower-a-rdl", "Romanian Deadlift", 4, 6, 10, [chip("HAMSTRINGS", "PRIMARY", 1), chip("GLUTES", "SECONDARY", 0.5)]),
       ],
     },
     {
       slotId: "upper-b", label: "Upper B", dayTag: "Thu", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 32 : 56,
       prescriptions: [
-        px("Incline Dumbbell Press", 8, 6, 10, [chip("CHEST", "PRIMARY", 1), chip("FRONT_DELTS", "SECONDARY", 0.5), chip("TRICEPS", "SECONDARY", 0.5)]),
-        px("Lat Pulldown", 4, 6, 10, [chip("BACK", "PRIMARY", 1), chip("BICEPS", "SECONDARY", 0.5)]),
-        px("Barbell Curl", 4, 10, 15, [chip("BICEPS", "PRIMARY", 1), chip("FOREARMS", "SECONDARY", 0.25)]),
+        px("upper-b-incline-press", "Incline Dumbbell Press", 8, 6, 10, [chip("CHEST", "PRIMARY", 1), chip("FRONT_DELTS", "SECONDARY", 0.5), chip("TRICEPS", "SECONDARY", 0.5)]),
+        px("upper-b-lat-pulldown", "Lat Pulldown", 4, 6, 10, [chip("BACK", "PRIMARY", 1), chip("BICEPS", "SECONDARY", 0.5)]),
+        px("upper-b-barbell-curl", "Barbell Curl", 4, 10, 15, [chip("BICEPS", "PRIMARY", 1), chip("FOREARMS", "SECONDARY", 0.25)]),
       ],
     },
     {
       slotId: "lower-b", label: "Lower B", dayTag: "Fri", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 22 : 40,
       prescriptions: [
-        px("Leg Press", 4, 6, 10, [chip("QUADS", "PRIMARY", 1), chip("GLUTES", "SECONDARY", 0.5)]),
-        px("Cable Triceps Pushdown", 4, 10, 15, [chip("TRICEPS", "PRIMARY", 1)]),
+        px("lower-b-leg-press", "Leg Press", 4, 6, 10, [chip("QUADS", "PRIMARY", 1), chip("GLUTES", "SECONDARY", 0.5)]),
+        px("lower-b-triceps-pushdown", "Cable Triceps Pushdown", 4, 10, 15, [chip("TRICEPS", "PRIMARY", 1)]),
       ],
     },
     {
       slotId: "upper-c", label: "Upper C", dayTag: "Sat", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 30 : 54,
       prescriptions: [
-        px("Barbell Row", 4, 6, 10, [chip("BACK", "PRIMARY", 1), chip("BICEPS", "SECONDARY", 0.5), chip("REAR_DELTS", "SECONDARY", 0.5)]),
-        px("Lateral Raise", 4, 10, 15, [chip("SIDE_DELTS", "PRIMARY", 1)]),
+        px("upper-c-row", "Barbell Row", 4, 6, 10, [chip("BACK", "PRIMARY", 1), chip("BICEPS", "SECONDARY", 0.5), chip("REAR_DELTS", "SECONDARY", 0.5)]),
+        px("upper-c-lateral-raise", "Lateral Raise", 4, 10, 15, [chip("SIDE_DELTS", "PRIMARY", 1)]),
       ],
     },
   ];

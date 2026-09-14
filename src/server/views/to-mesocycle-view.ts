@@ -68,6 +68,7 @@ export function currentWeekIndex(
 
 function toPrescriptionView(p: PrescriptionWithRelations): PrescriptionView {
   return {
+    id: p.id,
     exerciseName: p.exercise.name,
     sets: p.sets,
     repRangeLow: p.targetRepLow ?? 0,

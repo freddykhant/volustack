@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { SessionCard } from "~/components/block/session-card";
+import { SessionPanel } from "~/components/block/session-panel";
 import { zoneFor } from "~/components/viz/zone";
 import { EmptyBlockState } from "~/components/app/empty-block-state";
 import { api } from "~/trpc/server";
@@ -33,7 +33,7 @@ export default async function WeekDetail({ params }: { params: Promise<{ blockId
       </header>
       <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
         {week.sessions.map((s) => (
-          <SessionCard key={s.slotId} session={s} />
+          <SessionPanel key={s.slotId} session={s} />
         ))}
       </div>
     </div>

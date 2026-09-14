@@ -55,6 +55,7 @@ export interface MuscleChip {
 }
 
 export interface PrescriptionView {
+  id: string;
   exerciseName: string;
   sets: number;
   repRangeLow: number;
