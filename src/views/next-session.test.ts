@@ -10,6 +10,7 @@ const session = (slotId: string): SessionView => ({
   slotId,
   label: slotId,
   estimatedMinutes: 40,
+  status: "SCHEDULED",
   prescriptions: [],
 });
 

@@ -48,7 +48,7 @@ function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
 
   return [
     {
-      slotId: "upper-a", label: "Upper A", dayTag: "Mon",
+      slotId: "upper-a", label: "Upper A", dayTag: "Mon", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 32 : 58,
       prescriptions: [
         px("Barbell Bench Press", 8, 6, 10, [chip("CHEST", "PRIMARY", 1), chip("TRICEPS", "SECONDARY", 0.5), chip("FRONT_DELTS", "SECONDARY", 0.5)]),
@@ -61,7 +61,7 @@ function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
       ],
     },
     {
-      slotId: "lower-a", label: "Lower A", dayTag: "Tue",
+      slotId: "lower-a", label: "Lower A", dayTag: "Tue", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 24 : 46,
       prescriptions: [
         px("Leg Press", 4, 6, 10, [chip("QUADS", "PRIMARY", 1), chip("GLUTES", "SECONDARY", 0.5)]),
@@ -69,7 +69,7 @@ function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
       ],
     },
     {
-      slotId: "upper-b", label: "Upper B", dayTag: "Thu",
+      slotId: "upper-b", label: "Upper B", dayTag: "Thu", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 32 : 56,
       prescriptions: [
         px("Incline Dumbbell Press", 8, 6, 10, [chip("CHEST", "PRIMARY", 1), chip("FRONT_DELTS", "SECONDARY", 0.5), chip("TRICEPS", "SECONDARY", 0.5)]),
@@ -78,7 +78,7 @@ function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
       ],
     },
     {
-      slotId: "lower-b", label: "Lower B", dayTag: "Fri",
+      slotId: "lower-b", label: "Lower B", dayTag: "Fri", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 22 : 40,
       prescriptions: [
         px("Leg Press", 4, 6, 10, [chip("QUADS", "PRIMARY", 1), chip("GLUTES", "SECONDARY", 0.5)]),
@@ -86,7 +86,7 @@ function sessionsForWeek(weekIndex: number, isDeload: boolean): SessionView[] {
       ],
     },
     {
-      slotId: "upper-c", label: "Upper C", dayTag: "Sat",
+      slotId: "upper-c", label: "Upper C", dayTag: "Sat", status: "SCHEDULED",
       estimatedMinutes: isDeload ? 30 : 54,
       prescriptions: [
         px("Barbell Row", 4, 6, 10, [chip("BACK", "PRIMARY", 1), chip("BICEPS", "SECONDARY", 0.5), chip("REAR_DELTS", "SECONDARY", 0.5)]),

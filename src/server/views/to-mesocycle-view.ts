@@ -2,6 +2,7 @@ import type { Prisma } from "../../../generated/prisma";
 import { DEFAULT_LANDMARKS } from "~/domain/landmarks";
 import { MUSCLE_GROUPS, type MuscleGroup } from "~/schema";
 import type {
+  LoggedSetView,
   MesocycleView,
   MuscleChip,
   MuscleWeekCell,
@@ -24,7 +25,7 @@ export const MESOCYCLE_INCLUDE = {
       sessions: {
         include: {
           prescriptions: {
-            include: { exercise: { include: { muscles: true } } },
+            include: { exercise: { include: { muscles: true } }, setLogs: true },
           },
         },
       },
@@ -79,6 +80,19 @@ function toPrescriptionView(p: PrescriptionWithRelations): PrescriptionView {
         fraction: em.fraction,
       }),
     ),
+    loggedSets:
+      p.setLogs.length > 0
+        ? [...p.setLogs]
+            .sort((a, b) => a.setNumber - b.setNumber)
+            .map(
+              (l): LoggedSetView => ({
+                setNumber: l.setNumber,
+                weightKg: l.weightKg,
+                reps: l.reps,
+                achievedRir: l.achievedRir, // Int? → number | null; do NOT coalesce to 0
+              }),
+            )
+        : undefined,
   };
 }
 
@@ -88,6 +102,7 @@ function toSessionView(s: SessionWithRelations): SessionView {
     label: s.splitSlot,
     dayTag: s.dayOfWeek == null ? undefined : DAY_TAGS[s.dayOfWeek],
     estimatedMinutes: s.targetDurationMin ?? 0,
+    status: s.status,
     prescriptions: [...s.prescriptions]
       .sort((a, b) => a.order - b.order)
       .map(toPrescriptionView),

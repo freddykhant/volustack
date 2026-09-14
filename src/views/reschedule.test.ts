@@ -25,7 +25,7 @@ function candidate(over: Partial<RedistributionCandidate>): RedistributionCandid
       ],
     },
     ...over,
-  } as RedistributionCandidate;
+  };
 }
 
 describe("toRescheduleOptionViews", () => {
