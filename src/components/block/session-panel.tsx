@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, PencilLine } from "lucide-react";
+import { Check, PencilLine, CalendarX } from "lucide-react";
 import type { PrescriptionView, SessionView } from "~/views/types";
 import { api } from "~/trpc/react";
+import { RescheduleDialog } from "~/components/block/reschedule-dialog";
 
 type SetRow = { weight: string; reps: string; rir: string };
 
@@ -25,6 +26,7 @@ function StatusBadge({ status }: { status: SessionView["status"] }) {
 export function SessionPanel({ session }: { session: SessionView }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
   // rows[prescriptionIndex] = one row per planned set
   const [rows, setRows] = useState<SetRow[][]>(() =>
     session.prescriptions.map((p) =>
@@ -128,14 +130,24 @@ export function SessionPanel({ session }: { session: SessionView }) {
             ))}
           </ul>
           {session.status === "SCHEDULED" ? (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="mt-4 inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg"
-            >
-              <PencilLine className="size-4" aria-hidden /> Log session
-            </button>
+            <div className="mt-4 flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg"
+              >
+                <PencilLine className="size-4" aria-hidden /> Log session
+              </button>
+              <button
+                type="button"
+                onClick={() => setRescheduling(true)}
+                className="inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg"
+              >
+                <CalendarX className="size-4" aria-hidden /> Mark missed
+              </button>
+            </div>
           ) : null}
+          <RescheduleDialog sessionId={session.slotId} open={rescheduling} onClose={() => setRescheduling(false)} />
         </>
       )}
     </div>
