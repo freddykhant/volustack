@@ -2,6 +2,15 @@ import type { MuscleGroup } from "~/schema";
 
 export type Zone = "rest" | "building" | "optimal" | "max";
 
+export type SessionStatus = "SCHEDULED" | "COMPLETED" | "MISSED";
+
+export interface LoggedSetView {
+  setNumber: number;
+  weightKg: number;
+  reps: number;
+  achievedRir: number | null;
+}
+
 export type ReadinessLabel = "Fresh" | "Productive" | "Fatigued" | "Overreaching";
 
 export interface ReadinessPoint {
@@ -46,12 +55,14 @@ export interface MuscleChip {
 }
 
 export interface PrescriptionView {
+  id: string;
   exerciseName: string;
   sets: number;
   repRangeLow: number;
   repRangeHigh: number;
   targetRir: number;
   muscles: MuscleChip[];
+  loggedSets?: LoggedSetView[];
 }
 
 export interface SessionView {
@@ -59,6 +70,7 @@ export interface SessionView {
   label: string; // "Upper A"
   dayTag?: string; // optional day-of-week tag
   estimatedMinutes: number;
+  status: SessionStatus;
   prescriptions: PrescriptionView[];
   swapOptions?: SwapOption[];
 }

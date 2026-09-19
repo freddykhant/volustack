@@ -1,6 +1,7 @@
 import { healthRouter } from "~/server/api/routers/health";
 import { mesocycleRouter } from "~/server/api/routers/mesocycle";
 import { onboardingRouter } from "~/server/api/routers/onboarding";
+import { sessionRouter } from "~/server/api/routers/session";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -11,6 +12,7 @@ export const appRouter = createTRPCRouter({
   health: healthRouter,
   mesocycle: mesocycleRouter,
   onboarding: onboardingRouter,
+  session: sessionRouter,
 });
 
 // export type definition of API

@@ -36,6 +36,8 @@ function makeMesocycle(over: Partial<{
           order: 1,
           splitSlot: "Lower A",
           dayOfWeek: null,
+          status: "SCHEDULED" as const,
+          completedAt: null,
           targetDurationMin: 46,
           prescriptions: [
             {
@@ -54,6 +56,7 @@ function makeMesocycle(over: Partial<{
                   { id: "em-1", exerciseId: "ex-legpress", muscle: "QUADS" as const, role: "PRIMARY" as const, fraction: 1 },
                 ],
               },
+              setLogs: [],
             },
           ],
         },
@@ -63,6 +66,8 @@ function makeMesocycle(over: Partial<{
           order: 0,
           splitSlot: "Upper A",
           dayOfWeek: 0,
+          status: "SCHEDULED" as const,
+          completedAt: null,
           targetDurationMin: 58,
           prescriptions: [
             {
@@ -82,6 +87,10 @@ function makeMesocycle(over: Partial<{
                   { id: "em-3", exerciseId: "ex-bench", muscle: "TRICEPS" as const, role: "SECONDARY" as const, fraction: 0.5 },
                 ],
               },
+              setLogs: [
+                { id: `sl-${index}-2`, exercisePrescriptionId: `rx-${index}-bench`, setNumber: 2, weightKg: 60, reps: 7, achievedRir: 1, createdAt: new Date() },
+                { id: `sl-${index}-1`, exercisePrescriptionId: `rx-${index}-bench`, setNumber: 1, weightKg: 60, reps: 8, achievedRir: null, createdAt: new Date() },
+              ],
             },
           ],
         },
@@ -221,5 +230,20 @@ describe("toMesocycleView", () => {
       expect(w.cells.map((c) => c.muscle)).toEqual(["CHEST", "QUADS"]);
       expect(w.cells.every((c) => c.plannedSets > 0)).toBe(true);
     }
+  });
+
+  it("surfaces session status", () => {
+    expect(toMesocycleView(makeMesocycle()).weeks[0]!.sessions[0]!.status).toBe("SCHEDULED");
+  });
+
+  it("maps logged sets sorted by setNumber, preserving null achievedRir", () => {
+    const bench = toMesocycleView(makeMesocycle()).weeks[0]!.sessions[0]!.prescriptions[0]!;
+    expect(bench.loggedSets).toEqual([
+      { setNumber: 1, weightKg: 60, reps: 8, achievedRir: null },
+      { setNumber: 2, weightKg: 60, reps: 7, achievedRir: 1 },
+    ]);
+    // a prescription with no logs → undefined, not []
+    const legPress = toMesocycleView(makeMesocycle()).weeks[0]!.sessions[1]!.prescriptions[0]!;
+    expect(legPress.loggedSets).toBeUndefined();
   });
 });
