@@ -34,7 +34,6 @@ export default async function NowHome() {
 
       <NextSessionCard
         session={session}
-        blockId={block.id}
         weekIndex={block.currentWeekIndex}
         readinessLabel={readinessLabel}
       />

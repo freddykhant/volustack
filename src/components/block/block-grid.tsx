@@ -18,7 +18,7 @@ export function BlockGrid({ block }: { block: MesocycleView }) {
         <div className="sticky left-0 z-10 bg-canvas" />
         {block.weeks.map((w) => (
           <div key={w.index} className={w.isCurrent ? "bg-selection" : undefined}>
-            <WeekColumnHeader block={block} week={w} />
+            <WeekColumnHeader week={w} />
           </div>
         ))}
 
@@ -58,7 +58,7 @@ function RowFragment({
       </div>
       {block.weeks.map((w) => {
         const cell = w.cells.find((c) => c.muscle === muscle)!;
-        return <GridCell key={`${muscle}-${w.index}`} block={block} week={w} cell={cell} />;
+        return <GridCell key={`${muscle}-${w.index}`} week={w} cell={cell} />;
       })}
     </>
   );
