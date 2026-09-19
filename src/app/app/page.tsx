@@ -6,12 +6,10 @@ import { CoachCard } from "~/components/home/coach-card";
 import { readinessState } from "~/components/viz/readiness-state";
 import { ReadinessChip } from "~/components/readiness/readiness-chip";
 import { mockReadiness } from "~/views/_fixtures/mock-readiness";
-import { EmptyBlockState } from "~/components/app/empty-block-state";
-import { api } from "~/trpc/server";
+import { requireCurrentBlock } from "~/server/mesocycle/current-block";
 
 export default async function NowHome() {
-  const block = await api.mesocycle.getCurrentBlock();
-  if (!block) return <EmptyBlockState />;
+  const block = await requireCurrentBlock();
   const week =
     block.weeks.find((w) => w.index === block.currentWeekIndex) ?? block.weeks[0];
   const session = week ? nextSession(week) : undefined;

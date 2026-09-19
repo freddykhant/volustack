@@ -1,9 +1,7 @@
 import { AnalysisView } from "~/components/analysis/analysis-view";
-import { EmptyBlockState } from "~/components/app/empty-block-state";
-import { api } from "~/trpc/server";
+import { requireCurrentBlock } from "~/server/mesocycle/current-block";
 
 export default async function AnalysisPage() {
-  const block = await api.mesocycle.getCurrentBlock();
-  if (!block) return <EmptyBlockState />;
+  const block = await requireCurrentBlock();
   return <AnalysisView block={block} />;
 }
