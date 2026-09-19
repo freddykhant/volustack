@@ -5,12 +5,10 @@ import { SessionSwapControl } from "~/components/home/session-swap-control";
 
 export function NextSessionCard({
   session,
-  blockId,
   weekIndex,
   readinessLabel,
 }: {
   session: SessionView | undefined;
-  blockId: string;
   weekIndex: number;
   readinessLabel?: ReadinessLabel;
 }) {
@@ -40,7 +38,7 @@ export function NextSessionCard({
         {more}
       </div>
       <Link
-        href={`/app/block/${blockId}/week/${weekIndex}`}
+        href={`/app/block/week/${weekIndex}`}
         className="mt-5 inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2 text-nav font-medium text-white transition-colors hover:bg-accent-strong"
       >
         <Dumbbell className="size-4" aria-hidden />

@@ -9,14 +9,14 @@ export function BlockNavigator({ block }: { block: MesocycleView }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Link href={`/app/block/${block.id}`} className="text-list font-semibold text-fg hover:text-accent">
+        <Link href="/app/block" className="text-list font-semibold text-fg hover:text-accent">
           {block.name}
         </Link>
         <div className="text-[12px] text-fg-subtle">{block.status}</div>
       </div>
       <nav className="flex flex-col gap-0.5">
         {block.weeks.map((w) => {
-          const href = `/app/block/${block.id}/week/${w.index}`;
+          const href = `/app/block/week/${w.index}`;
           const active = pathname === href;
           const marker = w.index < block.currentWeekIndex ? "✓" : w.isCurrent ? "◀" : "";
           const label = w.isDeload ? "Deload" : `Wk ${w.index}`;

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { zoneFor } from "~/components/viz/zone";
-import type { MesocycleView, MuscleWeekCell, WeekView, Zone } from "~/views/types";
+import type { MuscleWeekCell, WeekView, Zone } from "~/views/types";
 
 const SOFT: Record<Zone, string> = {
   rest: "bg-zone-rest-soft",
@@ -10,11 +10,9 @@ const SOFT: Record<Zone, string> = {
 };
 
 export function GridCell({
-  block,
   week,
   cell,
 }: {
-  block: MesocycleView;
   week: WeekView;
   cell: MuscleWeekCell;
 }) {
@@ -22,7 +20,7 @@ export function GridCell({
   const tooltip = `${cell.plannedSets} sets — ${zone} · MEV ${cell.mev} / MAV ${cell.mav} / MRV ${cell.mrv}`;
   return (
     <Link
-      href={`/app/block/${block.id}/week/${week.index}`}
+      href={`/app/block/week/${week.index}`}
       title={tooltip}
       className={
         "flex h-10 items-center justify-center text-nav text-fg transition-opacity hover:opacity-80 " +
