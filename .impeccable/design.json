@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-20T00:00:00.000Z",
+  "title": "Design System: Mesodapt",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Command Canvas",
+        "canonical": "#0b0c0d",
+        "tonalRamp": ["oklch(0.14 0.005 250)", "oklch(0.22 0.005 250)", "oklch(0.32 0.006 250)", "oklch(0.45 0.006 250)", "oklch(0.58 0.006 250)", "oklch(0.70 0.006 250)", "oklch(0.83 0.005 250)", "oklch(0.96 0.004 250)"]
+      },
+      "surface": { "role": "neutral", "displayName": "Raised Surface", "canonical": "rgba(255,255,255,0.05)" },
+      "surface-raised": { "role": "neutral", "displayName": "Raised Surface (hover/active)", "canonical": "rgba(255,255,255,0.075)" },
+      "selection": { "role": "primary", "displayName": "Selection Wash", "canonical": "rgba(0,146,255,0.09)" },
+      "callout": { "role": "primary", "displayName": "Callout Wash", "canonical": "rgba(17,140,253,0.05)" },
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "#0092ff",
+        "tonalRamp": ["oklch(0.15 0.06 252)", "oklch(0.26 0.10 252)", "oklch(0.37 0.14 252)", "oklch(0.48 0.17 252)", "oklch(0.62 0.19 252)", "oklch(0.72 0.15 252)", "oklch(0.82 0.10 252)", "oklch(0.93 0.05 252)"]
+      },
+      "accent-strong": { "role": "primary", "displayName": "Signal Blue Strong", "canonical": "#118cfd" },
+      "fg": {
+        "role": "neutral",
+        "displayName": "Primary Text",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(0.20 0.003 250)", "oklch(0.32 0.003 250)", "oklch(0.44 0.004 250)", "oklch(0.56 0.004 250)", "oklch(0.68 0.004 250)", "oklch(0.79 0.003 250)", "oklch(0.90 0.002 250)", "oklch(1.00 0 0)"]
+      },
+      "fg-soft": { "role": "neutral", "displayName": "Soft Text", "canonical": "#c6cdd4" },
+      "fg-muted": { "role": "neutral", "displayName": "Muted Text", "canonical": "#aab4bc" },
+      "fg-subtle": { "role": "neutral", "displayName": "Subtle Text", "canonical": "#9ba1a6" },
+      "border": { "role": "neutral", "displayName": "Hairline Border", "canonical": "rgba(255,255,255,0.1)" },
+      "border-subtle": { "role": "neutral", "displayName": "Hairline Border Subtle", "canonical": "rgba(255,255,255,0.08)" },
+      "zone-rest": {
+        "role": "tertiary",
+        "displayName": "Rest Grey",
+        "canonical": "#64748b",
+        "tonalRamp": ["oklch(0.20 0.02 255)", "oklch(0.30 0.03 255)", "oklch(0.40 0.03 255)", "oklch(0.50 0.03 255)", "oklch(0.58 0.03 255)", "oklch(0.70 0.025 255)", "oklch(0.82 0.02 255)", "oklch(0.93 0.01 255)"]
+      },
+      "zone-building": {
+        "role": "tertiary",
+        "displayName": "Building Blue",
+        "canonical": "#38bdf8",
+        "tonalRamp": ["oklch(0.22 0.05 230)", "oklch(0.33 0.08 230)", "oklch(0.44 0.10 230)", "oklch(0.55 0.12 230)", "oklch(0.66 0.13 230)", "oklch(0.78 0.13 230)", "oklch(0.87 0.09 230)", "oklch(0.95 0.04 230)"]
+      },
+      "zone-optimal": {
+        "role": "tertiary",
+        "displayName": "Optimal Green",
+        "canonical": "#34d399",
+        "tonalRamp": ["oklch(0.22 0.06 165)", "oklch(0.33 0.09 165)", "oklch(0.44 0.11 165)", "oklch(0.55 0.13 165)", "oklch(0.66 0.14 165)", "oklch(0.77 0.15 165)", "oklch(0.87 0.10 165)", "oklch(0.95 0.05 165)"]
+      },
+      "zone-max": {
+        "role": "tertiary",
+        "displayName": "Max Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["oklch(0.25 0.06 70)", "oklch(0.36 0.09 70)", "oklch(0.47 0.12 70)", "oklch(0.58 0.14 70)", "oklch(0.68 0.15 70)", "oklch(0.77 0.16 70)", "oklch(0.87 0.11 70)", "oklch(0.95 0.05 70)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Page Title", "purpose": "The single H1 per page, via PageHeader with an eyebrow above." },
+      "headline": { "displayName": "Section", "purpose": "Section H2s, 40px top margin." },
+      "title": { "displayName": "Card Title", "purpose": "Card and list-item titles." },
+      "body": { "displayName": "Body", "purpose": "Body copy and input text." },
+      "label": { "displayName": "Nav / Label", "purpose": "Nav items, tab labels, button text." },
+      "eyebrow": { "displayName": "Eyebrow", "purpose": "Uppercase label above page titles and section headers." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "hover-brighten", "value": "transition: color 150ms, background-color 150ms, border-color 150ms", "purpose": "The only ambient motion: interactive elements brighten and icons/titles shift toward accent on hover." },
+      { "name": "focus-ring", "value": "outline: 2px solid var(--color-accent-strong); outline-offset: 2px", "purpose": "Always-visible keyboard focus ring." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action per view — the place energy concentrates.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/></svg>Start session</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--color-accent, #0092ff); color: #fff; font-size: 14px; font-weight: 500; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; transition: background-color 150ms; } .ds-btn-primary:hover { background: var(--color-accent-strong, #118cfd); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-accent-strong, #118cfd); outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Filled Card",
+      "kind": "card",
+      "refersTo": "card-filled",
+      "description": "Hero grid tile: icon on top, surface background, whole card is the click target; icon and title shift to accent on hover.",
+      "html": "<a class=\"ds-card-filled\" href=\"#\"><svg class=\"ds-card-filled__icon\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.4 14.4 9.6 9.6\"/><path d=\"M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z\"/><path d=\"m21.5 21.5-1.4-1.4\"/><path d=\"M3.9 3.9 2.5 2.5\"/><path d=\"M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z\"/></svg><div class=\"ds-card-filled__title\">Current block</div><div class=\"ds-card-filled__desc\">Week 2 of 6 · upper/lower split</div></a>",
+      "css": ".ds-card-filled { display: flex; flex-direction: column; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 24px; text-decoration: none; transition: border-color 150ms; } .ds-card-filled__icon { color: #aab4bc; transition: color 150ms; } .ds-card-filled__title { margin-top: 12px; font-size: 16px; font-weight: 600; color: #fff; transition: color 150ms; } .ds-card-filled__desc { margin-top: 4px; font-size: 16px; line-height: 22.4px; color: #aab4bc; } .ds-card-filled:hover .ds-card-filled__icon, .ds-card-filled:hover .ds-card-filled__title { color: var(--color-accent, #0092ff); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Recessed field: canvas background below the surrounding surface, subtle border, accent border on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Bodyweight (kg)\" />",
+      "css": ".ds-input { width: 100%; background: var(--color-canvas, #0b0c0d); color: #fff; font-size: 16px; line-height: 24px; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; outline: none; transition: border-color 150ms; } .ds-input::placeholder { color: #9ba1a6; } .ds-input:focus { border-color: var(--color-accent, #0092ff); }"
+    },
+    {
+      "name": "Callout",
+      "kind": "custom",
+      "refersTo": "callout",
+      "description": "Info banner with a 3px accent-strong left bar on a faint blue wash; sits directly under the page header.",
+      "html": "<div class=\"ds-callout\" role=\"note\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4\"/><path d=\"M12 8h.01\"/></svg><div>Miss a session and the week reflows automatically — you accept, hold, or edit the plan.</div></div>",
+      "css": ".ds-callout { display: flex; gap: 12px; background: rgba(17,140,253,0.05); border-left: 3px solid var(--color-accent-strong, #118cfd); border-radius: 2px; padding: 20px; font-size: 16px; color: #fff; } .ds-callout svg { flex-shrink: 0; margin-top: 2px; color: var(--color-accent-strong, #118cfd); }"
+    },
+    {
+      "name": "Workspace Nav Row",
+      "kind": "nav",
+      "refersTo": "nav-item-neutral-active",
+      "description": "Column-1 workspace nav row (neutral appearance) shown in its active state.",
+      "html": "<a class=\"ds-nav-neutral ds-nav-neutral--active\" href=\"#\" aria-current=\"page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/><path d=\"M9 22V12h6v10\"/></svg><span>Home</span></a>",
+      "css": ".ds-nav-neutral { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 14px; color: #aab4bc; border-radius: 6px; text-decoration: none; transition: color 150ms, background-color 150ms; } .ds-nav-neutral:hover { color: #fff; } .ds-nav-neutral--active { background: rgba(255,255,255,0.075); color: #fff; }"
+    },
+    {
+      "name": "Contextual Nav Row",
+      "kind": "nav",
+      "refersTo": "nav-item-accent-active",
+      "description": "Column-2 contextual list row (accent appearance) shown active: selection wash + accent text.",
+      "html": "<a class=\"ds-nav-accent ds-nav-accent--active\" href=\"#\" aria-current=\"page\"><span>Week 2</span></a>",
+      "css": ".ds-nav-accent { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 16px; color: #aab4bc; border-radius: 8px; text-decoration: none; transition: color 150ms, background-color 150ms; } .ds-nav-accent:hover { color: #fff; } .ds-nav-accent--active { background: rgba(0,146,255,0.09); color: var(--color-accent, #0092ff); }"
+    },
+    {
+      "name": "Page Header",
+      "kind": "custom",
+      "refersTo": "display",
+      "description": "Top of every content page: uppercase eyebrow, 39px H1, hairline divider.",
+      "html": "<header class=\"ds-page-header\"><div class=\"ds-eyebrow\">Training</div><h1 class=\"ds-page-title\">This week</h1><hr class=\"ds-divider\" /></header>",
+      "css": ".ds-page-header { display: flex; flex-direction: column; gap: 12px; } .ds-eyebrow { font-size: 12px; font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase; color: #c6cdd4; } .ds-page-title { font-size: 39px; line-height: 50px; font-weight: 600; color: #fff; margin: 0; } .ds-divider { margin-top: 24px; border: none; border-top: 1px solid rgba(255,255,255,0.1); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Training Command Center",
+    "overview": "Mesodapt is a quiet, dark instrument panel for the self-coached athlete. At rest, everything is measured and calm — near-black canvas, translucent surfaces, one type family, borders drawn in whisper-thin white alpha. The interface's job is to hold a lot of training intelligence without ever feeling loud, so the athlete can read their whole situation at a glance and act. The single blue accent is the one live signal on the board; its scarcity is what gives it authority. Energy is concentrated, not distributed: the visual world stays restrained precisely so the moments that matter — the next session, a plan proposal to accept, a completed set, a PR — land with force. Components lean tactile and energetic as their intended direction; the current build is more restrained (flat, hover-brighten only), so treat that energy as the direction to build toward from the flat baseline.",
+    "keyCharacteristics": [
+      "Near-black canvas (#0b0c0d) with translucent white surfaces — depth by tone, never shadow.",
+      "A single blue accent (#0092ff), used scarcely and reserved for interactive/active state.",
+      "One type family (Geist); hierarchy from size and weight, no typeface switching.",
+      "Borders are white-alpha hairlines, never solid gray.",
+      "A separate data-viz zone palette (grey → blue → green → amber) reserved strictly for data.",
+      "Three-column app shell: workspace nav · contextual list · scrollable 756px content."
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "The primary accent marks interactive or active state and nothing else. If two elements on a screen both wear accent, one is probably wrong.", "section": "colors" },
+      { "name": "The No New Hex Rule", "body": "Never introduce a raw color. If a design needs a shade the tokens don't have, add a semantic token (--color-<role>) first, then use it.", "section": "colors" },
+      { "name": "The Data-Only Zone Rule", "body": "The zone-* palette never touches chrome. If a green or amber appears on a button, border, or label, it's a bug — those hues mean data.", "section": "colors" },
+      { "name": "The One Family Rule", "body": "Every heading and body string is Geist. Hierarchy comes from size and weight — reaching for a second typeface is off-system.", "section": "typography" },
+      { "name": "The One H1 Rule", "body": "Exactly one page title per page, always via PageHeader, always with an uppercase eyebrow above it. The eyebrow is never bold and never accent-colored.", "section": "typography" },
+      { "name": "The No-Shadow Rule", "body": "No box-shadow for elevation anywhere in the dark UI. If something needs to feel raised, step it up the surface tone ladder (surface → surface-raised), don't shadow it.", "section": "elevation" },
+      { "name": "The Alpha-Border Rule", "body": "Every border and divider is white with alpha (10% for border, 8% for border-subtle). Solid gray borders look muddy on the canvas — never use them.", "section": "elevation" },
+      { "name": "The Concentrated Glass Rule", "body": "Planned material (not yet built): liquid glass is a signature material for the moments that matter, never a global skin. Apply it to elevated, decision-carrying surfaces — the accept-gate dialog, the Now/next-session card, a floating top nav — and never to data-dense regions where refraction hurts legibility and zone-* colors must read true. Scarcity is also a performance requirement.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use tokens by role (text-fg-muted, bg-surface), never raw hex — add a semantic token before introducing any new color.",
+      "Do keep the accent scarce: reserve #0092ff for interactive/active state and the one primary action per view.",
+      "Do express elevation by stepping the surface tone (surface → surface-raised); keep everything flat otherwise.",
+      "Do draw all borders in white alpha (10% / 8%).",
+      "Do concentrate energy at decision moments — the next-session CTA, an accept-the-plan action, a logged PR.",
+      "Do use the zone-* palette for data marks only, -soft fills for large regions and full-strength for small marks.",
+      "Do render every page's H1 through PageHeader with an uppercase eyebrow above it."
+    ],
+    "donts": [
+      "Don't add box-shadow for elevation — shadows read as smudges on the dark canvas.",
+      "Don't put a second accent on screen; if two elements both wear blue, one is wrong.",
+      "Don't let the zone-* green/amber/blue touch chrome (buttons, borders, labels) — those hues mean data.",
+      "Don't switch typefaces for hierarchy; Geist does everything, size and weight carry the levels.",
+      "Don't use solid gray borders, filled Lucide icons, mixed icon families, or emoji as icons.",
+      "Don't use fg-subtle (#9ba1a6) for critical information — it's for supporting labels only."
+    ]
+  }
+}
