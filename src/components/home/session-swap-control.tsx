@@ -39,7 +39,7 @@ export function SessionSwapControl({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-4 inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg"
+        className="mt-4 inline-flex items-center gap-2 rounded-control border border-border-subtle px-3 py-2 text-nav text-fg-soft transition-colors hover:border-border hover:text-fg"
       >
         <RefreshCw className="size-4" aria-hidden /> Swap session
       </button>

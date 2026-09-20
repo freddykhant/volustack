@@ -24,7 +24,7 @@ export function NextSessionCard({
   const shown = exercises.slice(0, 4).join(" · ");
   const more = exercises.length > 4 ? ` · +${exercises.length - 4}` : "";
   return (
-    <div className="rounded-card border border-border bg-surface p-6">
+    <div className="rounded-card border border-border bg-surface-raised p-8">
       <div className="text-eyebrow font-medium text-fg-soft">Next session</div>
       <div className="mt-2 flex items-baseline gap-2">
         <span className="text-section text-fg">{session.label}</span>
@@ -39,7 +39,7 @@ export function NextSessionCard({
       </div>
       <Link
         href={`/app/block/week/${weekIndex}`}
-        className="mt-5 inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2 text-nav font-medium text-white transition-colors hover:bg-accent-strong"
+        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-control bg-accent px-5 py-3 text-list font-medium text-white transition-colors hover:bg-accent-strong sm:w-auto sm:justify-start"
       >
         <Dumbbell className="size-4" aria-hidden />
         Start session
