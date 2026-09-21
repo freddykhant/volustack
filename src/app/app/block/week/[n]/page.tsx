@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { SessionPanel } from "~/components/block/session-panel";
-import { WeeklyCheckInEntry } from "~/components/checkin/weekly-checkin-entry";
+import { WeeklyCheckInFlow } from "~/components/checkin/weekly-checkin-flow";
 import { zoneFor } from "~/components/viz/zone";
 import { requireCurrentBlock } from "~/server/mesocycle/current-block";
 
@@ -31,7 +31,7 @@ export default async function WeekDetail({ params }: { params: Promise<{ n: stri
         </div>
       </header>
       <div className="px-6 pt-6">
-        <WeeklyCheckInEntry weekIndex={week.index} />
+        <WeeklyCheckInFlow weekIndex={week.index} />
       </div>
       <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
         {week.sessions.map((s) => (

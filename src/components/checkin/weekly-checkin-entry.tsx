@@ -3,8 +3,9 @@
 import { api } from "~/trpc/react";
 
 /** End-of-week entry point. Renders only when the week is resolved and no terminal
- * progression decision exists yet. Accent CTA (scarce). onOpen wired in Task 9. */
-export function WeeklyCheckInEntry({ weekIndex, onOpen }: { weekIndex: number; onOpen?: () => void }) {
+ * progression decision exists yet. Accent CTA (scarce). `onOpen` is supplied by
+ * WeeklyCheckInFlow, which mounts this as its internal trigger. */
+export function WeeklyCheckInEntry({ weekIndex, onOpen }: { weekIndex: number; onOpen: () => void }) {
   const q = api.checkin.getWeeklyCheckIn.useQuery({ weekIndex });
   const view = q.data;
   if (!view) return null;
@@ -29,8 +30,7 @@ export function WeeklyCheckInEntry({ weekIndex, onOpen }: { weekIndex: number; o
       </p>
       <button
         type="button"
-        // eslint-disable-next-line @typescript-eslint/no-empty-function -- placeholder no-op; wired in Task 9
-        onClick={onOpen ?? (() => {})}
+        onClick={onOpen}
         className="mt-4 inline-flex items-center gap-2 rounded-control bg-accent px-5 py-3 text-list font-medium text-white transition-colors hover:bg-accent-strong"
       >
         {submitted ? "See proposal" : "Check in"}
