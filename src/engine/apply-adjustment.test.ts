@@ -58,7 +58,7 @@ describe("weekPlanFromAdjustment", () => {
 
     // session ids preserved from `upcoming` (not synthetic distribute ids)
     expect(result.sessions.map((s) => s.slotId)).toEqual(upcoming.sessions.map((s) => s.slotId));
-    expect(result.appliesToWeekIndex ?? result.index).toBe(3);
+    expect(result.index).toBe(3);
     // chest volume moved up toward the adjusted target
     expect(result.muscleVolume.CHEST).toBeGreaterThan(upcoming.muscleVolume.CHEST);
     // untouched muscle keeps a sane (non-negative) volume
