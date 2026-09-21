@@ -1,5 +1,6 @@
 import { nextSession } from "~/views/next-session";
 import { rollUpStatus } from "~/components/viz/roll-up-status";
+import { WeeklyCheckInEntry } from "~/components/checkin/weekly-checkin-entry";
 import { NextSessionCard } from "~/components/home/next-session-card";
 import { TrainingStatusCard } from "~/components/home/training-status-card";
 import { CoachCard } from "~/components/home/coach-card";
@@ -31,6 +32,8 @@ export default async function NowHome() {
           <ReadinessChip readiness={mockReadiness} />
         </div>
       </header>
+
+      <WeeklyCheckInEntry weekIndex={block.currentWeekIndex} />
 
       <NextSessionCard
         session={session}
