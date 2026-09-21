@@ -68,7 +68,7 @@ export function derivePerformance(
   for (const m of trained) {
     if (!targetMuscles.has(m)) continue; // only muscles the engine tracks
     const list = scores.get(m);
-    out.set(m, list && list.length ? Math.floor(list.reduce((a, b) => a + b, 0) / list.length) : undefined);
+    out.set(m, list?.length ? Math.floor(list.reduce((a, b) => a + b, 0) / list.length) : undefined);
   }
   return out;
 }
