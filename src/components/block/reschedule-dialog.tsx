@@ -81,18 +81,18 @@ export function RescheduleDialog({
       >
         <div className="flex items-baseline justify-between">
           <h2 id="reschedule-title" className="text-card-title text-fg">
-            Missed this session?
+            Missed it? Let’s adjust.
           </h2>
           <button type="button" onClick={onClose} className="text-nav text-fg-subtle hover:text-fg">
             Close
           </button>
         </div>
         <p id="reschedule-desc" className="mt-1 text-nav text-fg-muted">
-          Choose how to handle the volume you missed.
+          Here’s how we can recover the volume — your call.
         </p>
 
         <div className="mt-4 flex flex-col gap-2">
-          {options.isLoading && <p className="text-nav text-fg-subtle">Working out your options…</p>}
+          {options.isLoading && <p className="text-nav text-fg-subtle">Finding your best options…</p>}
           {options.isError && (
             <div className="rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">
               <p>Couldn’t load your options. {options.error.message}</p>

@@ -35,9 +35,17 @@ function StatusBadge({ status }: { status: SessionView["status"] }) {
 }
 
 function defaultRows(session: SessionView): SetRow[][] {
-  return session.prescriptions.map((p) =>
-    Array.from({ length: Math.max(p.sets, 1) }, () => ({ weight: "", reps: "", rir: "" })),
-  );
+  return session.prescriptions.map((p) => {
+    // Pre-fill from what was logged so a COMPLETED session can be corrected.
+    if (p.loggedSets && p.loggedSets.length > 0) {
+      return p.loggedSets.map((l) => ({
+        weight: String(l.weightKg),
+        reps: String(l.reps),
+        rir: l.achievedRir === null ? "" : String(l.achievedRir),
+      }));
+    }
+    return Array.from({ length: Math.max(p.sets, 1) }, () => ({ weight: "", reps: "", rir: "" }));
+  });
 }
 
 export function SessionPanel({ session }: { session: SessionView }) {
@@ -241,6 +249,16 @@ export function SessionPanel({ session }: { session: SessionView }) {
                 <CalendarX className="size-4" aria-hidden /> Mark missed
               </button>
             </div>
+          ) : session.status === "COMPLETED" ? (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg"
+              >
+                <PencilLine className="size-4" aria-hidden /> Edit log
+              </button>
+            </div>
           ) : null}
           <RescheduleDialog sessionId={session.slotId} open={rescheduling} onClose={() => setRescheduling(false)} />
         </>
@@ -264,9 +282,14 @@ function LogRows({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-nav text-fg">{p.exerciseName}</span>
-        <button type="button" onClick={onFill} className="text-[12px] text-fg-subtle hover:text-fg">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-nav text-fg">{p.exerciseName}</span>
+          <span className="text-[12px] text-fg-subtle">
+            target {p.repRangeLow}–{p.repRangeHigh} reps @ {p.targetRir} RIR
+          </span>
+        </div>
+        <button type="button" onClick={onFill} className="shrink-0 text-[12px] text-fg-subtle hover:text-fg">
           fill down
         </button>
       </div>
