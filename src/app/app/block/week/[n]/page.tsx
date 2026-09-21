@@ -20,10 +20,11 @@ export default async function WeekDetail({ params }: { params: Promise<{ n: stri
         <Link href="/app/block" className="mb-2 inline-flex items-center gap-1 text-nav text-fg-muted hover:text-fg">
           <ChevronLeft className="size-4" /> Block
         </Link>
-        <h1 className="text-section text-fg">
-          {week.isDeload ? "Deload week" : `Week ${week.index}`} · {week.sessions.length} sessions · {week.totalSets} total sets
-        </h1>
-        <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+        <h1 className="text-section text-fg">{week.isDeload ? "Deload week" : `Week ${week.index}`}</h1>
+        <div className="mt-1 text-nav text-fg-muted">
+          {week.sessions.length} sessions · {week.totalSets} total sets
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
           <span className="rounded-pill bg-zone-optimal-soft px-2 py-0.5 text-fg-soft">{optimal} muscles optimal</span>
           {nearMax > 0 ? <span className="rounded-pill bg-zone-max-soft px-2 py-0.5 text-fg-soft">{nearMax} near MRV</span> : null}
         </div>
