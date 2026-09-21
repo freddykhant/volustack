@@ -12,7 +12,7 @@ export interface LoggedSetView {
   achievedRir: number | null;
 }
 
-export type ReadinessLabel = "Fresh" | "Productive" | "Fatigued" | "Overreaching";
+export type ReadinessLabel = "Fresh" | "Productive" | "Fatigued" | "Overreaching" | "Building";
 
 export interface ReadinessPoint {
   weekIndex: number; // 1-based, aligned to the block's weeks

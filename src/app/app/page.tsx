@@ -18,7 +18,7 @@ export default async function NowHome() {
   const readinessPoint =
     mockReadiness.series.find((p) => p.weekIndex === mockReadiness.currentWeekIndex) ??
     mockReadiness.series[mockReadiness.series.length - 1];
-  const readinessLabel = readinessPoint ? readinessState(readinessPoint.form) : undefined;
+  const readinessLabel = readinessPoint ? readinessState(readinessPoint) : undefined;
 
   return (
     <div className="flex flex-col gap-6">

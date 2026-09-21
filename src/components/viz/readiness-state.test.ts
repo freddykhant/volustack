@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { readinessState } from "~/components/viz/readiness-state";
+import { readinessState, FITNESS_FLOOR } from "./readiness-state";
 
 describe("readinessState", () => {
-  it("bands Form top-down, first match wins", () => {
-    expect(readinessState(10)).toBe("Fresh");
-    expect(readinessState(5)).toBe("Fresh"); // boundary
-    expect(readinessState(0)).toBe("Productive");
-    expect(readinessState(-10)).toBe("Productive"); // boundary
-    expect(readinessState(-12)).toBe("Fatigued");
-    expect(readinessState(-25)).toBe("Fatigued"); // boundary
-    expect(readinessState(-30)).toBe("Overreaching");
+  it("returns Building when fitness is below the floor", () => {
+    expect(readinessState({ fitness: FITNESS_FLOOR - 0.1, form: 0 })).toBe("Building");
+  });
+  it("bands on form/fitness percentage", () => {
+    expect(readinessState({ fitness: 10, form: 1 })).toBe("Fresh"); // +10%
+    expect(readinessState({ fitness: 10, form: 0 })).toBe("Productive"); // 0%
+    expect(readinessState({ fitness: 10, form: -2 })).toBe("Fatigued"); // -20%
+    expect(readinessState({ fitness: 10, form: -4 })).toBe("Overreaching"); // -40%
+  });
+  it("uses inclusive lower boundaries (+5% Fresh, -10% Productive, -30% Fatigued)", () => {
+    expect(readinessState({ fitness: 100, form: 5 })).toBe("Fresh");
+    expect(readinessState({ fitness: 100, form: -10 })).toBe("Productive");
+    expect(readinessState({ fitness: 100, form: -30 })).toBe("Fatigued");
   });
 });

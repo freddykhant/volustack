@@ -10,6 +10,7 @@ const DOT: Record<ReadinessLabel, string> = {
   Productive: "bg-zone-building",
   Fatigued: "bg-zone-rest",
   Overreaching: "bg-zone-max",
+  Building: "bg-fg-muted",
 };
 
 export function ReadinessChip({ readiness }: { readiness: ReadinessView }) {
@@ -17,7 +18,7 @@ export function ReadinessChip({ readiness }: { readiness: ReadinessView }) {
     readiness.series.find((p) => p.weekIndex === readiness.currentWeekIndex) ??
     readiness.series[readiness.series.length - 1];
   if (!current) return null;
-  const state = readinessState(current.form);
+  const state = readinessState(current);
   return (
     <Link
       href="/app/readiness"

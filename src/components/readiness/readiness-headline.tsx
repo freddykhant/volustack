@@ -1,4 +1,4 @@
-import { readinessState } from "~/components/viz/readiness-state";
+import { readinessState, FITNESS_FLOOR } from "~/components/viz/readiness-state";
 import type { ReadinessView } from "~/views/types";
 
 export function ReadinessHeadline({ readiness }: { readiness: ReadinessView }) {
@@ -6,7 +6,9 @@ export function ReadinessHeadline({ readiness }: { readiness: ReadinessView }) {
     readiness.series.find((p) => p.weekIndex === readiness.currentWeekIndex) ??
     readiness.series[readiness.series.length - 1];
   if (!current) return null;
-  const state = readinessState(current.form);
+  const state = readinessState(current);
+  const pct =
+    current.fitness >= FITNESS_FLOOR ? Math.round((current.form / current.fitness) * 100) : null;
   return (
     <div className="rounded-card border border-border bg-surface p-6">
       <div className="text-eyebrow font-medium text-fg-soft">Readiness</div>
@@ -26,7 +28,7 @@ export function ReadinessHeadline({ readiness }: { readiness: ReadinessView }) {
         <div>
           <div className="text-eyebrow font-medium text-fg-soft">Form</div>
           <div className="mt-1 text-section text-fg tabular-nums">
-            {current.form > 0 ? `+${current.form}` : current.form}
+            {pct === null ? "—" : pct > 0 ? `+${pct}%` : `${pct}%`}
           </div>
         </div>
       </div>
