@@ -271,6 +271,24 @@ export const checkinRouter = createTRPCRouter({
       const newPlan = weekPlanFromAdjustment(spec, EXERCISE_LIBRARY, adj, upcomingPlan);
 
       await ctx.db.$transaction(async (tx) => {
+        // Atomic concurrency gate: claim the PROPOSED row FIRST, inside the tx.
+        // The outer `pending` check above is only a friendly sequential guard —
+        // it can't stop two concurrent applyProgression calls (double-click, two
+        // tabs) from both reading status=PROPOSED before either commits. Flipping
+        // PROPOSED→APPLIED here and requiring exactly one row claimed means only
+        // one concurrent caller can proceed past this point; the loser's update
+        // matches 0 rows and the tx rolls back before any plan mutation. The same
+        // race with rejectProgression is closed the same way: whichever of
+        // apply/reject flips the row first wins, and the other's updateMany finds
+        // nothing.
+        const claimed = await tx.decisionLog.updateMany({
+          where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
+          data: { status: "APPLIED", summary: `Week ${input.weekIndex} progression applied to week ${upcoming.index}` },
+        });
+        if (claimed.count !== 1) {
+          throw new TRPCError({ code: "CONFLICT", message: "This proposal was already applied or withdrawn — please refresh." });
+        }
+
         // Guard: week N+1's sessions must still be SCHEDULED (nothing logged into them).
         const scheduled = await tx.trainingSession.count({
           where: { id: { in: upcomingPlan.sessions.map((s) => s.slotId) }, status: "SCHEDULED" },
@@ -279,10 +297,6 @@ export const checkinRouter = createTRPCRouter({
           throw new TRPCError({ code: "CONFLICT", message: "A session changed while you were reviewing — please try again." });
         }
         await applyWeekPlanToDb(tx, upcoming.id, newPlan);
-        await tx.decisionLog.updateMany({
-          where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
-          data: { status: "APPLIED", summary: `Week ${input.weekIndex} progression applied to week ${upcoming.index}` },
-        });
       }, { timeout: 15000 });
 
       return { appliesToWeekIndex: view.appliesToWeekIndex };
