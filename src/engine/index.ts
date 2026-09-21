@@ -6,6 +6,7 @@ export { sessionMinutes } from "./time";
 export { stepWeek } from "./step-week";
 export { evaluateDeload } from "./deload";
 export { redistributeWeek } from "./redistribute";
+export { weekPlanFromAdjustment } from "./apply-adjustment";
 export type { DecisionFact } from "./facts";
 export type {
   AthleteContext,

@@ -5,6 +5,7 @@ import {
   type AdaptationContext,
   type AthleteContext,
   type MuscleVolumeMap,
+  type ResolvedSpec,
   type WeekPlan,
 } from "~/engine";
 import { MUSCLE_GROUPS, type ConstraintSetInput } from "~/schema";
@@ -92,4 +93,14 @@ export function adaptationContextFrom(
     isBeginner: spec.isBeginner,
     library: EXERCISE_LIBRARY,
   };
+}
+
+/** Re-resolve a stored constraint set to the engine's ResolvedSpec (needed by the
+ * progression apply path, which re-distributes with overridden targets). */
+export function resolvedSpecFrom(cs: ConstraintSetWithTargets, athlete: AthleteContext): ResolvedSpec {
+  const spec = resolveConstraints(constraintSetInputFromRow(cs), athlete);
+  if (spec.kind !== "resolved") {
+    throw new Error("resolvedSpecFrom: stored constraint set re-resolved as infeasible.");
+  }
+  return spec;
 }

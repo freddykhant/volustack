@@ -1,24 +1,19 @@
 // src/engine/generate.ts
 import type { ExerciseDef } from "~/domain/exercise-library";
 import {
-  COMPOUND_REPS,
-  COMPOUND_RIR,
   DELOAD_FRACTION,
-  DELOAD_RIR,
-  ISOLATION_REPS,
-  ISOLATION_RIR,
   PER_SET_MIN,
   RAMP_START_FRACTION,
 } from "./constants";
 import { distributeVolume } from "./distribute";
 import type { DecisionFact } from "./facts";
+import { prescribe } from "./prescribe";
 import { buildSessionSlots } from "./split";
 import { sessionMinutes } from "./time";
 import type {
   ExerciseAssignment,
   LandmarkMap,
   MesocyclePlan,
-  PrescriptionPlan,
   ResolvedSpec,
   SessionPlan,
   WeekPlan,
@@ -102,19 +97,6 @@ export function generateMesocycle(
     }
   }
 
-  function prescribe(a: ExerciseAssignment, isDeload: boolean): PrescriptionPlan {
-    const iso = byName.get(a.exerciseName)?.movementPattern === "ISOLATION";
-    const reps = iso ? ISOLATION_REPS : COMPOUND_REPS;
-    const rir = isDeload ? DELOAD_RIR : iso ? ISOLATION_RIR : COMPOUND_RIR;
-    return {
-      exerciseName: a.exerciseName,
-      sets: a.sets,
-      repRangeLow: reps.low,
-      repRangeHigh: reps.high,
-      targetRir: rir,
-    };
-  }
-
   /** Clamp a muscle's WEEK-AGGREGATED volume down to its effective MRV by trimming
    * isolation sets. Called on accumulation weeks only (deload never exceeds MRV). */
   function clampToMrv(assignments: ExerciseAssignment[], weekIndex: number): void {
@@ -185,7 +167,7 @@ export function generateMesocycle(
     const sessions: SessionPlan[] = scaledSessions.map((s) => ({
       slotId: s.slotId,
       label: s.label,
-      prescriptions: s.exercises.map((a) => prescribe(a, isDeload)),
+      prescriptions: s.exercises.map((a) => prescribe(a, library, isDeload)),
       estimatedMinutes: sessionMinutes(s.exercises),
     }));
 
