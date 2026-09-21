@@ -22,11 +22,13 @@ export function ProgressionProposalDialog({
   onAccept,
   onReject,
   isPending,
+  errorMessage,
 }: {
   proposal: ProgressionProposalView;
   onAccept: () => void;
   onReject: () => void;
   isPending: boolean;
+  errorMessage?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusTo = useRef<HTMLElement | null>(null);
@@ -96,6 +98,10 @@ export function ProgressionProposalDialog({
               ))
             )}
           </div>
+        ) : null}
+
+        {errorMessage ? (
+          <p className="mt-3 rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">{errorMessage}</p>
         ) : null}
 
         <div className="mt-5 flex items-center justify-end gap-2">
