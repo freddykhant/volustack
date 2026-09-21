@@ -1,4 +1,5 @@
 import type { MuscleGroup } from "~/schema";
+import type { StepCause } from "~/engine";
 
 export type Zone = "rest" | "building" | "optimal" | "max";
 
@@ -118,4 +119,33 @@ export interface MesocycleView {
   priorityMuscles: MuscleGroup[]; // show a ▲ marker
   weeks: WeekView[];
   coachNotes: CoachNote[];
+}
+
+export type WeeklyCheckInStatus = "NOT_READY" | "READY" | "SUBMITTED" | "APPLIED" | "REJECTED";
+
+export interface WeeklyCheckInView {
+  weekIndex: number;
+  eligible: boolean;
+  trainedMuscles: MuscleGroup[];
+  status: WeeklyCheckInStatus;
+  existing?: { muscle: MuscleGroup; recovery: number; joint: number }[];
+}
+
+export type ProgressionProposalKind = "CHANGES" | "DELOAD_HOLD" | "BLOCK_END";
+
+export interface MuscleProposalView {
+  muscle: MuscleGroup;
+  plannedSets: number;
+  adjustedSets: number;
+  delta: number;
+  cause: StepCause;
+  swapCandidate: boolean;
+}
+
+export interface ProgressionProposalView {
+  fromWeekIndex: number;
+  appliesToWeekIndex: number;
+  kind: ProgressionProposalKind;
+  advisory?: string;
+  adjustments: MuscleProposalView[];
 }
