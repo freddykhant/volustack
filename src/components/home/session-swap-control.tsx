@@ -19,7 +19,7 @@ export function SessionSwapControl({
   if (chosen) {
     return (
       <div className="mt-4 flex items-center justify-between rounded-control border border-border-subtle px-3 py-2 text-nav text-fg-soft">
-        <span>Swapped to {chosen.label} · still fits your plan</span>
+        <span>Swapped to {chosen.label} — still right on plan.</span>
         <button
           type="button"
           onClick={() => {

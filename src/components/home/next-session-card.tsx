@@ -16,7 +16,7 @@ export function NextSessionCard({
     return (
       <div className="rounded-card border border-border bg-surface p-6">
         <div className="text-eyebrow font-medium text-fg-soft">Next session</div>
-        <div className="mt-2 text-card-title text-fg-muted">No session scheduled</div>
+        <div className="mt-2 text-card-title text-fg-muted">Nothing on deck — recovery is training too.</div>
       </div>
     );
   }
@@ -42,7 +42,7 @@ export function NextSessionCard({
         className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-control bg-accent px-5 py-3 text-list font-medium text-white transition-colors hover:bg-accent-strong sm:w-auto sm:justify-start"
       >
         <Dumbbell className="size-4" aria-hidden />
-        Start session
+        {"Let's train"}
         <ArrowRight className="size-4" aria-hidden />
       </Link>
       {session.swapOptions && session.swapOptions.length > 0 ? (
