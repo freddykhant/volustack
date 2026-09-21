@@ -237,7 +237,7 @@ export function SessionPanel({ session }: { session: SessionView }) {
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg"
+                className="inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2 text-nav font-medium text-white transition-colors hover:bg-accent-strong"
               >
                 <PencilLine className="size-4" aria-hidden /> Log session
               </button>
