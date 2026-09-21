@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { api } from "~/trpc/server";
-import type { MesocycleView } from "~/views/types";
+import type { MesocycleView, ReadinessView } from "~/views/types";
 
 /**
  * The signed-in athlete's current block, fetched at most once per request.
@@ -23,3 +23,8 @@ export async function requireCurrentBlock(): Promise<MesocycleView> {
   if (!block) redirect("/onboarding");
   return block;
 }
+
+/** The signed-in athlete's readiness, fetched at most once per request. */
+export const readiness = cache(
+  async (): Promise<ReadinessView> => api.readiness.getReadiness(),
+);

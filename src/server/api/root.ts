@@ -2,6 +2,7 @@ import { checkinRouter } from "~/server/api/routers/checkin";
 import { healthRouter } from "~/server/api/routers/health";
 import { mesocycleRouter } from "~/server/api/routers/mesocycle";
 import { onboardingRouter } from "~/server/api/routers/onboarding";
+import { readinessRouter } from "~/server/api/routers/readiness";
 import { sessionRouter } from "~/server/api/routers/session";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   onboarding: onboardingRouter,
   session: sessionRouter,
   checkin: checkinRouter,
+  readiness: readinessRouter,
 });
 
 // export type definition of API

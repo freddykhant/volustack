@@ -7,7 +7,9 @@ export { stepWeek } from "./step-week";
 export { evaluateDeload } from "./deload";
 export { redistributeWeek } from "./redistribute";
 export { weekPlanFromAdjustment } from "./apply-adjustment";
+export { sessionStimulus, computeReadiness } from "./readiness";
 export type { DecisionFact } from "./facts";
+export type { LoadEvent, WeekEnd, ReadinessSample, ReadinessOpts } from "./readiness";
 export type {
   AthleteContext,
   LandmarkMap,
