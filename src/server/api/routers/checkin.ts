@@ -242,6 +242,18 @@ export const checkinRouter = createTRPCRouter({
       const userId = ctx.session.user.id;
       const loaded = await loadCheckInContext(ctx.db, userId, input.weekIndex);
 
+      // Accept-gate precondition: a proposal must still be PROPOSED (not already
+      // applied, rejected, or superseded) before we recompute + mutate week N+1.
+      // Without this, a second applyProgression call (or a call after reject)
+      // would still pass the SCHEDULED guard below — applyWeekPlanToDb never
+      // touches TrainingSession.status — and would silently re-mutate the plan.
+      const pending = await ctx.db.decisionLog.findFirst({
+        where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      if (!pending) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending proposal to apply." });
+
       const checkIn = await ctx.db.checkIn.findFirst({
         where: { weekId: loaded.week.id, scope: "WEEK" },
         select: { muscleFeedback: { select: { muscle: true, recovery: true, jointStress: true } } },
@@ -282,6 +294,16 @@ export const checkinRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }): Promise<{ ok: true }> => {
       const userId = ctx.session.user.id;
       const loaded = await loadCheckInContext(ctx.db, userId, input.weekIndex);
+
+      // Same accept-gate precondition as applyProgression: nothing to decline if
+      // there's no PROPOSED decision (already applied, already rejected, or none).
+      const pending = await ctx.db.decisionLog.findFirst({
+        where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      if (!pending) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending proposal to decline." });
+
       await ctx.db.decisionLog.updateMany({
         where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
         data: { status: "REJECTED" },
