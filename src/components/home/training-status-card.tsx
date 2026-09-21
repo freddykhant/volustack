@@ -16,6 +16,13 @@ const STRIP: Record<Zone, string> = {
 
 const ORDER: Zone[] = ["rest", "building", "optimal", "max"];
 
+const ZONE_WORD: Record<Zone, string> = {
+  rest: "recovering",
+  building: "building",
+  optimal: "optimal",
+  max: "overreaching",
+};
+
 export function TrainingStatusCard({ status }: { status: TrainingStatusView }) {
   return (
     <div className="rounded-card border border-border bg-surface p-6">
@@ -30,7 +37,13 @@ export function TrainingStatusCard({ status }: { status: TrainingStatusView }) {
           : `${status.inRange} of ${status.total} muscles in range`}
       </div>
       {status.total > 0 ? (
-        <div className="mt-4 flex h-2 overflow-hidden rounded-pill" aria-hidden>
+        <div
+          className="mt-4 flex h-2 overflow-hidden rounded-pill"
+          role="img"
+          aria-label={`Muscles by zone: ${ORDER.filter((z) => status.counts[z] > 0)
+            .map((z) => `${status.counts[z]} ${ZONE_WORD[z]}`)
+            .join(", ")}`}
+        >
           {ORDER.map((zone) =>
             status.counts[zone] > 0 ? (
               <div
