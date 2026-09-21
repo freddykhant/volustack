@@ -17,8 +17,7 @@ export function ReadinessChip({ readiness }: { readiness: ReadinessView }) {
   const current =
     readiness.series.find((p) => p.weekIndex === readiness.currentWeekIndex) ??
     readiness.series[readiness.series.length - 1];
-  if (!current) return null;
-  const state = readinessState(current);
+  const state = current ? readinessState(current) : "Building";
   return (
     <Link
       href="/app/readiness"
