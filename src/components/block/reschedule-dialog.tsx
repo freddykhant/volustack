@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 
@@ -20,22 +21,90 @@ export function RescheduleDialog({
       router.refresh();
     },
   });
+  const panelRef = useRef<HTMLDivElement>(null);
+  const restoreFocusTo = useRef<HTMLElement | null>(null);
+
+  // Modal keyboard contract: focus moves into the dialog on open, Escape
+  // closes it, Tab is trapped inside, and focus returns to the trigger on
+  // close. Without this a keyboard/SR user can tab out into the page behind.
+  useEffect(() => {
+    if (!open) return;
+    restoreFocusTo.current = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key === "Tab" && panelRef.current) {
+        const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0]!;
+        const last = focusables[focusables.length - 1]!;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      restoreFocusTo.current?.focus();
+    };
+  }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-md rounded-card border border-border bg-canvas p-6">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reschedule-title"
+        aria-describedby="reschedule-desc"
+        className="w-full max-w-md rounded-card border border-border bg-canvas p-6 outline-none"
+      >
         <div className="flex items-baseline justify-between">
-          <h2 className="text-card-title text-fg">Missed this session?</h2>
+          <h2 id="reschedule-title" className="text-card-title text-fg">
+            Missed this session?
+          </h2>
           <button type="button" onClick={onClose} className="text-nav text-fg-subtle hover:text-fg">
             Close
           </button>
         </div>
-        <p className="mt-1 text-nav text-fg-muted">Choose how to handle the volume you missed.</p>
+        <p id="reschedule-desc" className="mt-1 text-nav text-fg-muted">
+          Choose how to handle the volume you missed.
+        </p>
 
         <div className="mt-4 flex flex-col gap-2">
           {options.isLoading && <p className="text-nav text-fg-subtle">Working out your options…</p>}
+          {options.isError && (
+            <div className="rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">
+              <p>Couldn’t load your options. {options.error.message}</p>
+              <button
+                type="button"
+                onClick={() => void options.refetch()}
+                className="mt-1 text-nav font-medium text-accent transition-colors hover:text-accent-strong"
+              >
+                Try again
+              </button>
+            </div>
+          )}
           {options.data?.map((o) => (
             <button
               key={o.kind}
