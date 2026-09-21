@@ -40,4 +40,16 @@ describe("derivePerformance", () => {
     expect(out.has("HAMSTRINGS")).toBe(false);
     expect(out.get("CHEST")).toBe(2);
   });
+  it("scores 1 when in-range reps but RIR is loose", () => {
+    const week: WeekForPerformance = { prescriptions: [rx("Bench Press", { low: 8, high: 12, rir: 2 }, [{ reps: 10, achievedRir: 4 }])] };
+    expect(derivePerformance(week, targets, lib).get("CHEST")).toBe(1);
+  });
+  it("scores 1 when reps overshoot but RIR is very loose", () => {
+    const week: WeekForPerformance = { prescriptions: [rx("Bench Press", { low: 8, high: 12, rir: 2 }, [{ reps: 15, achievedRir: 4 }])] };
+    expect(derivePerformance(week, targets, lib).get("CHEST")).toBe(1);
+  });
+  it("scores 2 when reps overshoot but RIR is acceptable", () => {
+    const week: WeekForPerformance = { prescriptions: [rx("Bench Press", { low: 8, high: 12, rir: 2 }, [{ reps: 15, achievedRir: 3 }])] };
+    expect(derivePerformance(week, targets, lib).get("CHEST")).toBe(2);
+  });
 });

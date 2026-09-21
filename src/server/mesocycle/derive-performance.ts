@@ -29,8 +29,8 @@ function scorePrescription(rx: PrescriptionWithLogs): number | null {
   const rirOk = (slack: number) => rx.targetRir === null || medRir === null || medRir <= rx.targetRir + slack;
 
   if (medReps >= rx.targetRepHigh && rirOk(0)) return 3;
-  if (medReps >= rx.targetRepLow && medReps <= rx.targetRepHigh && rirOk(1)) return 2;
-  if ((medReps >= rx.targetRepLow && medReps <= rx.targetRepHigh) || medReps >= rx.targetRepLow - 2) return 1;
+  if (medReps >= rx.targetRepLow && rirOk(1)) return 2;
+  if (medReps >= rx.targetRepLow - 2) return 1;
   return 0;
 }
 
