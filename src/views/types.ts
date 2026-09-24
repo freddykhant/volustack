@@ -149,3 +149,18 @@ export interface ProgressionProposalView {
   advisory?: string;
   adjustments: MuscleProposalView[];
 }
+
+export interface DeloadMuscleRow {
+  muscle: MuscleGroup;
+  plannedSets: number;
+  deloadedSets: number;
+  delta: number; // deloadedSets − plannedSets (≤ 0)
+}
+
+export interface DeloadProposalView {
+  kind: "DELOAD";
+  fromWeekIndex: number;
+  appliesToWeekIndex: number;
+  fatiguedMuscles: MuscleGroup[];
+  rows: DeloadMuscleRow[];
+}
