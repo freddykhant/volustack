@@ -8,6 +8,7 @@ export { evaluateDeload } from "./deload";
 export { redistributeWeek } from "./redistribute";
 export { weekPlanFromAdjustment } from "./apply-adjustment";
 export { sessionStimulus, computeReadiness } from "./readiness";
+export { deloadWeekPlan } from "./deload-week";
 export type { DecisionFact } from "./facts";
 export type { LoadEvent, WeekEnd, ReadinessSample, ReadinessOpts } from "./readiness";
 export type {
