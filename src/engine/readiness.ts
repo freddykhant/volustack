@@ -81,7 +81,7 @@ export function computeReadiness(
 export function weeklyRecoverySignal(recoveries: (number | null)[]): number | null {
   const present = recoveries.filter((r): r is number => r !== null);
   if (present.length === 0) return null;
-  const worst = [...present].sort((a, b) => a - b).slice(0, RECOVERY_WORST_N);
+  const worst = present.sort((a, b) => a - b).slice(0, RECOVERY_WORST_N);
   return worst.reduce((sum, r) => sum + r, 0) / worst.length;
 }
 

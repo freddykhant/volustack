@@ -94,6 +94,13 @@ describe("blendRecovery", () => {
     expect(blendRecovery(base, new Map([[1, null]]))).toEqual(base);
   });
 
+  it("pass-through week is returned referentially unchanged (no re-rounding)", () => {
+    const samples: ReadinessSample[] = [{ weekIndex: 5, fitness: 1.44, fatigue: 0.96, form: 0.5 }];
+    const out = blendRecovery(samples, new Map()); // week 5 absent → no nudge
+    expect(out[0]).toBe(samples[0]); // same object reference, untouched
+    expect(out[0]!.form).toBe(0.5);  // computeReadiness's original form preserved verbatim
+  });
+
   it("preserves form === round1(fitness - fatigue) on every output", () => {
     const samples: ReadinessSample[] = [
       { weekIndex: 1, fitness: 17.3, fatigue: 9.1, form: 8.2 },
