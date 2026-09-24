@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { computeReadiness, sessionStimulus, type LoadEvent, type WeekEnd } from "./readiness";
+import {
+  computeReadiness,
+  sessionStimulus,
+  weeklyRecoverySignal,
+  type LoadEvent,
+  type WeekEnd,
+} from "./readiness";
 
 describe("sessionStimulus", () => {
   it("weights sets by RIR (null→0.7, ≤1→1.0, ≤3→0.7, ≥4→0.4)", () => {
@@ -37,5 +43,25 @@ describe("computeReadiness", () => {
     // fitness present at week 1, still decaying (not zero) by week 3
     expect(out[0]!.fitness).toBeGreaterThan(0);
     expect(out[2]!.fitness).toBeGreaterThan(0);
+  });
+});
+
+describe("weeklyRecoverySignal", () => {
+  it("averages the two least-recovered muscles (worst-biased)", () => {
+    expect(weeklyRecoverySignal([0, 1, 2, 3])).toBeCloseTo(0.5); // worst two: 0,1
+  });
+
+  it("averages all when fewer than RECOVERY_WORST_N muscles reported", () => {
+    expect(weeklyRecoverySignal([3, 1])).toBeCloseTo(2); // both count
+    expect(weeklyRecoverySignal([2])).toBeCloseTo(2);
+  });
+
+  it("ignores nulls", () => {
+    expect(weeklyRecoverySignal([null, 2, null, 0])).toBeCloseTo(1); // worst two of {2,0}: 0,2
+  });
+
+  it("returns null when no muscle reported a value", () => {
+    expect(weeklyRecoverySignal([null, null])).toBeNull();
+    expect(weeklyRecoverySignal([])).toBeNull();
   });
 });

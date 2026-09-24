@@ -1,4 +1,5 @@
 import { round1 } from "./util";
+import { RECOVERY_WORST_N } from "./constants";
 
 /** Weight-agnostic per-set stimulus weight by proximity to failure. */
 function setWeight(achievedRir: number | null): number {
@@ -73,4 +74,13 @@ export function computeReadiness(
     }
   }
   return weekEnds.map((w) => byWeek.get(w.weekIndex)).filter((s): s is ReadinessSample => s !== undefined);
+}
+
+/** Worst-biased weekly recovery: the mean of the RECOVERY_WORST_N least-recovered
+ * muscles (or all, if fewer). null when no muscle reported a recovery value. Pure. */
+export function weeklyRecoverySignal(recoveries: (number | null)[]): number | null {
+  const present = recoveries.filter((r): r is number => r !== null);
+  if (present.length === 0) return null;
+  const worst = [...present].sort((a, b) => a - b).slice(0, RECOVERY_WORST_N);
+  return worst.reduce((sum, r) => sum + r, 0) / worst.length;
 }
