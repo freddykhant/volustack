@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
-import type { ProgressionProposalView } from "~/views/types";
+import type { DeloadProposalView, ProgressionProposalView } from "~/views/types";
 import { WeeklyCheckInEntry } from "./weekly-checkin-entry";
 import { WeeklyCheckInGrid, type MuscleScore } from "./weekly-checkin-grid";
 import { ProgressionProposalDialog } from "./progression-proposal-dialog";
@@ -18,7 +18,7 @@ export function WeeklyCheckInFlow({ weekIndex }: { weekIndex: number }) {
   const q = api.checkin.getWeeklyCheckIn.useQuery({ weekIndex });
   const [stage, setStage] = useState<Stage>("closed");
   const [muscles, setMuscles] = useState<MuscleScore[]>([]);
-  const [proposal, setProposal] = useState<ProgressionProposalView | null>(null);
+  const [proposal, setProposal] = useState<ProgressionProposalView | DeloadProposalView | null>(null);
   const gridPanelRef = useRef<HTMLDivElement>(null);
   const gridRestoreFocusTo = useRef<HTMLElement | null>(null);
 
@@ -29,6 +29,12 @@ export function WeeklyCheckInFlow({ weekIndex }: { weekIndex: number }) {
     onSuccess: async () => { setStage("closed"); await utils.checkin.getWeeklyCheckIn.invalidate({ weekIndex }); router.refresh(); },
   });
   const reject = api.checkin.rejectProgression.useMutation({
+    onSuccess: async () => { setStage("closed"); await utils.checkin.getWeeklyCheckIn.invalidate({ weekIndex }); },
+  });
+  const applyDeload = api.checkin.applyDeload.useMutation({
+    onSuccess: async () => { setStage("closed"); await utils.checkin.getWeeklyCheckIn.invalidate({ weekIndex }); router.refresh(); },
+  });
+  const rejectDeload = api.checkin.rejectDeload.useMutation({
     onSuccess: async () => { setStage("closed"); await utils.checkin.getWeeklyCheckIn.invalidate({ weekIndex }); },
   });
 
@@ -100,10 +106,14 @@ export function WeeklyCheckInFlow({ weekIndex }: { weekIndex: number }) {
       {stage === "proposal" && proposal ? (
         <ProgressionProposalDialog
           proposal={proposal}
-          isPending={apply.isPending || reject.isPending}
-          onAccept={() => apply.mutate({ weekIndex })}
-          onReject={() => (proposal.kind === "CHANGES" ? reject.mutate({ weekIndex }) : setStage("closed"))}
-          errorMessage={apply.error?.message ?? reject.error?.message}
+          isPending={apply.isPending || reject.isPending || applyDeload.isPending || rejectDeload.isPending}
+          onAccept={() => (proposal.kind === "DELOAD" ? applyDeload.mutate({ weekIndex }) : apply.mutate({ weekIndex }))}
+          onReject={() => {
+            if (proposal.kind === "DELOAD") rejectDeload.mutate({ weekIndex });
+            else if (proposal.kind === "CHANGES") reject.mutate({ weekIndex });
+            else setStage("closed");
+          }}
+          errorMessage={apply.error?.message ?? reject.error?.message ?? applyDeload.error?.message ?? rejectDeload.error?.message}
         />
       ) : null}
     </>

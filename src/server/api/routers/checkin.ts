@@ -2,7 +2,14 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { EXERCISE_LIBRARY } from "~/domain/exercise-library";
 import { DEFAULT_LANDMARKS } from "~/domain/landmarks";
-import { stepWeek, weekPlanFromAdjustment, type AthleteContext, type CheckInFeedback } from "~/engine";
+import {
+  stepWeek,
+  weekPlanFromAdjustment,
+  evaluateDeload,
+  deloadWeekPlan,
+  type AthleteContext,
+  type CheckInFeedback,
+} from "~/engine";
 import type { MuscleGroup } from "~/schema";
 import { WeeklyCheckInInputSchema } from "~/schema";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -16,9 +23,16 @@ import {
   CS_WITH_TARGETS_INCLUDE,
   WEEK_FOR_PLAN_INCLUDE,
 } from "~/server/mesocycle/reschedule-adapters";
+import { weekOutcomesFromBlock, type WeekForOutcome } from "~/server/mesocycle/week-outcomes";
 import type { db as dbClient } from "~/server/db";
+import { toDeloadProposalView } from "~/views/deload";
 import { toProgressionProposalView } from "~/views/progression";
-import type { ProgressionProposalView, WeeklyCheckInStatus, WeeklyCheckInView } from "~/views/types";
+import type {
+  DeloadProposalView,
+  ProgressionProposalView,
+  WeeklyCheckInStatus,
+  WeeklyCheckInView,
+} from "~/views/types";
 
 type Db = typeof dbClient;
 
@@ -48,6 +62,10 @@ async function loadCheckInContext(db: Db, userId: string, weekIndex: number) {
                 },
               },
             },
+          },
+          checkIns: {
+            where: { scope: "WEEK" },
+            include: { muscleFeedback: true },
           },
         },
       },
@@ -131,6 +149,39 @@ function computeProposal(
   return { adj, view, upcoming };
 }
 
+/** Run the reactive-deload check for the just-resolved week. Returns the recommended
+ * deload proposal inputs, or null when no early deload is warranted (or N+1 is absent
+ * / already a deload). Deterministic — recomputed from history + the current week's
+ * feedback (injected, since submit loads before it persists). */
+function computeDeload(
+  ctxObjs: LoadedContext,
+  feedbackMuscles: { muscle: MuscleGroup; recovery: number; joint: number }[],
+) {
+  const { mesocycle, week, cs, athlete } = ctxObjs;
+  const upcoming = mesocycle.weeks.find((w) => w.index === week.index + 1);
+  if (!upcoming || upcoming.isDeload) return null;
+
+  const ctx = adaptationContextFrom(cs, athlete);
+  const plan = mesocyclePlanFromDb(mesocycle.weeks, cs.splitType);
+
+  // History up to and including the current week; inject the current week's fresh
+  // feedback so evaluateDeload counts it in the consecutive-fatigue window.
+  const currentFeedback: CheckInFeedback = {
+    weekIndex: week.index,
+    muscles: feedbackMuscles.map((m) => ({ muscle: m.muscle, recovery: m.recovery, joint: m.joint })),
+  };
+  const history = weekOutcomesFromBlock(mesocycle.weeks as unknown as WeekForOutcome[])
+    .filter((o) => o.weekIndex <= week.index)
+    .map((o) => (o.weekIndex === week.index ? { ...o, feedback: currentFeedback } : o));
+
+  const decision = evaluateDeload(plan, history, ctx);
+  if (decision.decision !== "recommend_early") return null;
+
+  const fact = decision.facts.find((f) => f.kind === "deload_recommended");
+  const fatiguedMuscles = fact && "muscles" in fact ? fact.muscles : [];
+  return { upcoming, fatiguedMuscles, facts: decision.facts };
+}
+
 export const checkinRouter = createTRPCRouter({
   // Eligibility + form scaffold. Mutates nothing.
   getWeeklyCheckIn: protectedProcedure
@@ -145,7 +196,7 @@ export const checkinRouter = createTRPCRouter({
         select: { muscleFeedback: { select: { muscle: true, recovery: true, jointStress: true } } },
       });
       const decision = await ctx.db.decisionLog.findFirst({
-        where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS" },
+        where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: { in: ["PROGRESS", "DELOAD"] } },
         orderBy: { createdAt: "desc" },
         select: { status: true },
       });
@@ -169,7 +220,7 @@ export const checkinRouter = createTRPCRouter({
   // Record truth + compute proposal. No plan mutation, no accept-gate.
   submitWeeklyCheckIn: protectedProcedure
     .input(WeeklyCheckInInputSchema)
-    .mutation(async ({ ctx, input }): Promise<ProgressionProposalView> => {
+    .mutation(async ({ ctx, input }): Promise<ProgressionProposalView | DeloadProposalView> => {
       const userId = ctx.session.user.id;
       const loaded = await loadCheckInContext(ctx.db, userId, input.weekIndex);
       if (!isResolved(loaded.week)) {
@@ -212,11 +263,42 @@ export const checkinRouter = createTRPCRouter({
         });
       }, { timeout: 15000 });
 
-      const { adj, view } = computeProposal(loaded, input.muscles);
-      // Record/refresh the PROPOSED decision (delete any prior non-terminal proposal first).
+      // Reactive deload supersedes progression: if consecutive-fatigue is detected,
+      // propose a deload for next week INSTEAD OF a progression.
+      const deload = computeDeload(loaded, input.muscles);
+      // Clear any prior non-terminal proposal of EITHER type for this week.
       await ctx.db.decisionLog.deleteMany({
-        where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
+        where: {
+          mesocycleId: loaded.mesocycle.id,
+          weekIndex: input.weekIndex,
+          type: { in: ["PROGRESS", "DELOAD"] },
+          status: "PROPOSED",
+        },
       });
+
+      if (deload) {
+        const spec = resolvedSpecFrom(loaded.cs, loaded.athlete);
+        const deloaded = deloadWeekPlan(spec, EXERCISE_LIBRARY, weekPlanFromDb(deload.upcoming));
+        await ctx.db.decisionLog.create({
+          data: {
+            mesocycleId: loaded.mesocycle.id,
+            weekIndex: input.weekIndex,
+            type: "DELOAD",
+            status: "PROPOSED",
+            summary: `Week ${input.weekIndex} check-in — early deload recommended`,
+            reasoning: "consecutive_fatigue",
+            payload: { fatiguedMuscles: deload.fatiguedMuscles, facts: deload.facts },
+          },
+        });
+        return toDeloadProposalView(
+          weekPlanFromDb(deload.upcoming),
+          deloaded,
+          deload.fatiguedMuscles,
+          input.weekIndex,
+        );
+      }
+
+      const { adj, view } = computeProposal(loaded, input.muscles);
       await ctx.db.decisionLog.create({
         data: {
           mesocycleId: loaded.mesocycle.id,
@@ -322,6 +404,73 @@ export const checkinRouter = createTRPCRouter({
         where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
         data: { status: "REJECTED" },
       });
+      return { ok: true };
+    }),
+
+  // Accept-gate commit: rebuild week N+1 as a deload. Recomputed deterministically.
+  applyDeload: protectedProcedure
+    .input(z.object({ weekIndex: z.number().int().min(1) }))
+    .mutation(async ({ ctx, input }): Promise<{ appliesToWeekIndex: number }> => {
+      const userId = ctx.session.user.id;
+      const loaded = await loadCheckInContext(ctx.db, userId, input.weekIndex);
+
+      const pending = await ctx.db.decisionLog.findFirst({
+        where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "DELOAD", status: "PROPOSED" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      if (!pending) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending deload to apply." });
+
+      // Determinism: recompute from the persisted check-in. loadCheckInContext ran
+      // AFTER submit persisted the check-in, so the current week's feedback is in
+      // `loaded` — but read it explicitly and pass it, mirroring computeProposal's
+      // contract (and so computeDeload's injection is a no-op that matches the DB).
+      const checkIn = await ctx.db.checkIn.findFirst({
+        where: { weekId: loaded.week.id, scope: "WEEK" },
+        select: { muscleFeedback: { select: { muscle: true, recovery: true, jointStress: true } } },
+      });
+      if (!checkIn) throw new TRPCError({ code: "BAD_REQUEST", message: "Check in first." });
+      const feedbackMuscles = checkIn.muscleFeedback.map((m) => ({ muscle: m.muscle, recovery: m.recovery ?? 0, joint: m.jointStress ?? 0 }));
+
+      const deload = computeDeload(loaded, feedbackMuscles);
+      if (!deload) throw new TRPCError({ code: "BAD_REQUEST", message: "A deload is no longer recommended." });
+
+      const spec = resolvedSpecFrom(loaded.cs, loaded.athlete);
+      const upcomingPlan = weekPlanFromDb(deload.upcoming);
+      const newPlan = deloadWeekPlan(spec, EXERCISE_LIBRARY, upcomingPlan);
+
+      await ctx.db.$transaction(async (tx) => {
+        const claimed = await tx.decisionLog.updateMany({
+          where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "DELOAD", status: "PROPOSED" },
+          data: { status: "APPLIED", summary: `Week ${input.weekIndex} early deload applied to week ${deload.upcoming.index}` },
+        });
+        if (claimed.count !== 1) {
+          throw new TRPCError({ code: "CONFLICT", message: "This deload was already applied or withdrawn — please refresh." });
+        }
+        const scheduled = await tx.trainingSession.count({
+          where: { id: { in: upcomingPlan.sessions.map((s) => s.slotId) }, status: "SCHEDULED" },
+        });
+        if (scheduled !== upcomingPlan.sessions.length) {
+          throw new TRPCError({ code: "CONFLICT", message: "A session changed while you were reviewing — please try again." });
+        }
+        await applyWeekPlanToDb(tx, deload.upcoming.id, newPlan);
+        await tx.week.update({ where: { id: deload.upcoming.id }, data: { isDeload: true } });
+      }, { timeout: 15000 });
+
+      return { appliesToWeekIndex: deload.upcoming.index };
+    }),
+
+  // Decline the deload. Plan untouched.
+  rejectDeload: protectedProcedure
+    .input(z.object({ weekIndex: z.number().int().min(1) }))
+    .mutation(async ({ ctx, input }): Promise<{ ok: true }> => {
+      const userId = ctx.session.user.id;
+      const loaded = await loadCheckInContext(ctx.db, userId, input.weekIndex);
+      const claimed = await ctx.db.decisionLog.updateMany({
+        where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "DELOAD", status: "PROPOSED" },
+        data: { status: "REJECTED" },
+      });
+      if (claimed.count !== 1) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending deload to decline." });
       return { ok: true };
     }),
 });
