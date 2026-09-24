@@ -1,5 +1,5 @@
 import { round1 } from "./util";
-import { RECOVERY_WORST_N } from "./constants";
+import { RECOVERY_NEUTRAL, RECOVERY_NUDGE_MAX_FRAC, RECOVERY_WORST_N } from "./constants";
 
 /** Weight-agnostic per-set stimulus weight by proximity to failure. */
 function setWeight(achievedRir: number | null): number {
@@ -83,4 +83,24 @@ export function weeklyRecoverySignal(recoveries: (number | null)[]): number | nu
   if (present.length === 0) return null;
   const worst = [...present].sort((a, b) => a - b).slice(0, RECOVERY_WORST_N);
   return worst.reduce((sum, r) => sum + r, 0) / worst.length;
+}
+
+/**
+ * Bounded, athlete-relative corrective nudge: each week's recovery signal bends
+ * that week's Fatigue (Form recomputed as fitness − fatigue'). Neutral at
+ * RECOVERY_NEUTRAL; worse recovery raises Fatigue (lower Form), better lowers it.
+ * Weeks absent from the map — or mapped to null — pass through unchanged (Law 2).
+ * fitness is never touched; form stays === round1(fitness − fatigue). Pure.
+ */
+export function blendRecovery(
+  samples: ReadinessSample[],
+  recoveryByWeek: Map<number, number | null>,
+): ReadinessSample[] {
+  return samples.map((s) => {
+    const r = recoveryByWeek.get(s.weekIndex);
+    if (r === undefined || r === null) return s;
+    const deviation = (RECOVERY_NEUTRAL - r) / RECOVERY_NEUTRAL; // r2→0, r0→+1, r3→−0.5
+    const fatigue = round1(s.fatigue + deviation * RECOVERY_NUDGE_MAX_FRAC * s.fitness);
+    return { weekIndex: s.weekIndex, fitness: s.fitness, fatigue, form: round1(s.fitness - fatigue) };
+  });
 }

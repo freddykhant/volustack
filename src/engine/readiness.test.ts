@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  blendRecovery,
   computeReadiness,
   sessionStimulus,
   weeklyRecoverySignal,
   type LoadEvent,
+  type ReadinessSample,
   type WeekEnd,
 } from "./readiness";
 
@@ -63,5 +65,45 @@ describe("weeklyRecoverySignal", () => {
   it("returns null when no muscle reported a value", () => {
     expect(weeklyRecoverySignal([null, null])).toBeNull();
     expect(weeklyRecoverySignal([])).toBeNull();
+  });
+});
+
+describe("blendRecovery", () => {
+  // load-form: fitness 20, fatigue 10, form 10
+  const base: ReadinessSample[] = [{ weekIndex: 1, fitness: 20, fatigue: 10, form: 10 }];
+
+  it("neutral recovery (2) is the identity", () => {
+    expect(blendRecovery(base, new Map([[1, 2]]))).toEqual(base);
+  });
+
+  it("wrecked (0) drops Form by ~15% of fitness (Fatigue up)", () => {
+    const [s] = blendRecovery(base, new Map([[1, 0]]));
+    expect(s!.fatigue).toBeCloseTo(13); // +0.15*20
+    expect(s!.form).toBeCloseTo(7); // 20 - 13
+    expect(s!.fitness).toBe(20); // untouched
+  });
+
+  it("fresh (3) lifts Form by ~7.5% of fitness (Fatigue down)", () => {
+    const [s] = blendRecovery(base, new Map([[1, 3]]));
+    expect(s!.fatigue).toBeCloseTo(8.5); // -0.5*0.15*20
+    expect(s!.form).toBeCloseTo(11.5);
+  });
+
+  it("passes weeks through unchanged when absent from the map or mapped to null", () => {
+    expect(blendRecovery(base, new Map())).toEqual(base);
+    expect(blendRecovery(base, new Map([[1, null]]))).toEqual(base);
+  });
+
+  it("preserves form === round1(fitness - fatigue) on every output", () => {
+    const samples: ReadinessSample[] = [
+      { weekIndex: 1, fitness: 17.3, fatigue: 9.1, form: 8.2 },
+      { weekIndex: 2, fitness: 22.6, fatigue: 14.4, form: 8.2 },
+    ];
+    const out = blendRecovery(samples, new Map([[1, 0], [2, 3]]));
+    for (const s of out) expect(s.form).toBeCloseTo(Math.round((s.fitness - s.fatigue) * 10) / 10);
+  });
+
+  it("returns [] for an empty series", () => {
+    expect(blendRecovery([], new Map([[1, 0]]))).toEqual([]);
   });
 });
