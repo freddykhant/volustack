@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ArrowRight, TriangleAlert } from "lucide-react";
-import type { ProgressionProposalView } from "~/views/types";
+import type { DeloadProposalView, ProgressionProposalView } from "~/views/types";
 
 const CAUSE_COPY: Record<string, string> = {
   responding_well: "responding well",
@@ -24,7 +24,7 @@ export function ProgressionProposalDialog({
   isPending,
   errorMessage,
 }: {
-  proposal: ProgressionProposalView;
+  proposal: ProgressionProposalView | DeloadProposalView;
   onAccept: () => void;
   onReject: () => void;
   isPending: boolean;
@@ -53,6 +53,47 @@ export function ProgressionProposalDialog({
     document.addEventListener("keydown", onKeyDown);
     return () => { document.removeEventListener("keydown", onKeyDown); restoreFocusTo.current?.focus(); };
   }, [onReject]);
+
+  if (proposal.kind === "DELOAD") {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={(e) => { if (e.target === e.currentTarget) onReject(); }}
+      >
+        <div
+          ref={panelRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="deload-title"
+          className="w-full max-w-md rounded-card border border-border bg-canvas p-6 outline-none"
+        >
+          <h2 id="deload-title" className="text-card-title text-fg">Time to back off?</h2>
+          <p className="mt-1 text-nav text-fg-muted">
+            You&apos;ve been deep in fatigue two weeks running — a deload next week protects your progress.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            {proposal.rows.map((r) => (
+              <div key={r.muscle} className="flex items-center justify-between rounded-control border border-border-subtle px-3 py-2 text-nav">
+                <span className="font-medium text-fg">{humanMuscle(r.muscle)}</span>
+                <span className="text-fg-subtle">
+                  {r.plannedSets} → {r.deloadedSets}{" "}
+                  <span className="text-zone-rest">{r.delta}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          {errorMessage ? (
+            <p className="mt-3 rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">{errorMessage}</p>
+          ) : null}
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button type="button" disabled={isPending} onClick={onReject} className="rounded-control border border-border px-4 py-2.5 text-nav text-fg-soft hover:text-fg disabled:opacity-60">Keep pushing</button>
+            <button type="button" disabled={isPending} onClick={onAccept} className="rounded-control bg-accent px-5 py-2.5 text-nav font-medium text-white hover:bg-accent-strong disabled:opacity-60">Accept deload</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const informational = proposal.kind !== "CHANGES";
   const title =
