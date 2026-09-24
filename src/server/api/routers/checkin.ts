@@ -266,30 +266,36 @@ export const checkinRouter = createTRPCRouter({
       // Reactive deload supersedes progression: if consecutive-fatigue is detected,
       // propose a deload for next week INSTEAD OF a progression.
       const deload = computeDeload(loaded, input.muscles);
-      // Clear any prior non-terminal proposal of EITHER type for this week.
-      await ctx.db.decisionLog.deleteMany({
-        where: {
-          mesocycleId: loaded.mesocycle.id,
-          weekIndex: input.weekIndex,
-          type: { in: ["PROGRESS", "DELOAD"] },
-          status: "PROPOSED",
-        },
-      });
 
       if (deload) {
         const spec = resolvedSpecFrom(loaded.cs, loaded.athlete);
         const deloaded = deloadWeekPlan(spec, EXERCISE_LIBRARY, weekPlanFromDb(deload.upcoming));
-        await ctx.db.decisionLog.create({
-          data: {
-            mesocycleId: loaded.mesocycle.id,
-            weekIndex: input.weekIndex,
-            type: "DELOAD",
-            status: "PROPOSED",
-            summary: `Week ${input.weekIndex} check-in — early deload recommended`,
-            reasoning: "consecutive_fatigue",
-            payload: { fatiguedMuscles: deload.fatiguedMuscles, facts: deload.facts },
-          },
-        });
+        // Atomic: clearing any prior PROPOSED of either type and writing the new
+        // DELOAD proposal must commit together, or a concurrent submit (two tabs /
+        // a retried request) could interleave a DELOAD and a PROGRESS PROPOSED row
+        // coexisting — applyProgression/applyDeload each gate on their own type only,
+        // so both could then apply and double-mutate week N+1.
+        await ctx.db.$transaction(async (tx) => {
+          await tx.decisionLog.deleteMany({
+            where: {
+              mesocycleId: loaded.mesocycle.id,
+              weekIndex: input.weekIndex,
+              type: { in: ["PROGRESS", "DELOAD"] },
+              status: "PROPOSED",
+            },
+          });
+          await tx.decisionLog.create({
+            data: {
+              mesocycleId: loaded.mesocycle.id,
+              weekIndex: input.weekIndex,
+              type: "DELOAD",
+              status: "PROPOSED",
+              summary: `Week ${input.weekIndex} check-in — early deload recommended`,
+              reasoning: "consecutive_fatigue",
+              payload: { fatiguedMuscles: deload.fatiguedMuscles, facts: deload.facts },
+            },
+          });
+        }, { timeout: 15000 });
         return toDeloadProposalView(
           weekPlanFromDb(deload.upcoming),
           deloaded,
@@ -299,21 +305,32 @@ export const checkinRouter = createTRPCRouter({
       }
 
       const { adj, view } = computeProposal(loaded, input.muscles);
-      await ctx.db.decisionLog.create({
-        data: {
-          mesocycleId: loaded.mesocycle.id,
-          weekIndex: input.weekIndex,
-          type: "PROGRESS",
-          status: "PROPOSED",
-          summary: `Week ${input.weekIndex} check-in — progression proposed`,
-          reasoning: adj.checkInValue,
-          payload: {
-            adjustments: adj.adjustments.map((a) => ({ ...a })),
-            checkInValue: adj.checkInValue,
-            facts: adj.facts,
+      // Same atomicity requirement as the deload branch above.
+      await ctx.db.$transaction(async (tx) => {
+        await tx.decisionLog.deleteMany({
+          where: {
+            mesocycleId: loaded.mesocycle.id,
+            weekIndex: input.weekIndex,
+            type: { in: ["PROGRESS", "DELOAD"] },
+            status: "PROPOSED",
           },
-        },
-      });
+        });
+        await tx.decisionLog.create({
+          data: {
+            mesocycleId: loaded.mesocycle.id,
+            weekIndex: input.weekIndex,
+            type: "PROGRESS",
+            status: "PROPOSED",
+            summary: `Week ${input.weekIndex} check-in — progression proposed`,
+            reasoning: adj.checkInValue,
+            payload: {
+              adjustments: adj.adjustments.map((a) => ({ ...a })),
+              checkInValue: adj.checkInValue,
+              facts: adj.facts,
+            },
+          },
+        });
+      }, { timeout: 15000 });
       return view;
     }),
 
