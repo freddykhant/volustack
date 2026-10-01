@@ -313,8 +313,10 @@ submitWeeklyCheckIn (mutation)
   → toProgressionProposalView(...) → DecisionLog PROPOSED
 ```
 
-`getWeeklyCheckIn` passes the **persisted** verdicts into `computeProposal` and never
-asks. See §10 — this is what keeps its documented deterministic-rebuild contract true.
+**`applyProgression` passes the persisted verdicts into `computeProposal` and never asks.**
+That is the procedure that matters: it recomputes the proposal at accept time and writes
+the result to the plan (`checkin.ts:363`). `getWeeklyCheckIn` does not call
+`computeProposal` at all — it reads `DecisionLog.status`. See §10.1.
 
 ### 7.3 State projection
 
@@ -501,14 +503,18 @@ two questions — nothing depends on them.
 ### 10.1 The bug this fixes
 
 `computeProposal` (`checkin.ts:125`) is documented as *"Rebuild CheckInFeedback + stepWeek
-proposal deterministically from a persisted CheckIn's rows"* and is called from **both**
-`getWeeklyCheckIn` (read) and `submitWeeklyCheckIn` (write). It re-runs `stepWeek` on
-every read.
+proposal deterministically from a persisted CheckIn's rows"* and is called from exactly two
+places: `submitWeeklyCheckIn` (`checkin.ts:307`), which shows the athlete the proposal and
+persists `adj` into `DecisionLog.payload`, and `applyProgression` (`checkin.ts:363`), which
+**recomputes it from scratch** and builds the week plan that gets written.
 
-If a Jev verdict influenced a cause at submit time and were not persisted, every
-subsequent read would recompute a different proposal: the athlete would watch the
-recommendation change under them, and `applyProgression` would apply something other than
-what they accepted.
+So the proposal the athlete sees comes from submit, while the plan actually applied comes
+from a recomputation at accept time. Today that is safe precisely because every input is
+persisted (the `CheckIn` rows) and `stepWeek` is deterministic.
+
+Add a non-persisted Jev verdict and the two diverge — and the divergence is the one that
+writes to the plan: the athlete accepts what they were shown, and `applyProgression`
+applies something else.
 
 Seam 1 has the same shape — `getRescheduleOptions` is a query, so a React Query refetch
 would reshuffle which candidate is recommended mid-decision.
