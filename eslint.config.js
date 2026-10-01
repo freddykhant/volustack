@@ -55,7 +55,7 @@ export default tseslint.config(
           patterns: [
             { group: ["next", "next/*"], message: "Engine is pure: no Next.js imports." },
             { group: ["react", "react-dom"], message: "Engine is pure: no React imports." },
-            { group: ["@prisma/*", "~/generated/*", "~/server/*"], message: "Engine is pure: no DB/server imports." },
+            { group: ["@prisma/*", "~/generated/*", "~/server/*", "@typesafe-ai/sdk"], message: "Engine is pure: no DB/server/SDK imports." },
           ],
         },
       ],

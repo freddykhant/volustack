@@ -1,5 +1,6 @@
 // src/engine/facts.ts
 import type { MuscleGroup } from "~/schema";
+import type { JudgementBasis } from "./judgement";
 
 /**
  * Structured reasons attached to every engine output (Law 2's teeth). The LLM
@@ -23,4 +24,6 @@ export type DecisionFact =
   | { kind: "deload_scheduled"; atWeek: number }
   | { kind: "deload_recommended"; muscles: MuscleGroup[]; cause: "consecutive_fatigue" }
   | { kind: "redistributed"; muscle: MuscleGroup; sets: number; from: string; to: string }
-  | { kind: "dropped_volume"; muscle: MuscleGroup; sets: number; belowMev: boolean; cause: "missed_session" };
+  | { kind: "dropped_volume"; muscle: MuscleGroup; sets: number; belowMev: boolean; cause: "missed_session" }
+  | { kind: "judged"; subject: string; questionId: string; selected: string; deterministic: string; basis: JudgementBasis }
+  | { kind: "close_call"; subject: string; questionId: string; between: [string, string]; margin: number };

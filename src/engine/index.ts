@@ -10,6 +10,24 @@ export { weekPlanFromAdjustment } from "./apply-adjustment";
 export { sessionStimulus, computeReadiness, weeklyRecoverySignal, blendRecovery } from "./readiness";
 export { deloadWeekPlan } from "./deload-week";
 export type { DecisionFact } from "./facts";
+export {
+  verdictById,
+  isUsableChoice,
+  isUsableNoulProposal,
+  choiceCloseCall,
+  noulCloseCall,
+  trendOf,
+} from "./judgement";
+export type {
+  JudgementAuthority,
+  JudgementSubject,
+  JudgementQuestion,
+  JudgementRequest,
+  Verdict,
+  JudgementBasis,
+  JudgementFailure,
+  JudgementOutcome,
+} from "./judgement";
 export type { LoadEvent, WeekEnd, ReadinessSample, ReadinessOpts } from "./readiness";
 export type {
   AthleteContext,
