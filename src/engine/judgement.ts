@@ -14,8 +14,9 @@ export type JudgementAuthority = "ADVISORY" | "PROPOSAL";
 export type JudgementSubject = "reschedule" | "progression";
 
 /** Mirrors Jev's three primitives. Option descriptions may be null when the option
- * name speaks for itself. Question ids are for code only and are NOT sent to the
- * model — every question's full meaning must live in `instructions`. */
+ * name speaks for itself. Question ids are for code only: they ARE transmitted, as
+ * the wire `questions` map's keys, but are never presented to the model as question
+ * content — every question's full meaning must live in `instructions`. */
 export type JudgementQuestion =
   | {
       id: string;
@@ -63,9 +64,19 @@ export type JudgementFailure =
   | "overloaded"
   | "invalid_response";
 
+/** Non-sensitive diagnostic fields only — never the response body or headers, which
+ * may carry the state we sent or credential material. Populated when the client has
+ * something from the SDK's error to report beyond the collapsed `JudgementFailure`
+ * bucket (several distinct SDK error shapes currently collapse to "invalid_response"). */
+export interface JudgementFailureDetail {
+  name?: string;
+  status?: number;
+  requestId?: string;
+}
+
 export type JudgementOutcome =
   | { ok: true; verdicts: Verdict[]; model: string }
-  | { ok: false; reason: JudgementFailure };
+  | { ok: false; reason: JudgementFailure; detail?: JudgementFailureDetail };
 
 export function verdictById(verdicts: Verdict[], id: string): Verdict | undefined {
   return verdicts.find((v) => v.id === id);

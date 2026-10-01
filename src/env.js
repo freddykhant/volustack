@@ -18,7 +18,13 @@ export const env = createEnv({
       .enum(["development", "test", "production"])
       .default("development"),
     TYPESAFE_API_KEY: z.string().optional(),
-    JEV_MODEL: z.string().default("jev-1.13.0"),
+    // Pinned version only: "jev-1.13.0", never "jev-latest" or "jev-preview" —
+    // determinism (and the cache a later task adds) depends on the model never
+    // drifting out from under us without an explicit, reviewed bump.
+    JEV_MODEL: z
+      .string()
+      .regex(/^jev-\d+\.\d+\.\d+$/, "JEV_MODEL must be a pinned version, e.g. jev-1.13.0 (not jev-latest/jev-preview)")
+      .default("jev-1.13.0"),
   },
 
   /**
