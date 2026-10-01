@@ -47,3 +47,12 @@ export const MRV_PROXIMITY_SETS = 2;
  * recovery, sustained CONSECUTIVE_FATIGUE_WEEKS weeks. */
 export const CONSECUTIVE_FATIGUE_WEEKS = 2;
 export const FATIGUE_MUSCLE_THRESHOLD = 2;
+
+// ─── Readiness ↔ recovery blend (④-C-2) ───
+
+/** Recovery scale is 0=Wrecked … 3=Fresh; "Okay" (2) is the zero-nudge anchor. */
+export const RECOVERY_NEUTRAL = 2;
+/** Max fraction of `fitness` the recovery nudge can move Form (at recovery 0). */
+export const RECOVERY_NUDGE_MAX_FRAC = 0.15;
+/** # of least-recovered muscles averaged into the weekly signal (mirrors FATIGUE_MUSCLE_THRESHOLD). */
+export const RECOVERY_WORST_N = 2;

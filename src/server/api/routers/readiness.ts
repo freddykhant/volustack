@@ -1,6 +1,7 @@
-import { computeReadiness } from "~/engine";
+import { computeReadiness, blendRecovery } from "~/engine";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { readinessInputsFromBlock } from "~/server/mesocycle/readiness-inputs";
+import { recoveryByWeekFromBlock } from "~/server/mesocycle/recovery-by-week";
 import { currentWeekIndex } from "~/server/views/to-mesocycle-view";
 import { toReadinessView } from "~/views/readiness";
 import type { ReadinessView } from "~/views/types";
@@ -16,12 +17,17 @@ export const readinessRouter = createTRPCRouter({
         lengthWeeks: true,
         weeks: {
           select: {
+            index: true,
             sessions: {
               select: {
                 status: true,
                 completedAt: true,
                 prescriptions: { select: { setLogs: { select: { achievedRir: true } } } },
               },
+            },
+            checkIns: {
+              where: { scope: "WEEK" },
+              select: { scope: true, muscleFeedback: { select: { recovery: true } } },
             },
           },
         },
@@ -35,6 +41,8 @@ export const readinessRouter = createTRPCRouter({
     if (!inputs) return { series: [], currentWeekIndex: curIdx };
 
     const samples = computeReadiness(inputs.events, inputs.weekEnds);
-    return toReadinessView(samples, curIdx);
+    const recovery = recoveryByWeekFromBlock(block);
+    const blended = blendRecovery(samples, recovery);
+    return toReadinessView(blended, curIdx);
   }),
 });
