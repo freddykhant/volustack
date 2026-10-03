@@ -109,6 +109,9 @@ export function ProgressionProposalDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => { if (e.target === e.currentTarget) onReject(); }}>
       <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="prog-title" aria-describedby="prog-desc" className="w-full max-w-md rounded-card border border-border bg-canvas p-6 outline-none">
         <h2 id="prog-title" className="text-card-title text-fg">{title}</h2>
+        {proposal.kind === "CHANGES" && proposal.closeCall ? (
+          <p className="mt-1 text-[12px] text-fg-muted">Some of these were close calls — adjust if they don’t match how you felt.</p>
+        ) : null}
         <p id="prog-desc" className="mt-1 text-nav text-fg-muted">{subtitle}</p>
 
         {proposal.advisory ? (

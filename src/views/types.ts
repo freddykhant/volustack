@@ -148,6 +148,8 @@ export interface ProgressionProposalView {
   kind: ProgressionProposalKind;
   advisory?: string;
   adjustments: MuscleProposalView[];
+  /** At least one muscle's judgement was a near-tie. Undefined when clear or unjudged. */
+  closeCall?: boolean;
 }
 
 export interface DeloadMuscleRow {

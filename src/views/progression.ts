@@ -37,5 +37,6 @@ export function toProgressionProposalView(
         ? "A few muscles are near the ceiling — hold your form tight this week."
         : undefined,
     adjustments,
+    closeCall: adj.facts.some((f) => f.kind === "close_call") ? true : undefined,
   };
 }

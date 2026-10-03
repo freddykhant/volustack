@@ -7,8 +7,11 @@ import {
   weekPlanFromAdjustment,
   evaluateDeload,
   deloadWeekPlan,
+  applyProgressionVerdicts,
+  progressionQuestions,
   type AthleteContext,
   type CheckInFeedback,
+  type Verdict,
 } from "~/engine";
 import type { MuscleGroup } from "~/schema";
 import { WeeklyCheckInInputSchema } from "~/schema";
@@ -16,6 +19,8 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { applyWeekPlanToDb } from "~/server/mesocycle/apply-week-plan";
 import { derivePerformance, type WeekForPerformance } from "~/server/mesocycle/derive-performance";
 import { mesocyclePlanFromDb } from "~/server/mesocycle/mesocycle-plan-from-db";
+import { BLOCK_FOR_READINESS_SELECT, readinessSamplesFrom } from "~/server/mesocycle/readiness-samples";
+import { recoveryByWeekFromBlock } from "~/server/mesocycle/recovery-by-week";
 import {
   adaptationContextFrom,
   resolvedSpecFrom,
@@ -24,6 +29,7 @@ import {
   WEEK_FOR_PLAN_INCLUDE,
 } from "~/server/mesocycle/reschedule-adapters";
 import { weekOutcomesFromBlock, type WeekForOutcome } from "~/server/mesocycle/week-outcomes";
+import { executeJudgement } from "~/server/judgement/execute";
 import type { db as dbClient } from "~/server/db";
 import { toDeloadProposalView } from "~/views/deload";
 import { toProgressionProposalView } from "~/views/progression";
@@ -122,10 +128,61 @@ function toWeekForPerformance(week: LoadedWeek): WeekForPerformance {
   };
 }
 
-/** Rebuild CheckInFeedback + stepWeek proposal deterministically from a persisted CheckIn's rows. */
+/** The executor's db delegate, widened with the one `mesocycle` read
+ * `progressionVerdicts` performs for readiness/recovery context. `ctx.db` satisfies
+ * this structurally — no cast, no widening at call sites. */
+type ProgressionDb = Parameters<typeof executeJudgement>[0]["db"] & {
+  mesocycle: {
+    findUniqueOrThrow(args: {
+      where: { id: string };
+      select: typeof BLOCK_FOR_READINESS_SELECT;
+    }): Promise<Parameters<typeof readinessSamplesFrom>[0]>;
+  };
+};
+
+/** Ask (or replay) the progression judgement for this week. Both submit and apply call
+ * this, which is what keeps the proposal the athlete accepted identical to the plan that
+ * gets written: the Judgement row is keyed by mesocycleId + subject + state + questions,
+ * so the second caller replays the first caller's verdicts instead of asking again. */
+async function progressionVerdicts(
+  db: ProgressionDb,
+  ctxObjs: LoadedContext,
+  feedbackMuscles: { muscle: MuscleGroup; recovery: number; joint: number }[],
+): Promise<Verdict[]> {
+  const { mesocycle, week, cs, athlete } = ctxObjs;
+  const ctx = adaptationContextFrom(cs, athlete);
+  const perf = derivePerformance(toWeekForPerformance(week), ctx.targets, EXERCISE_LIBRARY);
+  const feedback: CheckInFeedback = {
+    weekIndex: week.index,
+    muscles: feedbackMuscles.map((m) => ({
+      muscle: m.muscle, recovery: m.recovery, joint: m.joint, performance: perf.get(m.muscle),
+    })),
+  };
+  const plan = mesocyclePlanFromDb(mesocycle.weeks, cs.splitType);
+  const base = stepWeek(plan, week.index, feedback, ctx);
+
+  const block = await db.mesocycle.findUniqueOrThrow({
+    where: { id: mesocycle.id },
+    select: BLOCK_FOR_READINESS_SELECT,
+  });
+  const request = progressionQuestions(
+    base, ctx, feedback, readinessSamplesFrom(block), recoveryByWeekFromBlock(block),
+  );
+  if (request.questions.length === 0) return [];
+
+  return executeJudgement({
+    db, mesocycleId: mesocycle.id, request,
+    fallback: { causes: base.adjustments.map((a) => ({ muscle: a.muscle, cause: a.cause })) },
+  });
+}
+
+/** Rebuild CheckInFeedback + stepWeek proposal deterministically from a persisted CheckIn's rows,
+ * then apply any judged verdicts for the ambiguous muscles on top. `verdicts` defaults to `[]`
+ * so every caller that doesn't thread them stays byte-identical to today's deterministic path. */
 function computeProposal(
   ctxObjs: LoadedContext,
   feedbackMuscles: { muscle: MuscleGroup; recovery: number; joint: number }[],
+  verdicts: Verdict[] = [],
 ) {
   const { mesocycle, week, cs, athlete } = ctxObjs;
   const ctx = adaptationContextFrom(cs, athlete);
@@ -140,7 +197,8 @@ function computeProposal(
     })),
   };
   const plan = mesocyclePlanFromDb(mesocycle.weeks, cs.splitType);
-  const adj = stepWeek(plan, week.index, feedback, ctx);
+  const base = stepWeek(plan, week.index, feedback, ctx);
+  const adj = applyProgressionVerdicts(base, ctx, verdicts);
   const upcoming = mesocycle.weeks.find((w) => w.index === week.index + 1);
   const view = toProgressionProposalView(adj, {
     hasUpcoming: upcoming !== undefined,
@@ -304,7 +362,8 @@ export const checkinRouter = createTRPCRouter({
         );
       }
 
-      const { adj, view } = computeProposal(loaded, input.muscles);
+      const verdicts = await progressionVerdicts(ctx.db, loaded, input.muscles);
+      const { adj, view } = computeProposal(loaded, input.muscles, verdicts);
       // Same atomicity requirement as the deload branch above.
       await ctx.db.$transaction(async (tx) => {
         await tx.decisionLog.deleteMany({
@@ -360,7 +419,8 @@ export const checkinRouter = createTRPCRouter({
       if (!checkIn) throw new TRPCError({ code: "BAD_REQUEST", message: "Check in first." });
 
       const feedbackMuscles = checkIn.muscleFeedback.map((m) => ({ muscle: m.muscle, recovery: m.recovery ?? 0, joint: m.jointStress ?? 0 }));
-      const { adj, view, upcoming } = computeProposal(loaded, feedbackMuscles);
+      const verdicts = await progressionVerdicts(ctx.db, loaded, feedbackMuscles);
+      const { adj, view, upcoming } = computeProposal(loaded, feedbackMuscles, verdicts);
       if (view.kind !== "CHANGES" || upcoming === undefined) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Nothing to apply for next week." });
       }
