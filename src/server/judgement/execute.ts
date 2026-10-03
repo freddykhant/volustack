@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 import type { JudgementOutcome, JudgementQuestion, JudgementRequest, Verdict } from "~/engine";
 import { canonicalJson, sha256 } from "./canonical";
-import { jevClient, type JudgementClient } from "./client";
+import { errorDetail, jevClient, type JudgementClient } from "./client";
 
 /** Only the delegate we touch, so tests can stub it and transactions can be passed. */
 export interface JudgementDb {
@@ -83,20 +83,47 @@ async function askChunked(
   if (chunks.length <= 1) return client.ask(request);
 
   const all: Verdict[] = [];
+  // Provenance uses the FIRST chunk's model: it is the one answering the first
+  // (and usually largest) share of questions, and pinning to it keeps a single
+  // judgement attributed to one model even if a later chunk drifts mid-flight.
   let model = "";
+  let modelSet = false;
   for (const questions of chunks) {
     const outcome = await client.ask({ ...request, questions });
     if (!outcome.ok) return outcome;
     all.push(...outcome.verdicts);
-    model = outcome.model;
+    if (!modelSet) {
+      model = outcome.model;
+      modelSet = true;
+    } else if (outcome.model !== model) {
+      // Not a failure — the batch still answers every question — but worth seeing:
+      // mid-judgement model drift (e.g. a deploy landing between chunk calls).
+      console.info(
+        JSON.stringify({
+          at: "judgement.model_drift", subject: request.subject,
+          first: model, later: outcome.model,
+        }),
+      );
+    }
   }
   return { ok: true, verdicts: all, model };
+}
+
+/** Logged in place of the raw value: `fallback` is unbounded caller data (for the
+ * progression seam, a per-muscle plan) and is already persisted in full in the row's
+ * `fallback` column, so the log only needs a size, not the content. */
+function summarizeFallback(value: unknown): unknown {
+  if (Array.isArray(value)) return { count: value.length };
+  if (value !== null && typeof value === "object") return { keys: Object.keys(value).length };
+  return value;
 }
 
 /**
  * Get-or-ask. The engine's deterministic result is always computed BEFORE this is
  * called, so every failure mode here simply returns `[]` and the appliers no-op.
- * There is no error path for the caller to handle — that is the whole fallback design.
+ * There is no error path for the caller to handle — that is the whole fallback design,
+ * so nothing below is allowed to throw: the outer try/catch is load-bearing, not
+ * defensive styling.
  */
 export async function executeJudgement(args: {
   db: JudgementDb;
@@ -107,61 +134,86 @@ export async function executeJudgement(args: {
   client?: JudgementClient;
 }): Promise<Verdict[]> {
   const { db, mesocycleId, request, fallback } = args;
-  const client = args.client ?? jevClient();
-  const stateHash = sha256(canonicalJson(request.state));
-  const questionsHash = sha256(canonicalJson(request.questions));
-  const where = {
-    mesocycleId_subject_stateHash_questionsHash: {
-      mesocycleId, subject: request.subject, stateHash, questionsHash,
-    },
-  };
+  // One seam legitimately produces zero questions. An empty batch would reach the
+  // SDK as a request with no questions, which is a guaranteed 422 — short-circuit
+  // before asking or touching the db.
+  if (request.questions.length === 0) return [];
 
-  const cached = await db.judgement.findUnique({ where, select: { verdicts: true } });
-  if (cached) return parseStored(cached.verdicts) ?? [];
+  try {
+    const client = args.client ?? jevClient();
+    const stateHash = sha256(canonicalJson(request.state));
+    const questionsHash = sha256(canonicalJson(request.questions));
+    const where = {
+      mesocycleId_subject_stateHash_questionsHash: {
+        mesocycleId, subject: request.subject, stateHash, questionsHash,
+      },
+    };
 
-  const started = Date.now();
-  const outcome = await askChunked(client, request);
-  const latencyMs = Date.now() - started;
+    const cached = await db.judgement.findUnique({ where, select: { verdicts: true } });
+    if (cached) return parseStored(cached.verdicts) ?? [];
 
-  if (!outcome.ok) {
-    // Infrastructure, not a judgement. No DecisionFact; logs only. `detail` is already
-    // narrowed to name/status/requestId — never the response body or headers, which
-    // may carry the state we sent or credential material — so it is safe to log
-    // verbatim, and it is what makes a 422 (WE built a bad request) findable in logs.
+    const started = Date.now();
+    const outcome = await askChunked(client, request);
+    const latencyMs = Date.now() - started;
+
+    if (!outcome.ok) {
+      // Infrastructure, not a judgement. No DecisionFact; logs only. `detail` is
+      // already narrowed to name/status/requestId — never the response body or
+      // headers, which may carry the state we sent or credential material — so it is
+      // safe to log verbatim, and it is what makes a 422 (WE built a bad request)
+      // findable in logs.
+      console.info(
+        JSON.stringify({
+          at: "judgement.failed", subject: request.subject, reason: outcome.reason,
+          detail: outcome.detail, questions: request.questions.length, latencyMs,
+        }),
+      );
+      return [];
+    }
+
     console.info(
       JSON.stringify({
-        at: "judgement.failed", subject: request.subject, reason: outcome.reason,
-        detail: outcome.detail, questions: request.questions.length, latencyMs,
+        at: "judgement.ok", subject: request.subject, model: outcome.model,
+        questions: request.questions.length, latencyMs,
+        confidences: outcome.verdicts.map((v) =>
+          v.kind === "noul" ? { id: v.id, noul: v.noul } : { id: v.id, confidence: v.confidence },
+        ),
+        fallbackSummary: summarizeFallback(fallback),
       }),
+    );
+
+    try {
+      await db.judgement.create({
+        data: {
+          mesocycleId, subject: request.subject, stateHash, questionsHash,
+          model: outcome.model,
+          verdicts: outcome.verdicts,
+          fallback: fallback ?? {},
+        },
+      });
+    } catch {
+      // Concurrent insert for the same key (two tabs, double-click). The other
+      // writer's row is equally valid — replay it so both callers see the same
+      // verdicts. But if the re-read comes back empty — a genuine write failure, or
+      // replica lag rather than a lost race — there is NO row backing these verdicts.
+      // Handing them back anyway is exactly the failure this module exists to
+      // prevent: a later replay could re-ask and get a different answer than what
+      // was "accepted". Return [] and let the caller's engine fallback take over.
+      const raced = await db.judgement.findUnique({ where, select: { verdicts: true } });
+      if (raced) return parseStored(raced.verdicts) ?? [];
+      return [];
+    }
+    return outcome.verdicts;
+  } catch (err) {
+    // Nothing above may propagate: a rejecting db call, a re-read that itself
+    // rejects, or canonicalJson/JSON.stringify throwing on circular or BigInt input
+    // in request.state/fallback (fallback is `unknown`) would otherwise escape a
+    // function whose entire contract is "never throws, caller has no error path".
+    // Same safe shape as `detail` elsewhere: name/status/requestId only, never a
+    // response body.
+    console.info(
+      JSON.stringify({ at: "judgement.error", subject: request.subject, detail: errorDetail(err) }),
     );
     return [];
   }
-
-  console.info(
-    JSON.stringify({
-      at: "judgement.ok", subject: request.subject, model: outcome.model,
-      questions: request.questions.length, latencyMs,
-      confidences: outcome.verdicts.map((v) =>
-        v.kind === "noul" ? { id: v.id, noul: v.noul } : { id: v.id, confidence: v.confidence },
-      ),
-      fallback,
-    }),
-  );
-
-  try {
-    await db.judgement.create({
-      data: {
-        mesocycleId, subject: request.subject, stateHash, questionsHash,
-        model: outcome.model,
-        verdicts: outcome.verdicts,
-        fallback: fallback ?? {},
-      },
-    });
-  } catch {
-    // Concurrent insert for the same key (two tabs, double-click). The other writer's
-    // row is equally valid — replay it so both callers see the same verdicts.
-    const raced = await db.judgement.findUnique({ where, select: { verdicts: true } });
-    if (raced) return parseStored(raced.verdicts) ?? [];
-  }
-  return outcome.verdicts;
 }

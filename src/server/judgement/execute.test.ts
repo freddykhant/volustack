@@ -1,6 +1,6 @@
 // src/server/judgement/execute.test.ts
 import { describe, expect, it, vi } from "vitest";
-import type { JudgementRequest, Verdict } from "~/engine";
+import type { JudgementQuestion, JudgementRequest, Verdict } from "~/engine";
 import { chunkQuestions, executeJudgement, type JudgementDb } from "./execute";
 import { fakeClient } from "./fake";
 
@@ -113,5 +113,57 @@ describe("executeJudgement", () => {
       hashes.push(arg.data.questionsHash);
     }
     expect(hashes[0]).not.toBe(hashes[1]);
+  });
+
+  it("keys differently when question options change (not just instructions)", async () => {
+    const db = dbStub(null);
+    const hashes: string[] = [];
+    const choiceQuestion = request.questions[0]! as Extract<JudgementQuestion, { kind: "choice" }>;
+    const optionSets: Record<string, string | null>[] = [{ A: null }, { A: null, B: null }];
+    for (const options of optionSets) {
+      db.judgement.create.mockClear();
+      await executeJudgement({
+        db, mesocycleId: "m1",
+        request: { ...request, questions: [{ ...choiceQuestion, options }] },
+        fallback: null, client: fakeClient({ pick: verdict }),
+      });
+      const arg = db.judgement.create.mock.calls[0]![0] as { data: { questionsHash: string } };
+      hashes.push(arg.data.questionsHash);
+    }
+    expect(hashes[0]).not.toBe(hashes[1]);
+  });
+
+  it("returns [] without asking or touching the db when there are no questions", async () => {
+    const db = dbStub(null);
+    const client = fakeClient({ pick: verdict });
+    const spy = vi.spyOn(client, "ask");
+    const out = await executeJudgement({
+      db, mesocycleId: "m1",
+      request: { ...request, questions: [] },
+      fallback: null, client,
+    });
+    expect(out).toEqual([]);
+    expect(spy).not.toHaveBeenCalled();
+    expect(db.judgement.findUnique).not.toHaveBeenCalled();
+    expect(db.judgement.create).not.toHaveBeenCalled();
+  });
+
+  it("returns [] without throwing when findUnique rejects", async () => {
+    const db = dbStub(null);
+    db.judgement.findUnique.mockRejectedValueOnce(new Error("db unreachable"));
+    const out = await executeJudgement({
+      db, mesocycleId: "m1", request, fallback: null, client: fakeClient({ pick: verdict }),
+    });
+    expect(out).toEqual([]);
+  });
+
+  it("returns [] (never unpersisted verdicts) when create fails and the re-read also comes back empty", async () => {
+    const db = dbStub(null);
+    db.judgement.create.mockRejectedValueOnce(Object.assign(new Error("dup"), { code: "P2002" }));
+    db.judgement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    const out = await executeJudgement({
+      db, mesocycleId: "m1", request, fallback: null, client: fakeClient({ pick: verdict }),
+    });
+    expect(out).toEqual([]);
   });
 });
