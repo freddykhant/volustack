@@ -1,0 +1,20 @@
+{
+  "model": "jev-1.13.0",
+  "verdicts": [
+    {
+      "id": "reschedule_pick",
+      "kind": "choice",
+      "choice": "LET_GO",
+      "confidence": 0.67,
+      "probabilities": {
+        "LET_GO": 0.83,
+        "MAKE_UP": 0.17
+      }
+    },
+    {
+      "id": "overreaching",
+      "kind": "noul",
+      "noul": 0.88
+    }
+  ]
+}
