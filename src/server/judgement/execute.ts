@@ -31,7 +31,9 @@ const VerdictSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("score"), score: z.number(), confidence: z.number() }),
   z.object({ id: z.string(), kind: z.literal("noul"), noul: z.number() }),
 ]);
-const VerdictsSchema = z.array(VerdictSchema);
+/** Exported so any other seam persisting/reading back a Verdict[] (e.g. a DecisionLog
+ * payload) parses with the exact same shape this module trusts — one schema, not two. */
+export const VerdictsSchema = z.array(VerdictSchema);
 
 function parseStored(value: unknown): Verdict[] | null {
   const parsed = VerdictsSchema.safeParse(value);

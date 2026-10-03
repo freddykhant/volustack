@@ -9,9 +9,11 @@ import {
   deloadWeekPlan,
   applyProgressionVerdicts,
   progressionQuestions,
+  type AdaptationContext,
   type AthleteContext,
   type CheckInFeedback,
   type Verdict,
+  type WeekAdjustment,
 } from "~/engine";
 import type { MuscleGroup } from "~/schema";
 import { WeeklyCheckInInputSchema } from "~/schema";
@@ -29,7 +31,7 @@ import {
   WEEK_FOR_PLAN_INCLUDE,
 } from "~/server/mesocycle/reschedule-adapters";
 import { weekOutcomesFromBlock, type WeekForOutcome } from "~/server/mesocycle/week-outcomes";
-import { executeJudgement } from "~/server/judgement/execute";
+import { executeJudgement, VerdictsSchema } from "~/server/judgement/execute";
 import type { db as dbClient } from "~/server/db";
 import { toDeloadProposalView } from "~/views/deload";
 import { toProgressionProposalView } from "~/views/progression";
@@ -140,15 +142,16 @@ type ProgressionDb = Parameters<typeof executeJudgement>[0]["db"] & {
   };
 };
 
-/** Ask (or replay) the progression judgement for this week. Both submit and apply call
- * this, which is what keeps the proposal the athlete accepted identical to the plan that
- * gets written: the Judgement row is keyed by mesocycleId + subject + state + questions,
- * so the second caller replays the first caller's verdicts instead of asking again. */
-async function progressionVerdicts(
-  db: ProgressionDb,
+/** Build the deterministic WeekAdjustment (+ the feedback that fed it) from a persisted
+ * CheckIn's rows. Computed exactly ONCE per request and threaded by reference from there
+ * — `progressionVerdicts` asks the model against this `base`, and `computeProposal` later
+ * applies the answer back onto this SAME `base` object, never a second, independently
+ * rebuilt one. That is what keeps the question and the answer from silently decoupling
+ * if either caller's surrounding code changes later. */
+function buildBaseAdjustment(
   ctxObjs: LoadedContext,
   feedbackMuscles: { muscle: MuscleGroup; recovery: number; joint: number }[],
-): Promise<Verdict[]> {
+): { ctx: AdaptationContext; feedback: CheckInFeedback; base: WeekAdjustment } {
   const { mesocycle, week, cs, athlete } = ctxObjs;
   const ctx = adaptationContextFrom(cs, athlete);
   const perf = derivePerformance(toWeekForPerformance(week), ctx.targets, EXERCISE_LIBRARY);
@@ -160,6 +163,25 @@ async function progressionVerdicts(
   };
   const plan = mesocyclePlanFromDb(mesocycle.weeks, cs.splitType);
   const base = stepWeek(plan, week.index, feedback, ctx);
+  return { ctx, feedback, base };
+}
+
+/** Ask the progression judgement for this week, ONLY from `submitWeeklyCheckIn` — the
+ * verdicts this returns get persisted into the PROGRESS DecisionLog's payload in the same
+ * transaction as the proposal, and `applyProgression` reads them back from there (see
+ * `verdictsFromPayload`) rather than asking again. That persistence, not the Judgement
+ * table's cache key, is what guarantees the athlete sees and accepts the exact verdicts
+ * that get applied: the cache key is derived from a state projection (readiness trends)
+ * that a later re-logged session can shift between submit and accept, which would
+ * otherwise either ask fresh or — if the model is unavailable — silently drop the
+ * judged upgrade the athlete already approved. */
+async function progressionVerdicts(
+  db: ProgressionDb,
+  ctxObjs: LoadedContext,
+  feedbackMuscles: { muscle: MuscleGroup; recovery: number; joint: number }[],
+): Promise<{ verdicts: Verdict[]; base: WeekAdjustment }> {
+  const { mesocycle } = ctxObjs;
+  const { ctx, feedback, base } = buildBaseAdjustment(ctxObjs, feedbackMuscles);
 
   const block = await db.mesocycle.findUniqueOrThrow({
     where: { id: mesocycle.id },
@@ -168,36 +190,33 @@ async function progressionVerdicts(
   const request = progressionQuestions(
     base, ctx, feedback, readinessSamplesFrom(block), recoveryByWeekFromBlock(block),
   );
-  if (request.questions.length === 0) return [];
+  if (request.questions.length === 0) return { verdicts: [], base };
 
-  return executeJudgement({
+  const verdicts = await executeJudgement({
     db, mesocycleId: mesocycle.id, request,
     fallback: { causes: base.adjustments.map((a) => ({ muscle: a.muscle, cause: a.cause })) },
   });
+  return { verdicts, base };
 }
 
-/** Rebuild CheckInFeedback + stepWeek proposal deterministically from a persisted CheckIn's rows,
- * then apply any judged verdicts for the ambiguous muscles on top. `verdicts` defaults to `[]`
- * so every caller that doesn't thread them stays byte-identical to today's deterministic path. */
-function computeProposal(
-  ctxObjs: LoadedContext,
-  feedbackMuscles: { muscle: MuscleGroup; recovery: number; joint: number }[],
-  verdicts: Verdict[] = [],
-) {
+/** Defensive read of the verdicts persisted alongside a PROGRESS proposal's DecisionLog
+ * payload. A payload with no `verdicts` key, or one that doesn't parse as `Verdict[]`,
+ * degrades to `[]` — the engine's deterministic proposal — and never throws. Reuses the
+ * executor's own `VerdictsSchema` rather than a second hand-written schema. */
+function verdictsFromPayload(payload: unknown): Verdict[] {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return [];
+  const raw = (payload as Record<string, unknown>).verdicts;
+  if (raw === undefined) return [];
+  const parsed = VerdictsSchema.safeParse(raw);
+  return parsed.success ? parsed.data : [];
+}
+
+/** Apply judged verdicts onto an already-built `base` WeekAdjustment and shape the view.
+ * `base` must be the exact object `progressionVerdicts` (submit) or `buildBaseAdjustment`
+ * (apply) produced for this request — see the comment there for why that matters. */
+function computeProposal(ctxObjs: LoadedContext, base: WeekAdjustment, verdicts: Verdict[]) {
   const { mesocycle, week, cs, athlete } = ctxObjs;
   const ctx = adaptationContextFrom(cs, athlete);
-  const perf = derivePerformance(toWeekForPerformance(week), ctx.targets, EXERCISE_LIBRARY);
-  const feedback: CheckInFeedback = {
-    weekIndex: week.index,
-    muscles: feedbackMuscles.map((m) => ({
-      muscle: m.muscle,
-      recovery: m.recovery,
-      joint: m.joint,
-      performance: perf.get(m.muscle),
-    })),
-  };
-  const plan = mesocyclePlanFromDb(mesocycle.weeks, cs.splitType);
-  const base = stepWeek(plan, week.index, feedback, ctx);
   const adj = applyProgressionVerdicts(base, ctx, verdicts);
   const upcoming = mesocycle.weeks.find((w) => w.index === week.index + 1);
   const view = toProgressionProposalView(adj, {
@@ -362,9 +381,13 @@ export const checkinRouter = createTRPCRouter({
         );
       }
 
-      const verdicts = await progressionVerdicts(ctx.db, loaded, input.muscles);
-      const { adj, view } = computeProposal(loaded, input.muscles, verdicts);
-      // Same atomicity requirement as the deload branch above.
+      const { verdicts, base } = await progressionVerdicts(ctx.db, loaded, input.muscles);
+      const { adj, view } = computeProposal(loaded, base, verdicts);
+      // Same atomicity requirement as the deload branch above. `verdicts` is persisted
+      // in the SAME transaction as the proposal it produced, so acceptance never has to
+      // re-derive (or re-ask for) what the athlete is being shown right now — see
+      // `applyProgression`, which reads this exact array back via `verdictsFromPayload`
+      // instead of calling `progressionVerdicts` a second time.
       await ctx.db.$transaction(async (tx) => {
         await tx.decisionLog.deleteMany({
           where: {
@@ -386,6 +409,7 @@ export const checkinRouter = createTRPCRouter({
               adjustments: adj.adjustments.map((a) => ({ ...a })),
               checkInValue: adj.checkInValue,
               facts: adj.facts,
+              verdicts,
             },
           },
         });
@@ -408,7 +432,7 @@ export const checkinRouter = createTRPCRouter({
       const pending = await ctx.db.decisionLog.findFirst({
         where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
         orderBy: { createdAt: "desc" },
-        select: { id: true },
+        select: { id: true, payload: true },
       });
       if (!pending) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending proposal to apply." });
 
@@ -419,8 +443,14 @@ export const checkinRouter = createTRPCRouter({
       if (!checkIn) throw new TRPCError({ code: "BAD_REQUEST", message: "Check in first." });
 
       const feedbackMuscles = checkIn.muscleFeedback.map((m) => ({ muscle: m.muscle, recovery: m.recovery ?? 0, joint: m.jointStress ?? 0 }));
-      const verdicts = await progressionVerdicts(ctx.db, loaded, feedbackMuscles);
-      const { adj, view, upcoming } = computeProposal(loaded, feedbackMuscles, verdicts);
+      // No model call here: the verdicts the athlete accepted were persisted into this
+      // proposal's payload at submit time, and are replayed structurally — not re-asked
+      // via a cache-key hit — so a volatile state projection (e.g. a re-logged earlier
+      // session shifting a readiness trend) can never desync what gets applied from what
+      // was shown, and a model outage at accept time can never silently drop the upgrade.
+      const { base } = buildBaseAdjustment(loaded, feedbackMuscles);
+      const verdicts = verdictsFromPayload(pending.payload);
+      const { adj, view, upcoming } = computeProposal(loaded, base, verdicts);
       if (view.kind !== "CHANGES" || upcoming === undefined) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Nothing to apply for next week." });
       }
