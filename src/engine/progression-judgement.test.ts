@@ -31,6 +31,12 @@ const adj: WeekAdjustment = {
   ],
 };
 
+const noul = (muscle: string, n: number): Verdict => ({ id: progressionNoulId(muscle), kind: "noul", noul: n });
+
+/** The four causes `isAmbiguous` excludes: the three clinical/structural/arithmetic
+ * floors plus the structural default. Every one must be un-askable and un-writable. */
+const EXCLUDED_CAUSES = ["joint_stress", "under_recovered", "approaching_mrv", "default_progression"] as const;
+
 describe("progressionQuestions", () => {
   it("asks only about muscles in the ambiguous middle", () => {
     const req = progressionQuestions(adj, ctx, feedback, [], new Map());
@@ -69,11 +75,18 @@ describe("progressionQuestions", () => {
     };
     expect(progressionQuestions(allGuarded, ctx, feedback, [], new Map()).questions).toHaveLength(0);
   });
+
+  it.each(EXCLUDED_CAUSES)("emits no question for a muscle guarded by cause=%s", (cause) => {
+    const guarded: WeekAdjustment = {
+      ...adj,
+      adjustments: [{ muscle: "BICEPS", plannedSets: 10, adjustedSets: 10, delta: 0, cause, swapCandidate: false }],
+    };
+    const req = progressionQuestions(guarded, ctx, feedback, [], new Map());
+    expect(req.questions).toHaveLength(0);
+  });
 });
 
 describe("applyProgressionVerdicts", () => {
-  const noul = (muscle: string, n: number): Verdict => ({ id: progressionNoulId(muscle), kind: "noul", noul: n });
-
   it("is identity on an empty verdict list", () => {
     expect(applyProgressionVerdicts(adj, ctx, [])).toEqual(adj);
   });
@@ -105,6 +118,29 @@ describe("applyProgressionVerdicts", () => {
       expect(biceps.cause).toBe("joint_stress");
       expect(biceps.adjustedSets).toBe(8);
     }
+  });
+
+  it.each(EXCLUDED_CAUSES)("SAFETY: a clearing verdict never touches a muscle guarded by cause=%s", (cause) => {
+    const guarded: WeekAdjustment = {
+      ...adj,
+      adjustments: [{ muscle: "BICEPS", plannedSets: 10, adjustedSets: 10, delta: 0, cause, swapCandidate: false }],
+    };
+    const out = applyProgressionVerdicts(guarded, ctx, [noul("BICEPS", 0.95)]);
+    const biceps = out.adjustments[0]!;
+    expect(biceps.cause).toBe(cause);
+    expect(biceps.adjustedSets).toBe(10);
+  });
+
+  it("FAIL-CLOSED: a verdict for an ambiguous muscle with no target is not applied", () => {
+    const noTarget: WeekAdjustment = {
+      ...adj,
+      adjustments: [{ muscle: "HAMSTRINGS", plannedSets: 10, adjustedSets: 10, delta: 0, cause: "on_track", swapCandidate: false }],
+    };
+    const out = applyProgressionVerdicts(noTarget, ctx, [noul("HAMSTRINGS", 0.95)]);
+    const h = out.adjustments[0]!;
+    expect(h.cause).toBe("on_track");
+    expect(h.adjustedSets).toBe(10);
+    expect(out.facts.some((f) => f.kind === "judged")).toBe(false);
   });
 
   it("CLAMP: never exceeds effectiveMrv", () => {

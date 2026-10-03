@@ -255,12 +255,15 @@ export function applyProgressionVerdicts(
       return a;
     }
 
+    // Fail closed: a verdict we cannot bound is a verdict we do not apply. `adj` and
+    // `ctx` can disagree about which muscles exist under the stale/replayed-verdict
+    // threat model, so a missing target must block the write entirely — not just skip
+    // the clamp while the unbounded +1 still lands.
     const t = targetByMuscle.get(a.muscle);
+    if (!t) return a;
     let adjusted = a.plannedSets + STEP_UP;
-    if (t) {
-      if (adjusted > t.effectiveMrv) adjusted = t.effectiveMrv;
-      if (adjusted < t.mev) adjusted = t.mev;
-    }
+    if (adjusted > t.effectiveMrv) adjusted = t.effectiveMrv;
+    if (adjusted < t.mev) adjusted = t.mev;
 
     facts.push({
       kind: "judged", subject: "progression", questionId: progressionNoulId(a.muscle),
