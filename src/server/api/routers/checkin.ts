@@ -470,8 +470,15 @@ export const checkinRouter = createTRPCRouter({
         // race with rejectProgression is closed the same way: whichever of
         // apply/reject flips the row first wins, and the other's updateMany finds
         // nothing.
+        // `id: pending.id` pins the claim to the exact row whose payload we already
+        // read (verdicts come from THAT snapshot). Matching on
+        // mesocycleId+weekIndex+type+status alone would let a concurrent resubmission
+        // delete this row and create a newer PROPOSED one between our payload read and
+        // this claim — flipping the NEWER row to APPLIED while applying the OLDER row's
+        // verdicts. Pinning the id means a replaced row is no longer PROPOSED under
+        // this id, so it claims 0 rows and falls into the same CONFLICT path below.
         const claimed = await tx.decisionLog.updateMany({
-          where: { mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
+          where: { id: pending.id, mesocycleId: loaded.mesocycle.id, weekIndex: input.weekIndex, type: "PROGRESS", status: "PROPOSED" },
           data: { status: "APPLIED", summary: `Week ${input.weekIndex} progression applied to week ${upcoming.index}` },
         });
         if (claimed.count !== 1) {
