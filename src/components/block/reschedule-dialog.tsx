@@ -117,13 +117,15 @@ export function RescheduleDialog({
               }
             >
               <div className="flex items-center justify-between">
-                <span className={"text-nav font-medium " + (o.recommended ? "text-accent" : "text-fg")}>
-                  {o.kind === "MAKE_UP" ? "Make it up" : o.kind === "PARTIAL" ? "Partial recovery" : "Let it go"}
-                  {o.recommended ? " · recommended" : ""}
+                <span className="flex items-center">
+                  <span className={"text-nav font-medium " + (o.recommended ? "text-accent" : "text-fg")}>
+                    {o.kind === "MAKE_UP" ? "Make it up" : o.kind === "PARTIAL" ? "Partial recovery" : "Let it go"}
+                    {o.recommended ? " · recommended" : ""}
+                  </span>
+                  {o.closeCall ? (
+                    <span className="ml-2 text-[12px] text-fg-muted">Close call</span>
+                  ) : null}
                 </span>
-                {o.closeCall ? (
-                  <span className="ml-2 text-[12px] text-fg-muted">Close call</span>
-                ) : null}
                 <span className="text-[12px] text-fg-subtle">
                   +{o.recoveredSets} recovered · {o.droppedSets} dropped
                 </span>
