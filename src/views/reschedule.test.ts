@@ -48,4 +48,37 @@ describe("toRescheduleOptionViews", () => {
     expect(v.perSession).toEqual([]);
     expect(v.summary.toLowerCase()).toContain("drop");
   });
+
+  it("surfaces a close call from the candidate's facts", () => {
+    const candidates = [
+      {
+        kind: "MAKE_UP" as const,
+        week: { index: 2, isDeload: false, muscleVolume: {} as never, sessions: [] },
+        tradeoff: { recovered: 4, dropped: 0 },
+        recommended: true,
+        facts: [
+          {
+            kind: "close_call" as const, subject: "reschedule", questionId: "reschedule_pick",
+            between: ["MAKE_UP", "LET_GO"] as [string, string], margin: 0.04,
+          },
+        ],
+      },
+    ];
+    const views = toRescheduleOptionViews(candidates, { index: 2, isDeload: false, muscleVolume: {} as never, sessions: [] });
+    expect(views[0]!.closeCall).toBe(true);
+  });
+
+  it("leaves closeCall undefined when the pick was clear", () => {
+    const candidates = [
+      {
+        kind: "LET_GO" as const,
+        week: { index: 2, isDeload: false, muscleVolume: {} as never, sessions: [] },
+        tradeoff: { recovered: 0, dropped: 4 },
+        recommended: true,
+        facts: [],
+      },
+    ];
+    const views = toRescheduleOptionViews(candidates, { index: 2, isDeload: false, muscleVolume: {} as never, sessions: [] });
+    expect(views[0]!.closeCall).toBeUndefined();
+  });
 });

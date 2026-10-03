@@ -7,6 +7,9 @@ export interface RescheduleOptionView {
   droppedSets: number;
   summary: string;
   perSession: { slotId: string; label: string; addedSets: number }[];
+  /** The judgement reported the top two options as near-tied. Undefined when the pick
+   * was clear or unjudged — never `false`, so the UI renders nothing by default. */
+  closeCall?: boolean;
 }
 
 function totalSets(s: SessionPlan): number {
@@ -36,5 +39,6 @@ export function toRescheduleOptionViews(
     perSession: c.week.sessions
       .map((s) => ({ slotId: s.slotId, label: s.label, addedSets: totalSets(s) - (origBySlot.get(s.slotId) ?? 0) }))
       .filter((p) => p.addedSets > 0),
+    closeCall: c.facts.some((f) => f.kind === "close_call") ? true : undefined,
   }));
 }

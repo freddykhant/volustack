@@ -121,6 +121,9 @@ export function RescheduleDialog({
                   {o.kind === "MAKE_UP" ? "Make it up" : o.kind === "PARTIAL" ? "Partial recovery" : "Let it go"}
                   {o.recommended ? " · recommended" : ""}
                 </span>
+                {o.closeCall ? (
+                  <span className="ml-2 text-[12px] text-fg-muted">Close call</span>
+                ) : null}
                 <span className="text-[12px] text-fg-subtle">
                   +{o.recoveredSets} recovered · {o.droppedSets} dropped
                 </span>
