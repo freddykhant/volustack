@@ -1,4 +1,16 @@
 // src/server/judgement/contract.test.ts
+//
+// Excluded from the default `pnpm test` run (see vitest.config.ts `exclude`)
+// because it makes a real, billed call to the Jev service. Run it
+// deliberately via `pnpm test:contract`. The `describe.skipIf` below is
+// defense-in-depth for that script when no key is configured — it is not
+// what keeps this out of `pnpm test`.
+//
+// The fixture this test records is not bit-reproducible: two real calls on
+// an identical request returned confidence 0.68 and 0.67 for the same
+// choice. Any future test built on `__fixtures__/reschedule-response.json`
+// (via replay.ts) must assert shape or ranges, never exact equality on
+// confidence/probabilities/noul — those values will drift.
 import { describe, expect, it } from "vitest";
 import { jevClient } from "./client";
 import type { JudgementRequest } from "~/engine";

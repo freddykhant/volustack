@@ -20,6 +20,7 @@
     "preview": "next build && next start",
     "start": "next start",
     "test": "vitest run",
+    "test:contract": "vitest run src/server/judgement/contract.test.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
