@@ -74,8 +74,17 @@ export interface JudgementFailureDetail {
   requestId?: string;
 }
 
+/** Token usage for one call. Both fields optional: a response that omits `usage`
+ * entirely (or omits a field within it) must not become a validation failure —
+ * cost observability (spec §14) is additive, never a new way to reject a valid
+ * answer. */
+export interface JudgementUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+}
+
 export type JudgementOutcome =
-  | { ok: true; verdicts: Verdict[]; model: string }
+  | { ok: true; verdicts: Verdict[]; model: string; usage?: JudgementUsage }
   | { ok: false; reason: JudgementFailure; detail?: JudgementFailureDetail };
 
 export function verdictById(verdicts: Verdict[], id: string): Verdict | undefined {

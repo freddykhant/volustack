@@ -110,18 +110,26 @@ export const sessionRouter = createTRPCRouter({
       const { forRedistribute, candidates, ctx: adaptCtx } = await computeCandidates(ctx.db, session);
 
       // The engine's deterministic pick is already set on `candidates` and stands
-      // unless a confident verdict says otherwise. Jev failing is a no-op.
-      const block = await ctx.db.mesocycle.findUniqueOrThrow({
-        where: { id: session.week.mesocycleId },
-        select: BLOCK_FOR_READINESS_SELECT,
-      });
-      const request = rescheduleQuestions(candidates, forRedistribute, adaptCtx, readinessSamplesFrom(block));
-      const verdicts = await executeJudgement({
-        db: ctx.db,
-        mesocycleId: session.week.mesocycleId,
-        request,
-        fallback: { recommended: candidates.find((c) => c.recommended)?.kind ?? null },
-      });
+      // unless a confident verdict says otherwise. Jev failing is a no-op — and so is
+      // a rejecting readiness fetch: this whole attempt is best-effort judgement
+      // layered over a result that is already complete without it, so any failure
+      // here degrades to the deterministic candidates rather than failing the query.
+      let verdicts: Awaited<ReturnType<typeof executeJudgement>> = [];
+      try {
+        const block = await ctx.db.mesocycle.findUniqueOrThrow({
+          where: { id: session.week.mesocycleId },
+          select: BLOCK_FOR_READINESS_SELECT,
+        });
+        const request = rescheduleQuestions(candidates, forRedistribute, adaptCtx, readinessSamplesFrom(block));
+        verdicts = await executeJudgement({
+          db: ctx.db,
+          mesocycleId: session.week.mesocycleId,
+          request,
+          fallback: { recommended: candidates.find((c) => c.recommended)?.kind ?? null },
+        });
+      } catch {
+        verdicts = [];
+      }
       return toRescheduleOptionViews(applyRescheduleVerdicts(candidates, verdicts), forRedistribute);
     }),
 

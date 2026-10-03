@@ -28,6 +28,7 @@ export type {
   JudgementFailure,
   JudgementFailureDetail,
   JudgementOutcome,
+  JudgementUsage,
 } from "./judgement";
 export type { LoadEvent, WeekEnd, ReadinessSample, ReadinessOpts } from "./readiness";
 export type {

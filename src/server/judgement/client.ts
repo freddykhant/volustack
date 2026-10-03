@@ -9,6 +9,7 @@ import type {
   JudgementOutcome,
   JudgementQuestion,
   JudgementRequest,
+  JudgementUsage,
   Verdict,
 } from "~/engine";
 
@@ -50,12 +51,21 @@ const AnswerSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("noul"), noul: z.number() }),
 ]);
 
+/** `usage` and its fields are all OPTIONAL: a response that omits usage entirely, or
+ * omits one of its fields, must still validate — this is additive cost observability
+ * (spec §14), never a new way for an otherwise-valid response to be rejected. */
+const UsageSchema = z.object({
+  input_tokens: z.number().optional(),
+  output_tokens: z.number().optional(),
+});
+
 /** `model` is REQUIRED: an answer we cannot attribute to the model that produced it
  * is a malformed response, not a response we can silently backfill with our own
  * requested model — see the model-provenance note on `validateResponse`. */
 const ResponseSchema = z.object({
   model: z.string(),
   answers: z.record(z.string(), AnswerSchema),
+  usage: UsageSchema.optional(),
 });
 
 function toVerdicts(answers: z.infer<typeof ResponseSchema>["answers"]): Verdict[] {
@@ -75,6 +85,7 @@ function toVerdicts(answers: z.infer<typeof ResponseSchema>["answers"]): Verdict
 interface ParsedResponse {
   model: string;
   verdicts: Verdict[];
+  usage?: JudgementUsage;
 }
 
 /** Validate at the boundary. A malformed payload is an INFRASTRUCTURE failure, never a
@@ -87,7 +98,7 @@ interface ParsedResponse {
 function validateResponse(payload: unknown): ParsedResponse | null {
   const parsed = ResponseSchema.safeParse(payload);
   if (!parsed.success) return null;
-  return { model: parsed.data.model, verdicts: toVerdicts(parsed.data.answers) };
+  return { model: parsed.data.model, verdicts: toVerdicts(parsed.data.answers), usage: parsed.data.usage };
 }
 
 /** Public helper for callers/tests that only need the verdicts. `jevClient` uses
@@ -156,9 +167,15 @@ export function jevClient(): JudgementClient {
       // maxRetries: 0 — the SDK would otherwise retry 408/429/500-599 itself (default
       // maxRetries: 2), multiplying this already-bounded outer loop into up to 9 HTTP
       // attempts. This loop is the only retry layer.
+      // timeout: 3000 — the SDK's own default (10s) per attempt, × MAX_ATTEMPTS plus
+      // backoff, could otherwise hold the caller open for ~31s against a service whose
+      // p99 is 500ms. logLevel: "off" — an ambient TYPESAFE_LOG_LEVEL=debug would make
+      // the SDK log request bodies; credential headers are redacted but the state
+      // projection (athlete training data) is not, so logging is forced off here
+      // regardless of environment.
       let client: TypeSafeClient;
       try {
-        client = new TypeSafeClient({ retry: { maxRetries: 0 } });
+        client = new TypeSafeClient({ retry: { maxRetries: 0 }, timeout: 3000, logLevel: "off" });
       } catch (err) {
         const reason = classifyError(err);
         const detail = errorDetail(err);
@@ -178,7 +195,9 @@ export function jevClient(): JudgementClient {
           if (!verdictsMatchQuestions(parsed.verdicts, request.questions)) {
             return { ok: false, reason: "invalid_response", detail: { name: "id_mismatch" } };
           }
-          return { ok: true, verdicts: parsed.verdicts, model: parsed.model };
+          return parsed.usage
+            ? { ok: true, verdicts: parsed.verdicts, model: parsed.model, usage: parsed.usage }
+            : { ok: true, verdicts: parsed.verdicts, model: parsed.model };
         } catch (err) {
           last = classifyError(err);
           const detail = errorDetail(err);

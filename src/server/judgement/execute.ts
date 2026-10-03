@@ -90,10 +90,21 @@ async function askChunked(
   // judgement attributed to one model even if a later chunk drifts mid-flight.
   let model = "";
   let modelSet = false;
+  // Usage sums across chunks: each chunk is a real billed call, so the total
+  // input/output tokens for the judgement is the sum of its chunks' usage — not
+  // just the first chunk's, the way `model` is pinned.
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let sawUsage = false;
   for (const questions of chunks) {
     const outcome = await client.ask({ ...request, questions });
     if (!outcome.ok) return outcome;
     all.push(...outcome.verdicts);
+    if (outcome.usage) {
+      sawUsage = true;
+      inputTokens += outcome.usage.input_tokens ?? 0;
+      outputTokens += outcome.usage.output_tokens ?? 0;
+    }
     if (!modelSet) {
       model = outcome.model;
       modelSet = true;
@@ -108,7 +119,9 @@ async function askChunked(
       );
     }
   }
-  return { ok: true, verdicts: all, model };
+  return sawUsage
+    ? { ok: true, verdicts: all, model, usage: { input_tokens: inputTokens, output_tokens: outputTokens } }
+    : { ok: true, verdicts: all, model };
 }
 
 /** Logged in place of the raw value: `fallback` is unbounded caller data (for the
@@ -177,6 +190,7 @@ export async function executeJudgement(args: {
       JSON.stringify({
         at: "judgement.ok", subject: request.subject, model: outcome.model,
         questions: request.questions.length, latencyMs,
+        inputTokens: outcome.usage?.input_tokens,
         confidences: outcome.verdicts.map((v) =>
           v.kind === "noul" ? { id: v.id, noul: v.noul } : { id: v.id, confidence: v.confidence },
         ),

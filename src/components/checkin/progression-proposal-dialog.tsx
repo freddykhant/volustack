@@ -120,7 +120,7 @@ export function ProgressionProposalDialog({
 
         {!informational ? (
           <div className="mt-4 flex flex-col gap-2">
-            {proposal.closeCall ? (
+            {proposal.closeCall && proposal.adjustments.length > 0 ? (
               <p className="text-[12px] text-fg-muted">Some of these were close calls — adjust if they don’t match how you felt.</p>
             ) : null}
             {proposal.adjustments.length === 0 ? (

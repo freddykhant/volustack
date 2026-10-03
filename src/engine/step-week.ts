@@ -261,6 +261,11 @@ export function applyProgressionVerdicts(
     // the clamp while the unbounded +1 still lands.
     const t = targetByMuscle.get(a.muscle);
     if (!t) return a;
+    // Mirror stepWeek's own `responding_well` eligibility (step-week.ts:76): a muscle
+    // sitting within MRV_PROXIMITY_SETS - 1 of its ceiling is never stepped up by the
+    // deterministic engine, so a cleared verdict must not step it up here either —
+    // that would push it into the MRV-proximity zone spec §7.1 reserves for the engine.
+    if (!(a.plannedSets < t.effectiveMrv - 1)) return a;
     let adjusted = a.plannedSets + STEP_UP;
     if (adjusted > t.effectiveMrv) adjusted = t.effectiveMrv;
     if (adjusted < t.mev) adjusted = t.mev;

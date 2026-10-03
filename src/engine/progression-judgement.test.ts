@@ -152,6 +152,24 @@ describe("applyProgressionVerdicts", () => {
     expect(out.adjustments[0]!.adjustedSets).toBe(20);
   });
 
+  it("SAFETY: an on_track muscle at effectiveMrv-1 is untouched by a clearing verdict", () => {
+    // stepWeek's own responding_well branch (step-week.ts:76) additionally requires
+    // plannedNext < effectiveMrv - 1 before it will step up. CHEST's effectiveMrv is
+    // 20, so plannedSets=19 sits exactly at that boundary (19 < 19 is false) — the
+    // deterministic engine would never label this muscle responding_well, so a
+    // cleared verdict must not step it into the MRV-proximity zone either.
+    const atBoundary: WeekAdjustment = {
+      ...adj,
+      adjustments: [{ muscle: "CHEST", plannedSets: 19, adjustedSets: 19, delta: 0, cause: "on_track", swapCandidate: false }],
+    };
+    const out = applyProgressionVerdicts(atBoundary, ctx, [noul("CHEST", 0.95)]);
+    const chest = out.adjustments[0]!;
+    expect(chest.cause).toBe("on_track");
+    expect(chest.adjustedSets).toBe(19);
+    expect(chest.delta).toBe(0);
+    expect(out.facts.some((f) => f.kind === "judged")).toBe(false);
+  });
+
   it("never throws on garbage verdicts", () => {
     const junk = [
       { id: progressionNoulId("CHEST"), kind: "choice", choice: "x", confidence: NaN, probabilities: {} },
