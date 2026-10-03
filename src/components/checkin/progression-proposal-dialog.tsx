@@ -120,6 +120,9 @@ export function ProgressionProposalDialog({
 
         {!informational ? (
           <div className="mt-4 flex flex-col gap-2">
+            {proposal.closeCall && proposal.adjustments.length > 0 ? (
+              <p className="text-[12px] text-fg-muted">Some of these were close calls — adjust if they don’t match how you felt.</p>
+            ) : null}
             {proposal.adjustments.length === 0 ? (
               <p className="rounded-control border border-border-subtle px-3 py-2 text-nav text-fg-muted">You’re right on plan — holding volume next week.</p>
             ) : (

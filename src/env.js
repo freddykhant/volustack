@@ -17,6 +17,14 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    TYPESAFE_API_KEY: z.string().optional(),
+    // Pinned version only: "jev-1.13.0", never "jev-latest" or "jev-preview" —
+    // determinism (and the cache a later task adds) depends on the model never
+    // drifting out from under us without an explicit, reviewed bump.
+    JEV_MODEL: z
+      .string()
+      .regex(/^jev-\d+\.\d+\.\d+$/, "JEV_MODEL must be a pinned version, e.g. jev-1.13.0 (not jev-latest/jev-preview)")
+      .default("jev-1.13.0"),
   },
 
   /**
@@ -39,6 +47,8 @@ export const env = createEnv({
       process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
+    TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY,
+    JEV_MODEL: process.env.JEV_MODEL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

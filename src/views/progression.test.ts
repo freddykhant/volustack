@@ -35,4 +35,21 @@ describe("toProgressionProposalView", () => {
     const v = toProgressionProposalView(adj({ checkInValue: "high" }), { hasUpcoming: true, upcomingIsDeload: false });
     expect(v.advisory).toBeTruthy();
   });
+  it("flags a close call from the adjustment's facts", () => {
+    const withClose = {
+      ...adj(),
+      facts: [
+        {
+          kind: "close_call" as const, subject: "progression", questionId: "responds_well_CHEST",
+          between: ["responding_well", "on_track"] as [string, string], margin: 0.02,
+        },
+      ],
+    };
+    const v = toProgressionProposalView(withClose, { hasUpcoming: true, upcomingIsDeload: false });
+    expect(v.closeCall).toBe(true);
+  });
+  it("leaves closeCall undefined otherwise", () => {
+    const v = toProgressionProposalView(adj(), { hasUpcoming: true, upcomingIsDeload: false });
+    expect(v.closeCall).toBeUndefined();
+  });
 });

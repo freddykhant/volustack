@@ -1,10 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { DEFAULT_LANDMARKS } from "~/domain/landmarks";
-import { redistributeWeek, type AthleteContext, type WeekPlan } from "~/engine";
+import { applyRescheduleVerdicts, redistributeWeek, rescheduleQuestions, type AthleteContext, type WeekPlan } from "~/engine";
 import { LogSessionInputSchema } from "~/schema";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { executeJudgement } from "~/server/judgement/execute";
 import { applyWeekPlanToDb } from "~/server/mesocycle/apply-week-plan";
+import { BLOCK_FOR_READINESS_SELECT, readinessSamplesFrom } from "~/server/mesocycle/readiness-samples";
 import {
   adaptationContextFrom,
   weekPlanFromDb,
@@ -105,8 +107,30 @@ export const sessionRouter = createTRPCRouter({
       if (session.status !== "SCHEDULED") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Only a scheduled session can be rescheduled." });
       }
-      const { forRedistribute, candidates } = await computeCandidates(ctx.db, session);
-      return toRescheduleOptionViews(candidates, forRedistribute);
+      const { forRedistribute, candidates, ctx: adaptCtx } = await computeCandidates(ctx.db, session);
+
+      // The engine's deterministic pick is already set on `candidates` and stands
+      // unless a confident verdict says otherwise. Jev failing is a no-op — and so is
+      // a rejecting readiness fetch: this whole attempt is best-effort judgement
+      // layered over a result that is already complete without it, so any failure
+      // here degrades to the deterministic candidates rather than failing the query.
+      let verdicts: Awaited<ReturnType<typeof executeJudgement>> = [];
+      try {
+        const block = await ctx.db.mesocycle.findUniqueOrThrow({
+          where: { id: session.week.mesocycleId },
+          select: BLOCK_FOR_READINESS_SELECT,
+        });
+        const request = rescheduleQuestions(candidates, forRedistribute, adaptCtx, readinessSamplesFrom(block));
+        verdicts = await executeJudgement({
+          db: ctx.db,
+          mesocycleId: session.week.mesocycleId,
+          request,
+          fallback: { recommended: candidates.find((c) => c.recommended)?.kind ?? null },
+        });
+      } catch {
+        verdicts = [];
+      }
+      return toRescheduleOptionViews(applyRescheduleVerdicts(candidates, verdicts), forRedistribute);
     }),
 
   // Accept-gated plan mutation.
@@ -191,5 +215,5 @@ async function computeCandidates(
   const forRedistribute: WeekPlan = { ...fullPlan, sessions: fullPlan.sessions.filter((s) => !completed.has(s.slotId)) };
   const ctxA = adaptationContextFrom(cs, athlete);
   const candidates = redistributeWeek(forRedistribute, [session.id], ctxA);
-  return { forRedistribute, candidates };
+  return { forRedistribute, candidates, ctx: ctxA };
 }

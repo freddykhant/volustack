@@ -1,7 +1,16 @@
 // src/engine/redistribute.ts
 import type { MuscleGroup } from "~/schema";
-import { PER_SET_MIN, SETUP_MIN } from "./constants";
+import { MRV_PROXIMITY_SETS, PER_SET_MIN, SETUP_MIN, TREND_FLAT_BAND } from "./constants";
 import type { DecisionFact } from "./facts";
+import {
+  choiceCloseCall,
+  isUsableChoice,
+  trendOf,
+  verdictById,
+  type JudgementRequest,
+  type Verdict,
+} from "./judgement";
+import type { ReadinessSample } from "./readiness";
 import { buildSessionSlots } from "./split";
 import { sessionMinutes } from "./time";
 import type {
@@ -9,6 +18,7 @@ import type {
   PrescriptionPlan,
   RedistributionCandidate,
   RedistributionKind,
+  ResolvedMuscleTarget,
   SessionPlan,
   WeekPlan,
 } from "./types";
@@ -131,4 +141,153 @@ export function redistributeWeek(
   pick.recommended = true;
 
   return out;
+}
+
+export const RESCHEDULE_PICK_ID = "reschedule_pick";
+
+type VolumeStanding = "below MEV" | "between MEV and MAV" | "at or above MAV" | "at MRV ceiling";
+
+/** Resolve the athlete's position against their own landmarks to a LABEL. jev-1.13
+ * cannot reliably compare numbers, so every threshold comparison happens here. */
+function volumeStanding(sets: number, t: ResolvedMuscleTarget): VolumeStanding {
+  if (sets >= t.effectiveMrv - MRV_PROXIMITY_SETS) return "at MRV ceiling";
+  if (sets >= t.mav) return "at or above MAV";
+  if (sets >= t.mev) return "between MEV and MAV";
+  return "below MEV";
+}
+
+/** Boundaries derived from `redistributeWeek`'s own `lateBlock` predicate (not an
+ * independent thirds split), so the label the model sees never disagrees with the
+ * deterministic floor: late starts exactly where `lateBlock` starts. */
+function blockPhase(weekIndex: number, blockLengthWeeks: number): "early" | "mid" | "late" {
+  const len = Math.max(1, blockLengthWeeks);
+  if (weekIndex > Math.ceil(len / 2)) return "late";
+  if (weekIndex <= Math.ceil(len / 4)) return "early";
+  return "mid";
+}
+
+/**
+ * The questions worth asking about a missed session, as data. The engine owns WHAT is
+ * asked (it is domain knowledge); the server layer owns the asking.
+ *
+ * Only `reschedule_pick` influences anything this cycle; the other two are recorded for
+ * calibration and cost almost nothing because they ride the same request.
+ */
+export function rescheduleQuestions(
+  candidates: RedistributionCandidate[],
+  week: WeekPlan,
+  ctx: AdaptationContext,
+  readiness: ReadinessSample[],
+): JudgementRequest {
+  const options: Record<string, string | null> = {};
+  for (const c of candidates) {
+    options[c.kind] =
+      c.kind === "MAKE_UP"
+        ? "Move every missed set into the remaining sessions this week."
+        : c.kind === "PARTIAL"
+          ? "Recover only the sets for muscles the athlete has prioritised; drop the rest."
+          : "Recover nothing; accept the lost sets and keep the rest of the week as planned.";
+  }
+
+  const state = {
+    blockPhase: blockPhase(week.index, ctx.blockLengthWeeks),
+    week: { index: week.index, isDeload: week.isDeload },
+    muscles: ctx.targets.map((t) => ({
+      name: t.muscle,
+      volumeStanding: volumeStanding(week.muscleVolume[t.muscle] ?? 0, t),
+      prioritised: t.priority > 0,
+    })),
+    candidates: candidates.map((c) => ({
+      option: c.kind,
+      setsRecovered: c.tradeoff.recovered,
+      setsDropped: c.tradeoff.dropped,
+    })),
+    readiness: { formTrend: trendOf(readiness.map((r) => r.form), TREND_FLAT_BAND) },
+  };
+
+  return {
+    subject: "reschedule",
+    state,
+    questions: [
+      {
+        id: RESCHEDULE_PICK_ID,
+        kind: "choice",
+        authority: "ADVISORY",
+        instructions:
+          "A strength athlete missed a training session this week. Each option in `candidates` is a complete, already-costed plan for the rest of the week, with the sets it recovers and the sets it gives up. Using `muscles` for how much work each muscle has already taken, `blockPhase` for how far into the training block they are, and `readiness.formTrend` for whether they are freshening or fatiguing, which option serves this athlete best?",
+        options,
+      },
+      {
+        id: "overreaching",
+        kind: "noul",
+        authority: "ADVISORY",
+        instructions:
+          "Considering `muscles` and `readiness.formTrend` together, is this athlete accumulating more fatigue than they are recovering from?",
+        criteria: {
+          true: "Fatigue is outpacing recovery; adding work would dig the hole deeper.",
+          false: "They are absorbing the current workload.",
+        },
+      },
+      {
+        id: "volume_loss_materiality",
+        kind: "score",
+        authority: "ADVISORY",
+        instructions:
+          "If the missed sets in `candidates` are not recovered at all, how much does that cost this athlete's training for the week?",
+        levels: [
+          "Nothing meaningful — every muscle still gets enough work to make progress.",
+          "Slight — a little progress is left on the table, but nothing is undertrained.",
+          "Meaningful — a muscle the athlete has prioritised loses real stimulus.",
+          "Serious — one or more muscles drop below the minimum that maintains progress.",
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * ADVISORY applier. May move `recommended` and append facts — nothing else. Every set
+ * count and every muscle volume is passed through untouched, which the Law 1 property
+ * in `reschedule-judgement.test.ts` asserts for arbitrary verdicts. The `recommended`
+ * flags are either left unchanged (early return) or exactly one is true afterward
+ * (mutating path) — never zero, never more than one.
+ */
+export function applyRescheduleVerdicts(
+  candidates: RedistributionCandidate[],
+  verdicts: Verdict[],
+): RedistributionCandidate[] {
+  if (verdicts.length === 0) return candidates;
+  const offered = candidates.map((c) => c.kind);
+  const v = verdictById(verdicts, RESCHEDULE_PICK_ID);
+  if (!isUsableChoice(v, offered)) return candidates;
+
+  // "none" rather than offered[0]! — a fact must never claim a deterministic pick the
+  // engine never actually made.
+  const deterministic = candidates.find((c) => c.recommended)?.kind ?? "none";
+  const facts: DecisionFact[] = [
+    {
+      kind: "judged",
+      subject: "reschedule",
+      questionId: RESCHEDULE_PICK_ID,
+      selected: v.choice,
+      deterministic,
+      basis: { kind: "confidence", value: v.confidence },
+    },
+  ];
+  const close = choiceCloseCall(v);
+  if (close) {
+    facts.push({
+      kind: "close_call",
+      subject: "reschedule",
+      questionId: RESCHEDULE_PICK_ID,
+      between: close.between,
+      margin: close.margin,
+    });
+  }
+
+  return candidates.map((c) =>
+    c.kind === v.choice
+      ? { ...c, recommended: true, facts: [...c.facts, ...facts] }
+      : { ...c, recommended: false },
+  );
 }

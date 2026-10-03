@@ -327,6 +327,7 @@ model Mesocycle {
 
   weeks Week[]
   decisions DecisionLog[]
+  judgements Judgement[]
 
   @@map("mesocycle")
 }
@@ -448,4 +449,26 @@ model DecisionLog {
 
   @@index([mesocycleId, createdAt])
   @@map("decision_log")
+}
+
+/// One recorded Jev judgement, keyed by exactly what was judged. Serves three jobs:
+/// stability (the same state+questions always replays the same verdicts, so a refetch
+/// or a recompute at accept time cannot change the athlete's proposal), audit (which
+/// model version influenced which decision), and calibration (verdicts paired with the
+/// deterministic pick in `fallback` give agreement data for free).
+model Judgement {
+  id            String    @id @default(cuid())
+  mesocycleId   String
+  mesocycle     Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  subject       String // "reschedule" | "progression"
+  stateHash     String // sha256 of the canonical JSON state projection
+  questionsHash String // sha256 of the canonical question set — question meaning is part of the key
+  model         String // the pinned version that actually answered, e.g. "jev-1.13.0"
+  verdicts      Json
+  fallback      Json // the deterministic pick, recorded alongside for calibration
+  createdAt     DateTime  @default(now())
+
+  @@unique([mesocycleId, subject, stateHash, questionsHash])
+  @@index([mesocycleId, createdAt])
+  @@map("judgement")
 }

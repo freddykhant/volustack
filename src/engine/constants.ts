@@ -56,3 +56,16 @@ export const RECOVERY_NEUTRAL = 2;
 export const RECOVERY_NUDGE_MAX_FRAC = 0.15;
 /** # of least-recovered muscles averaged into the weekly signal (mirrors FATIGUE_MUSCLE_THRESHOLD). */
 export const RECOVERY_WORST_N = 2;
+
+// ─── Jev judgement layer ───
+
+/** Choice: minimum confidence for an ADVISORY verdict to override the engine's pick. */
+export const JUDGEMENT_MIN_CONFIDENCE_ADVISORY = 0.6;
+/** Choice: top-two probability gap below which the pick is reported as a close call. */
+export const CLOSE_CALL_MARGIN = 0.15;
+/** Noul: minimum probability for a PROPOSAL verdict to stand. */
+export const JUDGEMENT_MIN_NOUL_PROPOSAL = 0.75;
+/** Noul: distance from 0.5 below which a yes/no is reported as a close call. */
+export const CLOSE_CALL_NOUL_MARGIN = 0.12;
+/** Trend labels: |Δ| strictly below this reads as "flat". */
+export const TREND_FLAT_BAND = 0.5;
