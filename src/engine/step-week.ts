@@ -7,6 +7,7 @@ import {
   STEP_DOWN,
   STEP_DOWN_HARD,
   STEP_UP,
+  TREND_FLAT_BAND,
 } from "./constants";
 import type { DecisionFact } from "./facts";
 import type {
@@ -14,9 +15,20 @@ import type {
   CheckInFeedback,
   MesocyclePlan,
   MuscleAdjustment,
+  ResolvedMuscleTarget,
   StepCause,
   WeekAdjustment,
 } from "./types";
+import {
+  isUsableNoulProposal,
+  noulCloseCall,
+  trendOf,
+  verdictById,
+  type JudgementQuestion,
+  type JudgementRequest,
+  type Verdict,
+} from "./judgement";
+import type { ReadinessSample } from "./readiness";
 
 export function stepWeek(
   plan: MesocyclePlan,
@@ -115,4 +127,149 @@ export function stepWeek(
     checkInValue: anyHigh ? "high" : "low",
     facts,
   };
+}
+
+export function progressionNoulId(muscle: string): string {
+  return `responds_well_${muscle}`;
+}
+
+/** Jev is consulted ONLY here: the residue left after the safety floors and the numeric
+ * proximity test have had their say. `joint_stress` and `under_recovered` are clinical
+ * guards; `approaching_mrv` is arithmetic jev-1.13 cannot do; `default_progression` is
+ * structural. All four stand un-overridably. */
+function isAmbiguous(a: MuscleAdjustment): boolean {
+  return a.cause === "responding_well" || a.cause === "on_track";
+}
+
+function headroom(a: MuscleAdjustment, t: ResolvedMuscleTarget): "none" | "small" | "ample" {
+  const gap = t.effectiveMrv - a.plannedSets;
+  if (gap <= 0) return "none";
+  if (gap <= MRV_PROXIMITY_SETS) return "small";
+  return "ample";
+}
+
+const RECOVERY_WORDS = ["0 — still wrecked", "1 — sore and sluggish", "2 — recovered well", "3 — fully fresh"];
+const JOINT_WORDS = ["0 — no joint complaints", "1 — mild niggle", "2 — painful", "3 — very painful"];
+const PERF_WORDS = ["0 — regressed", "1 — flat", "2 — progressing", "3 — strong progression"];
+
+function word(table: string[], level: number | undefined): string {
+  if (level === undefined || !Number.isInteger(level) || level < 0 || level >= table.length) return "not reported";
+  return table[level]!;
+}
+
+/**
+ * One noul per ambiguous muscle, over one shared state. Ordinal check-in levels are
+ * spelled out in words because the model reads them as text, not as ordered quantities.
+ */
+export function progressionQuestions(
+  adj: WeekAdjustment,
+  ctx: AdaptationContext,
+  feedback: CheckInFeedback | null,
+  readiness: ReadinessSample[],
+  recoveryByWeek: ReadonlyMap<number, number | null>,
+): JudgementRequest {
+  const targetByMuscle = new Map(ctx.targets.map((t) => [t.muscle, t]));
+  const fbByMuscle = new Map((feedback?.muscles ?? []).map((m) => [m.muscle, m]));
+  const ambiguous = adj.adjustments.filter(isAmbiguous);
+
+  const muscles: Record<string, unknown> = {};
+  for (const a of adj.adjustments) {
+    const t = targetByMuscle.get(a.muscle);
+    const fb = fbByMuscle.get(a.muscle);
+    muscles[a.muscle] = {
+      headroomToCeiling: t ? headroom(a, t) : "unknown",
+      recovery: word(RECOVERY_WORDS, fb?.recovery),
+      jointStress: word(JOINT_WORDS, fb?.joint),
+      performance: word(PERF_WORDS, fb?.performance),
+    };
+  }
+
+  const recoverySeries = [...recoveryByWeek.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, v]) => v)
+    .filter((v): v is number => v !== null);
+
+  const state = {
+    block: {
+      weeksRemaining: Math.max(0, ctx.blockLengthWeeks - adj.appliesToWeekIndex + 1),
+      upcomingWeekIndex: adj.appliesToWeekIndex,
+    },
+    muscles,
+    readiness: {
+      formTrend: trendOf(readiness.map((r) => r.form), TREND_FLAT_BAND),
+      recoveryTrend: trendOf(recoverySeries, TREND_FLAT_BAND),
+    },
+  };
+
+  const questions: JudgementQuestion[] = ambiguous.map((a) => ({
+    id: progressionNoulId(a.muscle),
+    kind: "noul",
+    authority: "PROPOSAL",
+    instructions:
+      `A strength athlete just finished a training week. For ${a.muscle} specifically, read ` +
+      `\`muscles.${a.muscle}\` for how recovered that muscle was, whether the joints involved ` +
+      `complained, how performance moved, and how much room is left before their ceiling; and ` +
+      `\`readiness\` for whether they are freshening or fatiguing overall. Does ${a.muscle} ` +
+      `justify adding training volume next week?`,
+    criteria: {
+      true: `${a.muscle} recovered and performed well enough that more volume should drive further progress.`,
+      false: `Hold ${a.muscle} where it is — more volume would not be productive yet.`,
+    },
+  }));
+
+  return { subject: "progression", state, questions };
+}
+
+/**
+ * PROPOSAL applier. A cleared noul relabels the cause `responding_well`; the ENGINE then
+ * computes the delta from its own STEP_UP constant and clamps to the athlete's landmarks.
+ * Jev never names a set count. Preempted muscles are untouchable by construction: they
+ * were never asked about, and `isAmbiguous` gates the write too.
+ */
+export function applyProgressionVerdicts(
+  adj: WeekAdjustment,
+  ctx: AdaptationContext,
+  verdicts: Verdict[],
+): WeekAdjustment {
+  if (verdicts.length === 0) return adj;
+  const targetByMuscle = new Map(ctx.targets.map((t) => [t.muscle, t]));
+  const facts: DecisionFact[] = [];
+
+  const adjustments = adj.adjustments.map((a) => {
+    if (!isAmbiguous(a)) return a;
+    const v = verdictById(verdicts, progressionNoulId(a.muscle));
+    // Computed BEFORE the gate check, from the un-narrowed `v`: `isUsableNoulProposal`'s
+    // type predicate is `v is Extract<Verdict, {kind:"noul"}>`, so TS narrows the
+    // negated branch to exclude "noul" entirely — a noul that merely fails the proposal
+    // gate would be type-invisible as a noul inside that branch. Checking the close
+    // call here, before the gate, sidesteps that and is equivalent: the close-call band
+    // (|noul-0.5| < CLOSE_CALL_NOUL_MARGIN) and the proposal gate (noul >= 0.75) don't
+    // overlap, so this fires exactly when the gated check below would have.
+    if (v?.kind === "noul" && noulCloseCall(v.noul)) {
+      facts.push({
+        kind: "close_call", subject: "progression", questionId: progressionNoulId(a.muscle),
+        between: ["responding_well", "on_track"], margin: Math.round(Math.abs(v.noul - 0.5) * 100) / 100,
+      });
+    }
+    if (!isUsableNoulProposal(v)) {
+      return a;
+    }
+
+    const t = targetByMuscle.get(a.muscle);
+    let adjusted = a.plannedSets + STEP_UP;
+    if (t) {
+      if (adjusted > t.effectiveMrv) adjusted = t.effectiveMrv;
+      if (adjusted < t.mev) adjusted = t.mev;
+    }
+
+    facts.push({
+      kind: "judged", subject: "progression", questionId: progressionNoulId(a.muscle),
+      selected: "responding_well", deterministic: a.cause,
+      basis: { kind: "noul", value: v.noul },
+    });
+
+    return { ...a, cause: "responding_well" as const, adjustedSets: adjusted, delta: adjusted - a.plannedSets };
+  });
+
+  return { ...adj, adjustments, facts: [...adj.facts, ...facts] };
 }

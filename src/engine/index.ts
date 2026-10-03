@@ -3,7 +3,7 @@ export { resolveConstraints } from "./resolve-constraints";
 export { generateMesocycle } from "./generate";
 export { buildSessionSlots } from "./split";
 export { sessionMinutes } from "./time";
-export { stepWeek } from "./step-week";
+export { stepWeek, progressionQuestions, applyProgressionVerdicts, progressionNoulId } from "./step-week";
 export { evaluateDeload } from "./deload";
 export { redistributeWeek, rescheduleQuestions, applyRescheduleVerdicts, RESCHEDULE_PICK_ID } from "./redistribute";
 export { weekPlanFromAdjustment } from "./apply-adjustment";
