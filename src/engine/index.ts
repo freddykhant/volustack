@@ -5,7 +5,7 @@ export { buildSessionSlots } from "./split";
 export { sessionMinutes } from "./time";
 export { stepWeek } from "./step-week";
 export { evaluateDeload } from "./deload";
-export { redistributeWeek } from "./redistribute";
+export { redistributeWeek, rescheduleQuestions, applyRescheduleVerdicts, RESCHEDULE_PICK_ID } from "./redistribute";
 export { weekPlanFromAdjustment } from "./apply-adjustment";
 export { sessionStimulus, computeReadiness, weeklyRecoverySignal, blendRecovery } from "./readiness";
 export { deloadWeekPlan } from "./deload-week";
