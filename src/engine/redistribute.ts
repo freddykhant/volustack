@@ -156,11 +156,14 @@ function volumeStanding(sets: number, t: ResolvedMuscleTarget): VolumeStanding {
   return "below MEV";
 }
 
+/** Boundaries derived from `redistributeWeek`'s own `lateBlock` predicate (not an
+ * independent thirds split), so the label the model sees never disagrees with the
+ * deterministic floor: late starts exactly where `lateBlock` starts. */
 function blockPhase(weekIndex: number, blockLengthWeeks: number): "early" | "mid" | "late" {
-  const frac = weekIndex / Math.max(1, blockLengthWeeks);
-  if (frac <= 1 / 3) return "early";
-  if (frac < 2 / 3) return "mid";
-  return "late";
+  const len = Math.max(1, blockLengthWeeks);
+  if (weekIndex > Math.ceil(len / 2)) return "late";
+  if (weekIndex <= Math.ceil(len / 4)) return "early";
+  return "mid";
 }
 
 /**
@@ -245,7 +248,9 @@ export function rescheduleQuestions(
 /**
  * ADVISORY applier. May move `recommended` and append facts — nothing else. Every set
  * count and every muscle volume is passed through untouched, which the Law 1 property
- * in `reschedule-judgement.test.ts` asserts for arbitrary verdicts.
+ * in `reschedule-judgement.test.ts` asserts for arbitrary verdicts. The `recommended`
+ * flags are either left unchanged (early return) or exactly one is true afterward
+ * (mutating path) — never zero, never more than one.
  */
 export function applyRescheduleVerdicts(
   candidates: RedistributionCandidate[],
@@ -256,7 +261,9 @@ export function applyRescheduleVerdicts(
   const v = verdictById(verdicts, RESCHEDULE_PICK_ID);
   if (!isUsableChoice(v, offered)) return candidates;
 
-  const deterministic = candidates.find((c) => c.recommended)?.kind ?? offered[0]!;
+  // "none" rather than offered[0]! — a fact must never claim a deterministic pick the
+  // engine never actually made.
+  const deterministic = candidates.find((c) => c.recommended)?.kind ?? "none";
   const facts: DecisionFact[] = [
     {
       kind: "judged",

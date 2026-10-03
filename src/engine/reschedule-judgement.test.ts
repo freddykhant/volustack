@@ -12,7 +12,17 @@ import type { Verdict } from "./judgement";
 const week: WeekPlan = {
   index: 4, isDeload: false,
   muscleVolume: { CHEST: 14 } as WeekPlan["muscleVolume"],
-  sessions: [],
+  // At least one session with a prescription, so Law 1 has a `sets` count to assert on.
+  sessions: [
+    {
+      slotId: "mon",
+      label: "Upper A",
+      prescriptions: [
+        { exerciseName: "Bench Press", sets: 3, repRangeLow: 6, repRangeHigh: 10, targetRir: 2 },
+      ],
+      estimatedMinutes: 30,
+    },
+  ],
 };
 
 const ctx = {
@@ -98,26 +108,58 @@ describe("applyRescheduleVerdicts", () => {
   });
 
   it("LAW 1: never changes a single number, for arbitrary verdicts", () => {
+    // Weighted so valid, at/above-gate confidences for an OFFERED choice are common
+    // (not vanishingly rare, which is what made the previous version of this property
+    // vacuous — see Fix round 1 in task-6-report.md), while still mixing in garbage
+    // confidences/ids/choices so the early-return path gets exercised too.
     const arbVerdict = fc.record({
       id: fc.constantFrom(RESCHEDULE_PICK_ID, "overreaching", "junk"),
       kind: fc.constant("choice" as const),
       choice: fc.constantFrom("MAKE_UP", "LET_GO", "PARTIAL", "", "???"),
-      confidence: fc.double({ noNaN: false }),
-      probabilities: fc.dictionary(fc.string(), fc.double({ noNaN: false })),
+      confidence: fc.oneof(
+        { weight: 2, arbitrary: fc.double({ min: 0.6, max: 1, noNaN: true }) },
+        { weight: 1, arbitrary: fc.double({ min: 0, max: 1, noNaN: true }) },
+        { weight: 1, arbitrary: fc.double({ noNaN: false }) },
+      ),
+      probabilities: fc.dictionary(
+        fc.constantFrom("MAKE_UP", "LET_GO", "PARTIAL"),
+        fc.double({ min: 0, max: 1, noNaN: true }),
+      ),
     });
+
+    // Proof that the mutating branch is actually being reached: a "judged" fact is the
+    // one thing only that branch ever produces, so counting it can never go vacuous
+    // silently again — if a future threshold or arbitrary change collapses the hit
+    // rate back to zero, the assertion below the loop catches it.
+    let mutatingHits = 0;
+
     fc.assert(
       fc.property(fc.array(arbVerdict, { maxLength: 4 }), (verdicts) => {
+        // Cloned BEFORE the call: `candidates`' two fixtures share one `week` object,
+        // so comparing `out[i].week` back against the (possibly-mutated) `candidates[i]`
+        // would just compare that object to itself. A deep snapshot taken up front is
+        // immune to that aliasing and is the only thing that can actually catch an
+        // in-place mutation.
+        const before = structuredClone(candidates);
         const out = applyRescheduleVerdicts(candidates, verdicts);
-        expect(out).toHaveLength(candidates.length);
+        expect(out).toHaveLength(before.length);
         for (let i = 0; i < out.length; i++) {
-          expect(out[i]!.kind).toBe(candidates[i]!.kind);
-          expect(out[i]!.tradeoff).toEqual(candidates[i]!.tradeoff);
-          expect(out[i]!.week.muscleVolume).toEqual(candidates[i]!.week.muscleVolume);
+          expect(out[i]!.kind).toBe(before[i]!.kind);
+          expect(out[i]!.tradeoff).toEqual(before[i]!.tradeoff);
+          expect(out[i]!.week.muscleVolume).toEqual(before[i]!.week.muscleVolume);
+          expect(out[i]!.week.sessions.map((s) => s.prescriptions.map((p) => p.sets))).toEqual(
+            before[i]!.week.sessions.map((s) => s.prescriptions.map((p) => p.sets)),
+          );
         }
-        // Exactly one recommendation survives.
+        if (out.some((c) => c.facts.some((f) => f.kind === "judged"))) mutatingHits++;
+        // Unchanged, or exactly one recommendation survives.
         expect(out.filter((c) => c.recommended)).toHaveLength(1);
       }),
       { numRuns: 300 },
     );
+
+    // A meaningful number, not zero — proof the mutating path above was actually hit,
+    // not just the early return.
+    expect(mutatingHits).toBeGreaterThan(10);
   });
 });
