@@ -1,6 +1,6 @@
 # Dynamic Scheduling ① + ② — Schedule Foundation and Drag-and-Drop (Design)
 
-**Status:** Design approved in brainstorming 2026-10-04; written spec awaiting review
+**Status:** Approved 2026-10-04. Amended the same day during planning (swaps, `placeWeek` algorithm, timezone, `firstOpenDay`, Day→AM/PM rule, keyboard path); see the plan's "Refinements" section.
 **Scope:** Give the plan a notion of *when*. Sessions get a placement (day, optional AM/PM), the athlete gets an availability grid and a schedule mode, the engine gains a pure function that scores any week layout, and the week page becomes a board where sessions can be dragged, confirmed, and critiqued by the engine.
 **Branch target:** merges into `freddy/experimental` (standing rule). Feature branch `freddy/feat/schedule-foundation`.
 **Builds on:** ③ check-in + logging (`applyWeekPlanToDb`, `DecisionLog`, the `SCHEDULED` re-assert pattern) and the routing conventions (`requireCurrentBlock`, flat `/app/block/week/[n]`).
@@ -60,6 +60,7 @@ The engine already uses "slot" for a position in the split (`slotId`, `SessionSl
 ### 1. Data model (`prisma/schema.prisma`)
 
 - `enum ScheduleMode { DAY HALF_DAY }`; `AthleteProfile.scheduleMode ScheduleMode @default(DAY)`.
+- `AthleteProfile.timezone String @default("UTC")` (IANA name). Availability is keyed by weekday, so the server must know which weekday each of the athlete's dates falls on. Set from the browser at onboarding; a profile still on `"UTC"` adopts the browser's timezone the first time the board loads.
 - `enum Daypart { AM PM }`; `TrainingSession.daypart Daypart?`, alongside the existing `dayOfWeek Int?` (0 = Mon … 6 = Sun).
   - `dayOfWeek = null` means *not yet placed* (all data before this feature).
   - `daypart = null` means the session was placed in `DAY` mode.
@@ -87,7 +88,7 @@ The engine already uses "slot" for a position in the split (`slotId`, `SessionSl
 
 ```ts
 scoreLayout(input: ScheduleInput, layout: Layout): LayoutScore
-placeWeek(input: ScheduleInput): Layout | InfeasibleSchedule
+placeWeek(input: ScheduleInput): { kind: "placed"; layout: Layout } | { kind: "infeasible"; facts: DecisionFact[] }
 suggestMoves(input: ScheduleInput, layout: Layout): MoveSuggestion[]
 checkLayout(input: ScheduleInput, layout: Layout): HardViolation[]
 ```
@@ -99,7 +100,7 @@ checkLayout(input: ScheduleInput, layout: Layout): HardViolation[]
 - `sessions`: each `{ id, footprint, locked, placement? }`, where `footprint` is stimulus sets per muscle, derived from the session's prescriptions using the library's existing fractional credit. The footprint is the discipline-agnostic part: an endurance session later is just a different footprint.
 - `availability`: the 14-cell grid.
 - `carryIn`: footprints and distance-from-week-start of the previous week's final sessions, so rest is measured across the week boundary.
-- `firstOpenPosition`: the earliest position in the week that is not in the past (0 for future weeks).
+- `firstOpenDay`: index (0..7) of the first day in the week that is not in the past, by the athlete's local calendar. Today is open. 0 for future weeks, 7 for a finished week.
 
 **Hard rules** (`checkLayout`; always a refusal, never a cost):
 
@@ -108,11 +109,13 @@ checkLayout(input: ScheduleInput, layout: Layout): HardViolation[]
 | `blocked_cell` | A session moved into a Blocked cell. |
 | `occupied` | Two sessions in the same placement. |
 | `day_limit` | In `DAY` mode, more than one session on a day. |
-| `in_past` | A session moved to a position before `firstOpenPosition`. |
+| `in_past` | A session moved to a day before `firstOpenDay`. |
 | `locked` | A `COMPLETED` or `MISSED` session moved at all. |
-| `mode_mismatch` | A daypart set in `DAY` mode, or missing in `HALF_DAY` mode. |
+| `mode_mismatch` | A daypart set in `DAY` mode, or missing in `HALF_DAY` mode (unlocked sessions only). |
 
-Hard rules judge *moves*, not standing state: a session that already sits on a cell the athlete later blocks is reported as a cost-side `on_blocked_cell` fact, not a violation.
+Hard rules judge *moves*, not standing state: a session that already sits on a cell the athlete later blocks is reported as a cost-side `on_blocked_cell` fact, not a violation. Two locked sessions are never reported against each other, so history left in an older shape after a mode switch cannot make every later move in that week fail.
+
+**Swaps.** A final layout may never hold two sessions in one placement, but a *move onto an occupied placement swaps the two sessions*. Without this, an athlete training seven days in `DAY` mode has no empty cell and could never rearrange their week.
 
 **Cost** (`scoreLayout`) is a sum of terms. Each term that fires emits a `DecisionFact`:
 
@@ -127,9 +130,9 @@ Hard rules judge *moves*, not standing state: a session that already sits on a c
 
 New `DecisionFact` variants carry session ids, the muscle where relevant, and the measured gap or count, so the UI and later the Coach can phrase them without the engine writing prose. Weights and thresholds live in `src/engine/constants.ts`.
 
-**`placeWeek`** is a branch-and-bound search over open cells for the unlocked, unplaced or to-be-placed sessions, minimising cost, with a fixed tie-break (earliest position, then session order). Identical inputs always produce the identical layout. When hard rules leave fewer usable cells than sessions it returns `{ kind: "infeasible", facts }` rather than a partial layout.
+**`placeWeek`** keeps locked sessions where they are and places every unlocked session: greedy construction in session order (each takes the open cell that costs least, earliest on ties), then local search over single moves and swaps until none lowers the cost. Identical inputs always produce the identical layout, and it is cheap enough to run in the browser. It is a local optimum of exactly the neighbourhood `suggestMoves` searches, so a freshly placed week never yields a suggestion. When hard rules leave fewer usable cells than sessions it returns `{ kind: "infeasible", facts }` rather than a partial layout.
 
-**`suggestMoves`** evaluates every legal single-session move from the given layout (at most 7 sessions × 14 cells), keeps those that reduce cost by more than `SUGGESTION_MIN_GAIN`, and returns up to three, best first. Each suggestion is `{ sessionId, from, to, gain, resolves: DecisionFact[] }`. It returns nothing when the layout is already within the threshold of the best single move, so the coach stays quiet when there is nothing worth saying.
+**`suggestMoves`** evaluates every legal single change from the given layout (a session to an empty open cell, or two unlocked sessions swapping), keeps those that reduce cost by more than `SUGGESTION_MIN_GAIN`, and returns up to three, best first. Each suggestion is `{ sessionId, from, to, swapWithSessionId, gain, resolves: DecisionFact[] }`. It returns nothing when no change clears the threshold, so the coach stays quiet when there is nothing worth saying.
 
 **Law 1.** Nothing in this module reads or writes a set count, rep target, RIR or muscle volume, beyond reading prescriptions to build footprints.
 
@@ -162,9 +165,9 @@ New `DecisionFact` variants carry session ids, the muscle where relevant, and th
 6. Write `DecisionLog(SCHEDULE, APPLIED)` with `payload = { origin: "athlete" | "suggestion", before, after, facts }`.
 7. If `carryForward`, for each later week whose sessions are all `SCHEDULED`: map the layout onto that week's sessions by `order`, run `checkLayout`, and apply if clean. Return `{ applied: number[], skipped: { weekIndex, reason }[] }`.
 
-**`updatePrefs`** never moves a session. Switching `HALF_DAY → DAY` is refused with `BAD_REQUEST` naming the days while any day in a not-yet-finished week holds two `SCHEDULED` sessions; on success it nulls `daypart` on `SCHEDULED` sessions. Switching `DAY → HALF_DAY` assigns each `SCHEDULED` session the day's Preferred daypart if exactly one is Preferred, else `AM`.
+**`updatePrefs`** never moves a session. Switching `HALF_DAY → DAY` is refused with `BAD_REQUEST` naming the days while any day in a not-yet-finished week holds two `SCHEDULED` sessions; on success it nulls `daypart` on `SCHEDULED` sessions. Switching `DAY → HALF_DAY` assigns each `SCHEDULED` session PM when only PM is Preferred, or when AM is Blocked and PM is not; otherwise AM. A `setTimezone` procedure stores the athlete's IANA timezone.
 
-**Onboarding.** `OnboardingInputSchema` gains optional `scheduleMode` (default `DAY`) and `availability` (default empty). `onboarding.createPlan` persists them in its existing transaction before `persistMesocyclePlan`, so the first block is placed against them.
+**Onboarding.** `OnboardingInputSchema` gains optional `scheduleMode` (default `DAY`), `availability` (default empty) and `timezone` (default `"UTC"`, sent from the browser). `onboarding.createPlan` persists them in its existing transaction before `persistMesocyclePlan`, so the first block is placed against them.
 
 ### 5. Views (`src/views`, `src/server/views`)
 
@@ -177,7 +180,7 @@ New `DecisionFact` variants carry session ids, the muscle where relevant, and th
 ### 6. UI
 
 - **Schedule board** (`src/components/schedule/schedule-board.tsx`), placed at the top of `/app/block/week/[n]`. Seven date-labelled columns starting on the week's first day. One row in `DAY` mode, two (AM, PM) in `HALF_DAY`. Each session is a chip: label, estimated minutes, status. The existing `SessionPanel` grid stays below, now in placement order.
-- **Dragging** uses `@dnd-kit/core` (new dependency) with pointer, touch and keyboard sensors. While a chip is held, cells that would violate a hard rule are dimmed and not droppable; cells that would add a warning are marked. Each chip also has a "Move to…" menu, so every action is available without a pointer. Locked chips are not draggable.
+- **Dragging** uses `@dnd-kit/core` (new dependency) with pointer and touch sensors. While a chip is held, cells that would violate a hard rule are dimmed and not droppable; cells that would add a warning are marked; dropping on an occupied cell swaps the two sessions. Each chip also has a "Move to…" menu offering the same legal targets, which is the keyboard and screen-reader path (dnd-kit's keyboard sensor moves by free pixels and suits a grid poorly). Locked chips are not draggable.
 - **Drafts.** Drops change local state only. A draft bar shows the number of changes, each warning with its reason, a "Use this layout for remaining weeks" checkbox, Discard, and Confirm. Scoring during a draft runs `scoreLayout` and `checkLayout` in the browser from the `ScheduleInput` the query shipped.
 - **Coach suggestion card.** Shown after a confirm, or on load, when `getSuggestions` returns something: the top move, its reason, Accept and Dismiss. Accept calls `applyLayout` with `origin: "suggestion"`. This is the one elevated surface on the page, per `DESIGN.md`'s concentrated-glass rule.
 - **Settings** (`/app/settings`): schedule mode toggle and the availability grid (tap to cycle Available → Preferred → Blocked).
