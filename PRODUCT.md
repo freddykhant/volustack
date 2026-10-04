@@ -45,7 +45,9 @@ The athlete uses this self-coached, primarily around gym sessions, across a mult
 
 **Terminology (use exactly):** mesocycle, block, week, session, prescription, set, RIR (reps in reserve), volume landmarks, zones (optimal / max), deload, split, Fitness / Fatigue / Form (Form = readiness).
 
-**Deferred (do not fabricate as present):** endurance/multi-sport disciplines; biodata integrations (Garmin / Strava / Bevel); AM/PM two-a-day scheduling; real readiness/progression from logged load.
+**Deferred (do not fabricate as present):** endurance/multi-sport disciplines; biodata integrations (Garmin / Strava / Bevel); real readiness/progression from logged load.
+
+**Scheduling (present):** every session has a placement (weekday, optional AM/PM). Athletes choose one-a-day or AM/PM, set a standing availability grid (Preferred / Available / Blocked), and drag sessions on the week board. The engine warns about recovery problems and suggests single moves; it never moves a session on its own. Deferred: one-off availability exceptions, conversational rescheduling, situational coach cues.
 
 ## Brand Commitments
 
