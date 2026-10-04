@@ -134,10 +134,10 @@ describe("schedule properties", () => {
       fc.property(arbInput(), (raw) => {
         const layout = packedLayout(raw);
         fc.pre(layout !== null);
-        const input = withSaved(raw, layout!);
-        const before = scoreLayout(input, layout!).cost;
-        for (const s of suggestMoves(input, layout!)) {
-          const after = applySuggestion(layout!, s);
+        const input = withSaved(raw, layout);
+        const before = scoreLayout(input, layout).cost;
+        for (const s of suggestMoves(input, layout)) {
+          const after = applySuggestion(layout, s);
           expect(checkLayout(input, after)).toEqual([]);
           expect(scoreLayout(input, after).cost).toBeLessThan(before);
         }
@@ -162,9 +162,9 @@ describe("schedule properties", () => {
       fc.property(arbInput(), (raw) => {
         const layout = packedLayout(raw);
         fc.pre(layout !== null);
-        const input = withSaved(raw, layout!);
+        const input = withSaved(raw, layout);
         const locked = new Set(input.sessions.filter((s) => s.locked).map((s) => s.id));
-        for (const s of suggestMoves(input, layout!)) {
+        for (const s of suggestMoves(input, layout)) {
           expect(locked.has(s.sessionId)).toBe(false);
           if (s.swapWithSessionId !== null) expect(locked.has(s.swapWithSessionId)).toBe(false);
         }
@@ -177,9 +177,9 @@ describe("schedule properties", () => {
       fc.property(arbInput(), (raw) => {
         const layout = packedLayout(raw);
         fc.pre(layout !== null);
-        const input = withSaved(raw, layout!);
-        const baseFacts = scoreLayout(input, layout!).facts.map((f) => JSON.stringify(f));
-        for (const s of suggestMoves(input, layout!)) {
+        const input = withSaved(raw, layout);
+        const baseFacts = scoreLayout(input, layout).facts.map((f) => JSON.stringify(f));
+        for (const s of suggestMoves(input, layout)) {
           const resolves = s.resolves.map((f) => JSON.stringify(f));
           const eases = s.eases.map((f) => JSON.stringify(f));
           for (const f of resolves) expect(eases).not.toContain(f);
