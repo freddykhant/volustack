@@ -1,6 +1,19 @@
 // src/engine/schedule.ts
 import type { ExerciseDef } from "~/domain/exercise-library";
 import type { Daypart, MuscleGroup, ScheduleMode } from "~/schema";
+import {
+  MAX_STREAK_DAYS,
+  OVERLAP_MIN_SETS,
+  REST_TARGET_HALF_DAYS,
+  SPREAD_FACT_MIN_DAYS,
+  W_LOAD_STREAK,
+  W_OFF_PREFERENCE,
+  W_ON_BLOCKED_CELL,
+  W_SAME_DAY_STACK,
+  W_SHORT_REST,
+  W_UNEVEN_SPREAD,
+} from "./constants";
+import type { DecisionFact } from "./facts";
 import { ALL_MUSCLES, computeVolume, round1 } from "./util";
 
 /** Where a session sits. `day` is 0=Mon…6=Sun; `daypart` is null in DAY mode. */
@@ -211,4 +224,138 @@ export function checkLayout(input: ScheduleInput, layout: Layout): HardViolation
     if (!known.has(id)) out.push({ kind: "unknown_session", sessionId: id });
   }
   return out;
+}
+
+export interface LayoutScore {
+  cost: number;
+  facts: DecisionFact[];
+}
+
+/** Shared stimulus between two footprints, and the muscle that shares most. */
+function overlapOf(a: Footprint, b: Footprint): { sets: number; muscle: MuscleGroup | null } {
+  let sets = 0;
+  let top: MuscleGroup | null = null;
+  let topSets = 0;
+  for (const m of ALL_MUSCLES) {
+    const shared = Math.min(a[m] ?? 0, b[m] ?? 0);
+    sets += shared;
+    if (shared > topSets) {
+      topSets = shared;
+      top = m;
+    }
+  }
+  return { sets: round1(sets), muscle: top };
+}
+
+/**
+ * Cost of a layout plus the facts that explain it. Lower is better. Every term is
+ * non-negative. Reads footprints and placements only: it never touches a set count
+ * (Law 1) and every reason it gives is a fact (Law 2).
+ */
+export function scoreLayout(input: ScheduleInput, layout: Layout): LayoutScore {
+  const facts: DecisionFact[] = [];
+  let cost = 0;
+
+  const placed = [...input.sessions]
+    .sort((a, b) => a.order - b.order)
+    .filter((s) => layout[s.id] !== undefined)
+    .map((s) => {
+      const p = layout[s.id]!;
+      return { s, p, pos: placementPosition(p, input.weekStartDay) };
+    });
+
+  const rest = (sessionId: string, otherSessionId: string | null, a: Footprint, b: Footprint, gap: number) => {
+    const o = overlapOf(a, b);
+    if (o.muscle === null || o.sets < OVERLAP_MIN_SETS || gap >= REST_TARGET_HALF_DAYS) return;
+    cost += W_SHORT_REST * o.sets * (REST_TARGET_HALF_DAYS - gap);
+    facts.push({
+      kind: "short_rest",
+      sessionId,
+      otherSessionId,
+      muscle: o.muscle,
+      gapHalfDays: gap,
+      targetHalfDays: REST_TARGET_HALF_DAYS,
+    });
+  };
+
+  // Rest between sessions in this week.
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i]!;
+      const b = placed[j]!;
+      const [earlier, later] = a.pos <= b.pos ? [a, b] : [b, a];
+      rest(later.s.id, earlier.s.id, a.s.footprint, b.s.footprint, Math.abs(a.pos - b.pos));
+    }
+  }
+
+  // Rest across the week boundary.
+  for (const c of input.carryIn) {
+    for (const x of placed) {
+      rest(x.s.id, null, c.footprint, x.s.footprint, c.halfDaysBeforeWeekStart + x.pos);
+    }
+  }
+
+  const days = [...new Set(placed.map((x) => Math.floor(x.pos / 2)))].sort((a, b) => a - b);
+
+  // Consecutive training days.
+  let longest = 0;
+  let run = 0;
+  let prev = -2;
+  for (const d of days) {
+    run = d === prev + 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+    prev = d;
+  }
+  if (longest > MAX_STREAK_DAYS) {
+    cost += W_LOAD_STREAK * (longest - MAX_STREAK_DAYS);
+    facts.push({ kind: "load_streak", days: longest, limit: MAX_STREAK_DAYS });
+  }
+
+  // Two sessions on one day.
+  if (input.mode === "HALF_DAY") {
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) {
+        const a = placed[i]!;
+        const b = placed[j]!;
+        if (a.p.day !== b.p.day) continue;
+        const shared = overlapOf(a.s.footprint, b.s.footprint).sets;
+        cost += W_SAME_DAY_STACK * (1 + shared);
+        facts.push({ kind: "same_day_stack", day: a.p.day, sessionIds: [a.s.id, b.s.id], sharedSets: shared });
+      }
+    }
+  }
+
+  // Preference and blocked cells.
+  const occupied = new Set(placed.map((x) => cellKey(x.p, input.mode)));
+  const preferredOpen = allCells(input.mode).some(
+    (c) =>
+      cellState(input.availability, input.mode, c) === "PREFERRED" &&
+      dayIndex(c.day, input.weekStartDay) >= input.firstOpenDay &&
+      !occupied.has(cellKey(c, input.mode)),
+  );
+  for (const x of placed) {
+    if (x.s.locked) continue;
+    const state = cellState(input.availability, input.mode, x.p);
+    if (state === "BLOCKED") {
+      cost += W_ON_BLOCKED_CELL;
+      facts.push({ kind: "on_blocked_cell", sessionId: x.s.id, day: x.p.day, daypart: x.p.daypart });
+    } else if (state !== "PREFERRED" && preferredOpen) {
+      cost += W_OFF_PREFERENCE;
+      facts.push({ kind: "off_preference", sessionId: x.s.id });
+    }
+  }
+
+  // Spread across the week, treating the week as repeating.
+  if (days.length >= 2) {
+    const gaps = days.map((d, i) => (i === days.length - 1 ? days[0]! + 7 - d : days[i + 1]! - d));
+    const ideal = 7 / days.length;
+    cost += W_UNEVEN_SPREAD * gaps.reduce((sum, g) => sum + Math.abs(g - ideal), 0);
+    const longestGap = Math.max(...gaps);
+    const shortestGap = Math.min(...gaps);
+    if (longestGap - shortestGap >= SPREAD_FACT_MIN_DAYS) {
+      facts.push({ kind: "uneven_spread", longestGapDays: longestGap, shortestGapDays: shortestGap });
+    }
+  }
+
+  return { cost: Math.round(cost * 1e6) / 1e6, facts };
 }

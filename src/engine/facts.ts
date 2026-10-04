@@ -18,7 +18,7 @@ export type DecisionFact =
   | { kind: "trimmed_overshoot"; muscle: MuscleGroup; from: number; to: number; cause: "secondary_credit_overshoot" }
   | { kind: "ramp_flattened"; muscle: MuscleGroup; atWeek: number; cappedAt: number; cause: "mrv_ceiling" }
   | { kind: "deviation"; muscle: MuscleGroup; target: number; achieved: number; cause: "no_eligible_exercise" | "session_time_cap" | "insufficient_capacity" | "secondary_credit_overshoot" }
-  | { kind: "infeasible"; constraint: "session_time" | "weekly_volume"; detail: Record<string, number | string> }
+  | { kind: "infeasible"; constraint: "session_time" | "weekly_volume" | "schedule_cells"; detail: Record<string, number | string> }
   | { kind: "stepped"; muscle: MuscleGroup; from: number; to: number; cause: "joint_stress" | "under_recovered" | "responding_well" | "approaching_mrv" | "on_track" | "default_progression" }
   | { kind: "swap_suggested"; muscle: MuscleGroup; cause: "joint_stress" }
   | { kind: "deload_scheduled"; atWeek: number }
@@ -26,4 +26,10 @@ export type DecisionFact =
   | { kind: "redistributed"; muscle: MuscleGroup; sets: number; from: string; to: string }
   | { kind: "dropped_volume"; muscle: MuscleGroup; sets: number; belowMev: boolean; cause: "missed_session" }
   | { kind: "judged"; subject: string; questionId: string; selected: string; deterministic: string; basis: JudgementBasis }
-  | { kind: "close_call"; subject: string; questionId: string; between: [string, string]; margin: number };
+  | { kind: "close_call"; subject: string; questionId: string; between: [string, string]; margin: number }
+  | { kind: "short_rest"; sessionId: string; otherSessionId: string | null; muscle: MuscleGroup; gapHalfDays: number; targetHalfDays: number }
+  | { kind: "load_streak"; days: number; limit: number }
+  | { kind: "same_day_stack"; day: number; sessionIds: [string, string]; sharedSets: number }
+  | { kind: "off_preference"; sessionId: string }
+  | { kind: "uneven_spread"; longestGapDays: number; shortestGapDays: number }
+  | { kind: "on_blocked_cell"; sessionId: string; day: number; daypart: "AM" | "PM" | null };

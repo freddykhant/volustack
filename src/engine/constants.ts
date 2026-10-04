@@ -69,3 +69,32 @@ export const JUDGEMENT_MIN_NOUL_PROPOSAL = 0.75;
 export const CLOSE_CALL_NOUL_MARGIN = 0.12;
 /** Trend labels: |Δ| strictly below this reads as "flat". */
 export const TREND_FLAT_BAND = 0.5;
+
+// ─── Schedule scoring ───
+
+/** Rest, in half-days, that two sessions sharing a muscle should have between them. 4 = 48h. */
+export const REST_TARGET_HALF_DAYS = 4;
+/** Shared stimulus sets below this don't count as "the same muscles". */
+export const OVERLAP_MIN_SETS = 2;
+/** Cost per shared set, per half-day short of the rest target. */
+export const W_SHORT_REST = 1;
+/** Consecutive training days allowed before a streak is a problem. */
+export const MAX_STREAK_DAYS = 3;
+/** Cost per day beyond the streak limit. */
+export const W_LOAD_STREAK = 4;
+/** Cost of two sessions on one day; multiplied by (1 + shared sets). */
+export const W_SAME_DAY_STACK = 3;
+/** Cost of a session sitting off a Preferred cell while one is open. */
+export const W_OFF_PREFERENCE = 2;
+/** Cost per day that the gaps between training days deviate from an even spread. */
+export const W_UNEVEN_SPREAD = 1;
+/** Longest gap minus shortest gap (days) at which bunching is worth telling the athlete. */
+export const SPREAD_FACT_MIN_DAYS = 3;
+/** Cost of a session standing on a Blocked cell. Must dominate everything else. */
+export const W_ON_BLOCKED_CELL = 1000;
+/** A move must lower the cost by more than this to be suggested. */
+export const SUGGESTION_MIN_GAIN = 2;
+/** Suggestions returned at most. */
+export const MAX_SUGGESTIONS = 3;
+/** Cost differences smaller than this are treated as equal. Not a tuning value. */
+export const SCHEDULE_EPS = 1e-6;
