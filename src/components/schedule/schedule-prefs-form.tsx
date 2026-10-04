@@ -71,12 +71,14 @@ function PrefsFormBody({ initial }: { initial: LoadedPrefs }) {
               key={m.value}
               type="button"
               aria-pressed={mode === m.value}
+              disabled={update.isPending}
               onClick={() => {
                 setMode(m.value);
                 setSaved(false);
+                update.reset();
               }}
               className={
-                "rounded-control flex-1 border p-3 text-left transition-colors " +
+                "rounded-control flex-1 border p-3 text-left transition-colors disabled:opacity-60 " +
                 (mode === m.value
                   ? "border-accent bg-selection"
                   : "border-border-subtle hover:border-border")
@@ -104,6 +106,7 @@ function PrefsFormBody({ initial }: { initial: LoadedPrefs }) {
           onChange={(next) => {
             setAvailability(next);
             setSaved(false);
+            update.reset();
           }}
           disabled={update.isPending}
         />

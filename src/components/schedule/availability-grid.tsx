@@ -27,9 +27,7 @@ export function AvailabilityGrid({
 }) {
   const rows: (Daypart | null)[] = mode === "HALF_DAY" ? ["AM", "PM"] : [null];
   return (
-    // The grid can sit inside a <label> (the onboarding Field). Cancelling the click's
-    // default action stops that label from forwarding stray clicks to the first cell.
-    <div className="flex flex-col gap-2" onClick={(e) => e.preventDefault()}>
+    <div className="flex flex-col gap-2">
       <div className="overflow-x-auto">
         <div className="grid min-w-[420px] grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] gap-1.5">
           <span />

@@ -246,7 +246,9 @@ export function OnboardingWizard() {
 
         {step === 4 && (
           <>
-            <Field label="How you plan your week">
+            {/* fieldset + legend, not Field: a <label> would forward clicks on its text to the first button. */}
+            <fieldset className="min-w-0 border-0 p-0">
+              <legend className="mb-2 p-0 text-nav text-fg-muted">How you plan your week</legend>
               <div className="flex flex-col gap-2">
                 <CardChoice
                   selected={scheduleMode === "DAY"}
@@ -261,10 +263,11 @@ export function OnboardingWizard() {
                   hint="Plan by morning and afternoon, with room for two-a-days."
                 />
               </div>
-            </Field>
-            <Field label="When you can train — optional">
+            </fieldset>
+            <fieldset className="min-w-0 border-0 p-0">
+              <legend className="mb-2 p-0 text-nav text-fg-muted">When you can train — optional</legend>
               <AvailabilityGrid mode={scheduleMode} value={availability} onChange={setAvailability} />
-            </Field>
+            </fieldset>
             {openDayCount(availability) < daysPerWeek ? (
               <p className="rounded-control border border-border-subtle bg-canvas px-3 py-2.5 text-nav text-fg-subtle">
                 You train {daysPerWeek} days a week but have left {openDayCount(availability)} open
