@@ -3,9 +3,11 @@ import {
   allCells,
   cellKey,
   checkLayout,
+  layoutKey,
   samePlacement,
   scoreLayout,
   type Layout,
+  type MoveSuggestion,
   type Placement,
   type ScheduleInput,
 } from "~/engine/schedule";
@@ -89,4 +91,24 @@ export function dropTargets(
       placedNow && scoreLayout(input, next).cost > base + SCHEDULE_EPS;
     return { placement, kind: worse ? ("warn" as const) : ("ok" as const) };
   });
+}
+
+/** True when the saved layout is no longer the one a draft started from: the week
+ * was changed somewhere else, so confirming the draft would overwrite that change. */
+export function isDraftStale(base: Layout, saved: Layout): boolean {
+  return layoutKey(base) !== layoutKey(saved);
+}
+
+/** A suggestion was computed against a saved layout. It may only be applied while that
+ * part of the layout still holds: the session where it was, and for a swap the other
+ * session where the first is going. */
+export function suggestionStillValid(
+  saved: Layout,
+  s: Pick<MoveSuggestion, "sessionId" | "from" | "to" | "swapWithSessionId">,
+): boolean {
+  if (!samePlacement(saved[s.sessionId], s.from)) return false;
+  return (
+    s.swapWithSessionId === null ||
+    samePlacement(saved[s.swapWithSessionId], s.to)
+  );
 }

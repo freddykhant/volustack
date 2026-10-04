@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useDroppable,
   useSensor,
@@ -19,6 +19,7 @@ import {
   scoreLayout,
   type Layout,
   type Placement,
+  type ScheduleInput,
 } from "~/engine/schedule";
 import { api } from "~/trpc/react";
 import {
@@ -32,12 +33,28 @@ import {
   cellId,
   changedIds,
   dropTargets,
+  isDraftStale,
   parseCellId,
+  suggestionStillValid,
   type DropTarget,
 } from "./draft";
 import { DraftBar } from "./draft-bar";
 import { SessionChip, type MoveOption } from "./session-chip";
 import { SuggestionCard } from "./suggestion-card";
+
+/** A draft carries what it started from, so a refetch or another device's change can
+ * neither shift it underneath the athlete nor slip past the server's conflict check. */
+interface Draft {
+  layout: Layout;
+  base: Layout;
+  input: ScheduleInput;
+}
+
+/** `availabilityLink` is set only for the one notice that Availability settings can fix. */
+interface Notice {
+  text: string;
+  availabilityLink: boolean;
+}
 
 function Cell({
   placement,
@@ -81,10 +98,10 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   const router = useRouter();
   const utils = api.useUtils();
   const query = api.schedule.getWeekSchedule.useQuery({ weekIndex });
-  const [draft, setDraft] = useState<Layout | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [carryForward, setCarryForward] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const tzSynced = useRef(false);
 
   const refresh = () => {
@@ -95,22 +112,28 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     onSuccess: refresh,
   });
   const apply = api.schedule.applyLayout.useMutation({
-    onSuccess: (res) => {
+    // React Query awaits this before the mutation settles, so the board stays
+    // non-editable until the fresh layout is in: no flicker back to the old cells.
+    onSuccess: async (res) => {
+      await utils.schedule.invalidate();
+      router.refresh();
       setDraft(null);
       setCarryForward(false);
       setNotice(
         res.skipped.length > 0
-          ? `Saved. Week ${res.skipped.map((s) => s.weekIndex).join(", ")} kept its own layout.`
+          ? {
+              text: `Saved. Week ${res.skipped.map((s) => s.weekIndex).join(", ")} kept its own layout.`,
+              availabilityLink: false,
+            }
           : null,
       );
-      refresh();
     },
     onError: (err) => {
       if (err.data?.code === "CONFLICT") refresh();
     },
   });
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 150, tolerance: 5 },
     }),
@@ -145,35 +168,47 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   }
 
   const data = query.data;
-  const saved = data.layout;
-  const layout = draft ?? saved;
+  // While a draft exists everything is computed from its snapshot, not the live query.
+  const input = draft?.input ?? data.input;
+  const base = draft?.base ?? data.layout;
+  const layout = draft?.layout ?? data.layout;
+  const stale =
+    draft !== null && !apply.isPending && isDraftStale(draft.base, data.layout);
   const editable = !data.readOnly && !apply.isPending;
   const labelOf = (id: string) =>
     data.sessions.find((s) => s.id === id)?.label ?? "Session";
-  const changed = changedIds(saved, layout);
+  const changed = changedIds(base, layout);
   const warnings = draft
-    ? toWarnings(scoreLayout(data.input, layout).facts, labelOf)
+    ? toWarnings(scoreLayout(input, layout).facts, labelOf)
     : data.warnings;
-  const targets = dragging ? dropTargets(data.input, layout, dragging) : null;
+  const targets = dragging ? dropTargets(input, layout, dragging) : null;
   const unplaced = data.sessions.filter((s) => layout[s.id] === undefined);
   const rows: ("AM" | "PM" | null)[] =
     data.mode === "HALF_DAY" ? ["AM", "PM"] : [null];
 
   const moveOptionsFor = (sessionId: string): MoveOption[] =>
-    dropTargets(data.input, layout, sessionId)
+    dropTargets(input, layout, sessionId)
       .filter((t) => t.kind === "ok" || t.kind === "warn")
       .map((t) => ({
         value: cellId(t.placement),
         label:
           placementLabel(t.placement) +
-          (t.kind === "warn" ? " (less rest)" : ""),
+          (t.kind === "warn" ? " (adds a warning)" : ""),
       }));
 
+  function startOrUpdateDraft(next: Layout) {
+    setDraft(
+      changedIds(base, next).length === 0
+        ? null
+        : { layout: next, base, input },
+    );
+  }
+
   function move(sessionId: string, target: Placement) {
-    const next = applyDrop(data.input, layout, sessionId, target);
+    const next = applyDrop(input, layout, sessionId, target);
     if (next === layout) return;
     setNotice(null);
-    setDraft(changedIds(saved, next).length === 0 ? null : next);
+    startOrUpdateDraft(next);
   }
 
   function onDragEnd(e: DragEndEvent) {
@@ -183,16 +218,20 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
 
   function placeForMe() {
     const res = placeWeek({
-      ...data.input,
-      sessions: data.input.sessions.map((s) =>
+      ...input,
+      sessions: input.sessions.map((s) =>
         layout[s.id] ? { ...s, locked: true, placement: layout[s.id]! } : s,
       ),
     });
-    if (res.kind === "placed") setDraft(res.layout);
-    else
-      setNotice(
-        "Your availability doesn’t leave enough open times for this week.",
-      );
+    if (res.kind === "placed") {
+      setNotice(null);
+      startOrUpdateDraft(res.layout);
+    } else {
+      setNotice({
+        text: "Your availability doesn’t leave enough open times for this week.",
+        availabilityLink: true,
+      });
+    }
   }
 
   function confirm(next: Layout, origin: "athlete" | "suggestion") {
@@ -205,11 +244,20 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
       })),
       expected: data.sessions.map((s) => ({
         sessionId: s.id,
-        placement: saved[s.id] ?? null,
+        placement: base[s.id] ?? null,
       })),
       carryForward: origin === "athlete" && carryForward,
       origin,
     });
+  }
+
+  function accept(s: MoveSuggestionView) {
+    // The suggestion was made for a layout that may have moved on since.
+    if (!suggestionStillValid(data.layout, s)) {
+      void utils.schedule.getSuggestions.invalidate();
+      return;
+    }
+    confirm(applySuggestion(data.layout, s), "suggestion");
   }
 
   const chip = (id: string) => {
@@ -293,13 +341,18 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
 
       {notice ? (
         <p className="rounded-control border-border bg-callout text-nav text-fg-soft border px-3 py-2">
-          {notice}{" "}
-          <Link
-            href="/app/settings"
-            className="text-accent hover:text-accent-strong font-medium"
-          >
-            Availability
-          </Link>
+          {notice.text}
+          {notice.availabilityLink ? (
+            <>
+              {" "}
+              <Link
+                href="/app/settings"
+                className="text-accent hover:text-accent-strong font-medium"
+              >
+                Availability
+              </Link>
+            </>
+          ) : null}
         </p>
       ) : null}
 
@@ -314,6 +367,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
             apply.reset();
           }}
           onConfirm={() => confirm(layout, "athlete")}
+          stale={stale}
           pending={apply.isPending}
           error={apply.isError ? apply.error.message : null}
         />
@@ -330,9 +384,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
             <SuggestionCard
               weekIndex={weekIndex}
               pending={apply.isPending}
-              onAccept={(s: MoveSuggestionView) =>
-                confirm(applySuggestion(saved, s), "suggestion")
-              }
+              onAccept={accept}
             />
           ) : null}
           {apply.isError ? (

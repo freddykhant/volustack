@@ -54,7 +54,9 @@ export function SessionChip({
     >
       <div
         {...(draggable ? listeners : {})}
-        className={draggable ? "cursor-grab touch-none select-none" : undefined}
+        className={
+          draggable ? "cursor-grab touch-manipulation select-none" : undefined
+        }
       >
         <div className="text-nav text-fg font-medium">{session.label}</div>
         <div className="text-fg-subtle text-[12px]">

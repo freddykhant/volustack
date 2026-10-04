@@ -6,7 +6,9 @@ import {
   cellId,
   changedIds,
   dropTargets,
+  isDraftStale,
   parseCellId,
+  suggestionStillValid,
 } from "./draft";
 
 const day = (d: number): Placement => ({ day: d, daypart: null });
@@ -171,5 +173,66 @@ describe("dropTargets", () => {
 
   it("has one entry per cell", () => {
     expect(dropTargets(input, layout, "b")).toHaveLength(7);
+  });
+});
+
+describe("isDraftStale", () => {
+  it("is false for the same layout, whatever the key order", () => {
+    expect(
+      isDraftStale({ a: day(0), b: day(2) }, { b: day(2), a: day(0) }),
+    ).toBe(false);
+  });
+
+  it("is true when a session moved elsewhere", () => {
+    expect(
+      isDraftStale({ a: day(0), b: day(2) }, { a: day(0), b: day(3) }),
+    ).toBe(true);
+  });
+
+  it("is true when a session was newly placed or unplaced elsewhere", () => {
+    expect(isDraftStale({ a: day(0) }, { a: day(0), b: day(2) })).toBe(true);
+    expect(isDraftStale({ a: day(0), b: day(2) }, { a: day(0) })).toBe(true);
+  });
+});
+
+describe("suggestionStillValid", () => {
+  const saved: Layout = { a: day(0), b: day(2) };
+
+  it("holds while the session is still where the suggestion found it", () => {
+    expect(
+      suggestionStillValid(saved, {
+        sessionId: "a",
+        from: day(0),
+        to: day(4),
+        swapWithSessionId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("fails when the session has moved or been unplaced", () => {
+    expect(
+      suggestionStillValid(
+        { a: day(1), b: day(2) },
+        { sessionId: "a", from: day(0), to: day(4), swapWithSessionId: null },
+      ),
+    ).toBe(false);
+    expect(
+      suggestionStillValid(
+        { b: day(2) },
+        { sessionId: "a", from: day(0), to: day(4), swapWithSessionId: null },
+      ),
+    ).toBe(false);
+  });
+
+  it("for a swap, also needs the other session at the target", () => {
+    const swap = {
+      sessionId: "a",
+      from: day(0),
+      to: day(2),
+      swapWithSessionId: "b",
+    };
+    expect(suggestionStillValid(saved, swap)).toBe(true);
+    expect(suggestionStillValid({ a: day(0), b: day(3) }, swap)).toBe(false);
+    expect(suggestionStillValid({ a: day(0) }, swap)).toBe(false);
   });
 });

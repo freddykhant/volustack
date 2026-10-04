@@ -9,6 +9,7 @@ export function DraftBar({
   onDiscard,
   onConfirm,
   pending,
+  stale,
   error,
 }: {
   changeCount: number;
@@ -18,6 +19,8 @@ export function DraftBar({
   onDiscard: () => void;
   onConfirm: () => void;
   pending: boolean;
+  /** The saved week changed elsewhere since this draft began: Confirm is off. */
+  stale: boolean;
   error: string | null;
 }) {
   return (
@@ -42,13 +45,18 @@ export function DraftBar({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={pending}
+            disabled={pending || stale}
             className="rounded-control bg-accent text-nav hover:bg-accent-strong px-4 py-2 font-medium text-white transition-colors disabled:opacity-60"
           >
             {pending ? "Saving…" : "Confirm"}
           </button>
         </div>
       </div>
+      {stale ? (
+        <p className="rounded-control border-border bg-callout text-nav text-fg-soft border px-3 py-2">
+          This week changed somewhere else. Discard to see the latest.
+        </p>
+      ) : null}
       {warnings.length > 0 ? (
         <ul className="text-nav text-fg-soft flex flex-col gap-1">
           {warnings.map((w) => (
