@@ -14,7 +14,7 @@ const cell = (muscle: MuscleGroup, plannedSets: number): MuscleWeekCell => ({
 });
 
 function week(cells: MuscleWeekCell[], isDeload = false): WeekView {
-  return { index: 1, isDeload, isCurrent: true, totalSets: 0, sessions: [], cells };
+  return { index: 1, isDeload, isCurrent: true, totalSets: 0, sessions: [], cells, days: [] };
 }
 
 describe("rollUpStatus", () => {

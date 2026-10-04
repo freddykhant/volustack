@@ -66,10 +66,21 @@ export interface PrescriptionView {
   loggedSets?: LoggedSetView[];
 }
 
+export interface PlacementView {
+  day: number; // 0 = Mon … 6 = Sun
+  daypart: "AM" | "PM" | null;
+}
+
+export interface WeekDayView {
+  date: string; // "YYYY-MM-DD", the athlete's local date
+  weekday: number; // 0 = Mon … 6 = Sun
+}
+
 export interface SessionView {
   slotId: string;
   label: string; // "Upper A"
   dayTag?: string; // optional day-of-week tag
+  placement?: PlacementView; // undefined = not placed yet
   estimatedMinutes: number;
   status: SessionStatus;
   prescriptions: PrescriptionView[];
@@ -93,6 +104,7 @@ export interface WeekView {
   totalSets: number;
   sessions: SessionView[];
   cells: MuscleWeekCell[]; // one per trained muscle, this week
+  days: WeekDayView[]; // seven local dates, or [] when the block has no start date
 }
 
 export interface LandmarkBarDatum {

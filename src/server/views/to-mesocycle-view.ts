@@ -1,5 +1,7 @@
 import type { Prisma } from "../../../generated/prisma";
 import { DEFAULT_LANDMARKS } from "~/domain/landmarks";
+import { placementPosition } from "~/engine";
+import { weekDays } from "~/server/mesocycle/schedule-adapters";
 import { MUSCLE_GROUPS, type MuscleGroup } from "~/schema";
 import type {
   LoggedSetView,
@@ -8,6 +10,7 @@ import type {
   MuscleWeekCell,
   PrescriptionView,
   SessionView,
+  WeekDayView,
   WeekView,
 } from "~/views/types";
 
@@ -18,6 +21,7 @@ import type {
  * in lockstep.
  */
 export const MESOCYCLE_INCLUDE = {
+  athleteProfile: { select: { timezone: true } },
   constraintSet: { include: { muscleTargets: true } },
   weeks: {
     include: {
@@ -102,6 +106,7 @@ function toSessionView(s: SessionWithRelations): SessionView {
     slotId: s.id,
     label: s.splitSlot,
     dayTag: s.dayOfWeek == null ? undefined : DAY_TAGS[s.dayOfWeek],
+    placement: s.dayOfWeek == null ? undefined : { day: s.dayOfWeek, daypart: s.daypart },
     estimatedMinutes: s.targetDurationMin ?? 0,
     status: s.status,
     prescriptions: [...s.prescriptions]
@@ -111,8 +116,25 @@ function toSessionView(s: SessionWithRelations): SessionView {
   };
 }
 
-function toWeekView(w: WeekWithRelations, curIdx: number, muscles: readonly MuscleGroup[]): WeekView {
-  const sessions = [...w.sessions].sort((a, b) => a.order - b.order).map(toSessionView);
+function toWeekView(
+  w: WeekWithRelations,
+  curIdx: number,
+  muscles: readonly MuscleGroup[],
+  days: WeekDayView[],
+): WeekView {
+  // Placement order within the rolling week; unplaced sessions keep plan order at the end.
+  const startDay = days[0]?.weekday ?? 0;
+  const position = (s: SessionWithRelations) =>
+    s.dayOfWeek == null
+      ? Number.POSITIVE_INFINITY
+      : placementPosition({ day: s.dayOfWeek, daypart: s.daypart }, startDay);
+  const sessions = [...w.sessions]
+    .sort((a, b) => {
+      const pa = position(a);
+      const pb = position(b);
+      return pa === pb ? a.order - b.order : pa - pb;
+    })
+    .map(toSessionView);
   // A cell for every block-trained muscle every week, reconciled with
   // block.muscles by construction — a week that omits a muscle yields a
   // factual plannedSets:0 cell (BlockGrid force-unwraps these; it must never miss).
@@ -139,6 +161,7 @@ function toWeekView(w: WeekWithRelations, curIdx: number, muscles: readonly Musc
     totalSets,
     sessions,
     cells,
+    days,
   };
 }
 
@@ -156,7 +179,10 @@ export function toMesocycleView(m: MesocycleWithRelations): MesocycleView {
     cs.muscleTargets.some((t) => t.muscle === mm && t.priority > 0),
   );
 
-  const weeks = [...m.weeks].sort((a, b) => a.index - b.index).map((w) => toWeekView(w, curIdx, muscles));
+  const tz = m.athleteProfile.timezone;
+  const weeks = [...m.weeks]
+    .sort((a, b) => a.index - b.index)
+    .map((w) => toWeekView(w, curIdx, muscles, m.startDate ? weekDays(m.startDate, w.index, tz) : []));
 
   return {
     id: m.id,

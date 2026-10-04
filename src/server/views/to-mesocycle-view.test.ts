@@ -36,6 +36,7 @@ function makeMesocycle(over: Partial<{
           order: 1,
           splitSlot: "Lower A",
           dayOfWeek: null,
+          daypart: null,
           status: "SCHEDULED" as const,
           completedAt: null,
           targetDurationMin: 46,
@@ -66,6 +67,7 @@ function makeMesocycle(over: Partial<{
           order: 0,
           splitSlot: "Upper A",
           dayOfWeek: 0,
+          daypart: null,
           status: "SCHEDULED" as const,
           completedAt: null,
           targetDurationMin: 58,
@@ -107,6 +109,7 @@ function makeMesocycle(over: Partial<{
     startDate: over.startDate === undefined ? new Date(Date.now() - 14 * DAY_MS) : over.startDate,
     lengthWeeks,
     createdAt: new Date(),
+    athleteProfile: { timezone: "UTC" },
     constraintSet: {
       id: "cs-1",
       athleteProfileId: "ap-1",
@@ -191,6 +194,34 @@ describe("toMesocycleView", () => {
       { muscle: "CHEST", role: "PRIMARY", fraction: 1 },
       { muscle: "TRICEPS", role: "SECONDARY", fraction: 0.5 },
     ]);
+  });
+
+  it("orders sessions by their position in the rolling week, unplaced last", () => {
+    // Block starts on a Wednesday, so the week runs Wed … Tue.
+    const m = makeMesocycle({ startDate: new Date("2026-10-07T00:00:00Z") });
+    const sessions = m.weeks[0]!.sessions;
+    const lower = sessions.find((s) => s.splitSlot === "Lower A")!;
+    const upper = sessions.find((s) => s.splitSlot === "Upper A")!;
+    lower.dayOfWeek = 3; // Thu, second day of the week
+    upper.dayOfWeek = 0; // Mon, sixth day of the week
+    const week = toMesocycleView(m).weeks[0]!;
+    expect(week.sessions.map((s) => s.label)).toEqual(["Lower A", "Upper A"]);
+    expect(week.sessions[0]!.placement).toEqual({ day: 3, daypart: null });
+
+    lower.dayOfWeek = null;
+    expect(toMesocycleView(m).weeks[0]!.sessions.map((s) => s.label)).toEqual(["Upper A", "Lower A"]);
+  });
+
+  it("gives each week seven local dates starting on the block's start weekday", () => {
+    const m = makeMesocycle({ startDate: new Date("2026-10-07T00:00:00Z") });
+    const view = toMesocycleView(m);
+    expect(view.weeks[0]!.days).toHaveLength(7);
+    expect(view.weeks[0]!.days[0]).toEqual({ date: "2026-10-07", weekday: 2 });
+    expect(view.weeks[1]!.days[0]).toEqual({ date: "2026-10-14", weekday: 2 });
+  });
+
+  it("gives a block with no start date no dates", () => {
+    expect(toMesocycleView(makeMesocycle({ startDate: null })).weeks[0]!.days).toEqual([]);
   });
 
   it("maps a session's dayOfWeek to a day tag, undefined when null", () => {
