@@ -45,12 +45,14 @@ export function SessionChip({
           ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
           : undefined
       }
-      className={
-        "rounded-control bg-surface-raised border p-2 " +
-        (changed ? "border-accent" : "border-border-subtle") +
-        (isDragging ? "relative z-10 opacity-80" : "") +
-        (session.locked ? "opacity-70" : "")
-      }
+      className={[
+        "rounded-control bg-surface-raised border p-2",
+        changed ? "border-accent" : "border-border-subtle",
+        isDragging ? "relative z-10 opacity-80" : "",
+        session.locked ? "opacity-70" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <div
         {...(draggable ? listeners : {})}
