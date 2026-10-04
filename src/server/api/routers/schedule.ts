@@ -93,6 +93,22 @@ async function loadWeekContext(db: Pick<Tx, "mesocycle">, userId: string, weekIn
   };
 }
 
+/** Serialise writes per block. Under Read Committed two concurrent writers could both read
+ * the same saved layout (or mode), both pass validation and both commit, leaving two
+ * sessions on one day. Locking the block's row first makes the second writer wait, then
+ * re-read (and fail its checks against) the first one's result. Returns the locked
+ * mesocycle id, or null when the athlete has no ACTIVE block. */
+async function lockActiveBlock(tx: Tx, userId: string): Promise<string | null> {
+  const locked = await tx.$queryRaw<{ id: string }[]>`
+    SELECT m."id" FROM "mesocycle" m
+    JOIN "athlete_profile" p ON p."id" = m."athleteProfileId"
+    WHERE p."userId" = ${userId} AND m."status" = 'ACTIVE'::"BlockStatus"
+    ORDER BY m."createdAt" DESC
+    LIMIT 1
+    FOR UPDATE OF m`;
+  return locked[0]?.id ?? null;
+}
+
 export const scheduleRouter = createTRPCRouter({
   // Read: the week's layout plus the engine input, so the browser can score drafts.
   getWeekSchedule: protectedProcedure.input(WeekInput).query(async ({ ctx, input }): Promise<ScheduleWeekView> => {
@@ -135,18 +151,7 @@ export const scheduleRouter = createTRPCRouter({
       const now = new Date();
       return ctx.db.$transaction(
         async (tx) => {
-          // Serialise applies per block. Under Read Committed two concurrent applies could
-          // both read the same saved layout, both pass validation and both commit, leaving
-          // two sessions on one day. Locking the block's row first makes the second apply
-          // wait, then re-read (and fail the `expected` check against) the first one's result.
-          const locked = await tx.$queryRaw<{ id: string }[]>`
-            SELECT m."id" FROM "mesocycle" m
-            JOIN "athlete_profile" p ON p."id" = m."athleteProfileId"
-            WHERE p."userId" = ${userId} AND m."status" = 'ACTIVE'::"BlockStatus"
-            ORDER BY m."createdAt" DESC
-            LIMIT 1
-            FOR UPDATE OF m`;
-          if (locked.length === 0) throw new TRPCError({ code: "NOT_FOUND" });
+          if ((await lockActiveBlock(tx, userId)) === null) throw new TRPCError({ code: "NOT_FOUND" });
 
           const c = await loadWeekContext(tx, userId, input.weekIndex, now);
           if (c.readOnly) {
@@ -289,15 +294,26 @@ export const scheduleRouter = createTRPCRouter({
     .input(SchedulePrefsInputSchema)
     .mutation(async ({ ctx, input }): Promise<{ scheduleMode: ScheduleMode }> => {
       const userId = ctx.session.user.id;
+      const now = new Date();
       await ctx.db.$transaction(
         async (tx) => {
+          // Serialise against applyLayout and other preference writes on this block.
+          const mesocycleId = await lockActiveBlock(tx, userId);
+
           const profile = await tx.athleteProfile.findUnique({
             where: { userId },
             select: { id: true, scheduleMode: true },
           });
           if (!profile) throw new TRPCError({ code: "NOT_FOUND" });
 
-          if (profile.scheduleMode !== input.scheduleMode) {
+          // With no ACTIVE block there are no sessions to consider.
+          if (mesocycleId !== null && profile.scheduleMode !== input.scheduleMode) {
+            const meso = await tx.mesocycle.findUnique({
+              where: { id: mesocycleId },
+              select: { startDate: true, lengthWeeks: true },
+            });
+            if (!meso) throw new TRPCError({ code: "NOT_FOUND" });
+            const currentWeek = currentWeekIndex(meso.startDate, meso.lengthWeeks, now);
             const scheduled = {
               status: "SCHEDULED" as const,
               dayOfWeek: { not: null },
@@ -310,7 +326,9 @@ export const scheduleRouter = createTRPCRouter({
             if (input.scheduleMode === "DAY") {
               const seen = new Map<string, number>();
               const clashes: string[] = [];
+              // Finished weeks are read-only, so a clash left in one must not block the switch.
               for (const s of sessions) {
+                if (s.week.index < currentWeek) continue;
                 const key = `${s.weekId}:${s.dayOfWeek}`;
                 const n = (seen.get(key) ?? 0) + 1;
                 seen.set(key, n);

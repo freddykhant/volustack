@@ -1,12 +1,27 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createCallerFactory } from "~/server/api/trpc";
 import { scheduleRouter } from "./schedule";
 
 const createCaller = createCallerFactory(scheduleRouter);
 
+// Wednesday 7 Oct 2026 (UTC). The default block started Monday 5 Oct, so week 1 is current
+// and week 2 is in the future. Fake only Date: tRPC's dev timing middleware awaits a real setTimeout.
+const NOW = new Date("2026-10-07T02:00:00Z");
+const START = new Date("2026-10-05T00:00:00Z");
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
+
 interface Opts {
   mode?: "DAY" | "HALF_DAY";
   noProfile?: boolean;
+  /** The athlete has no ACTIVE block: the lock query returns no row. */
+  noBlock?: boolean;
+  startDate?: Date;
   scheduled?: { id: string; weekId: string; dayOfWeek: number; week: { index: number } }[];
 }
 
@@ -26,6 +41,8 @@ function makeCaller(opts: Opts = {}) {
       update: vi.fn().mockResolvedValue({}),
       updateMany: vi.fn().mockResolvedValue({}),
     },
+    mesocycle: { findUnique: vi.fn().mockResolvedValue({ startDate: opts.startDate ?? START, lengthWeeks: 4 }) },
+    $queryRaw: vi.fn().mockResolvedValue(opts.noBlock ? [] : [{ id: "meso-1" }]),
     $transaction: vi.fn(),
   };
   db.$transaction.mockImplementation((fn: (tx: typeof db) => unknown) => fn(db));
@@ -105,6 +122,63 @@ describe("updatePrefs", () => {
   it("is NOT_FOUND without a profile", async () => {
     const { caller } = makeCaller({ noProfile: true });
     await expect(caller.updatePrefs({ scheduleMode: "DAY", availability: [] })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("locks the active block before reading the profile and before any write", async () => {
+    const { caller, db } = makeCaller({
+      mode: "HALF_DAY",
+      scheduled: [{ id: "a", weekId: "wk-2", dayOfWeek: 1, week: { index: 2 } }],
+    });
+    await caller.updatePrefs({ scheduleMode: "DAY", availability: [{ day: 2, daypart: "PM", state: "PREFERRED" }] });
+    const lock = db.$queryRaw.mock.invocationCallOrder[0]!;
+    expect(lock).toBeLessThan(db.athleteProfile.findUnique.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.trainingSession.updateMany.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.availabilityCell.deleteMany.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.availabilityCell.createMany.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.athleteProfile.update.mock.invocationCallOrder[0]!);
+  });
+
+  it("saves the preferences without touching sessions when there is no active block", async () => {
+    const { caller, db } = makeCaller({ mode: "HALF_DAY", noBlock: true });
+    await caller.updatePrefs({ scheduleMode: "DAY", availability: [{ day: 2, daypart: "PM", state: "PREFERRED" }] });
+    expect(db.availabilityCell.deleteMany).toHaveBeenCalledWith({ where: { athleteProfileId: "ap-1" } });
+    expect(db.availabilityCell.createMany).toHaveBeenCalledTimes(1);
+    expect(db.athleteProfile.update).toHaveBeenCalledWith({ where: { id: "ap-1" }, data: { scheduleMode: "DAY" } });
+    expect(db.trainingSession.findMany).not.toHaveBeenCalled();
+    expect(db.trainingSession.update).not.toHaveBeenCalled();
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("is not blocked by a clash in a finished week, and still clears dayparts", async () => {
+    // Block started Mon 14 Sep: on 7 Oct the current week is 4, so week 2 is finished.
+    const { caller, db } = makeCaller({
+      mode: "HALF_DAY",
+      startDate: new Date("2026-09-14T00:00:00Z"),
+      scheduled: [
+        { id: "a", weekId: "wk-2", dayOfWeek: 1, week: { index: 2 } },
+        { id: "b", weekId: "wk-2", dayOfWeek: 1, week: { index: 2 } },
+        { id: "c", weekId: "wk-4", dayOfWeek: 3, week: { index: 4 } },
+      ],
+    });
+    await caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
+    const call = db.trainingSession.updateMany.mock.calls[0]![0] as { data: Record<string, unknown> };
+    expect(call.data).toEqual({ daypart: null });
+    expect(db.athleteProfile.update).toHaveBeenCalledWith({ where: { id: "ap-1" }, data: { scheduleMode: "DAY" } });
+  });
+
+  it("is still blocked by a clash in the current week", async () => {
+    const { caller, db } = makeCaller({
+      mode: "HALF_DAY",
+      scheduled: [
+        { id: "a", weekId: "wk-1", dayOfWeek: 4, week: { index: 1 } },
+        { id: "b", weekId: "wk-1", dayOfWeek: 4, week: { index: 1 } },
+      ],
+    });
+    await expect(caller.updatePrefs({ scheduleMode: "DAY", availability: [] })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("Fri in week 1") as unknown,
+    });
+    expect(db.athleteProfile.update).not.toHaveBeenCalled();
   });
 });
 
