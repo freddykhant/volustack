@@ -3,8 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
-import { MUSCLE_GROUPS, type ExperienceLevel, type MuscleGroup, type Sex, type SplitType } from "~/schema";
+import {
+  MUSCLE_GROUPS,
+  type ExperienceLevel,
+  type MuscleGroup,
+  type ScheduleMode,
+  type Sex,
+  type SplitType,
+} from "~/schema";
 import { api } from "~/trpc/react";
+import type { AvailabilityCellInput } from "~/engine/schedule";
+import { AvailabilityGrid } from "~/components/schedule/availability-grid";
+import { openDayCount } from "~/components/schedule/availability";
 
 const SPLIT_OPTIONS: { value: SplitType; label: string; hint: string }[] = [
   { value: "FULL_BODY", label: "Full Body", hint: "Every muscle each session — great at lower frequency" },
@@ -27,6 +37,7 @@ const STEPS: { title: string; subtitle: string }[] = [
   { title: "Your schedule", subtitle: "How much you can train — we'll fit the plan to it." },
   { title: "Your split", subtitle: "How you like to structure your training week." },
   { title: "Experience & priorities", subtitle: "This sets your starting template. You can fine-tune later." },
+  { title: "Your week", subtitle: "When you can train. You can change this any time in Settings." },
 ];
 
 export function OnboardingWizard() {
@@ -50,6 +61,8 @@ export function OnboardingWizard() {
   const [splitType, setSplitType] = useState<SplitType>("UPPER_LOWER");
   const [proficiency, setProficiency] = useState<ExperienceLevel>("INTERMEDIATE");
   const [priorityMuscles, setPriorityMuscles] = useState<MuscleGroup[]>([]);
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("DAY");
+  const [availability, setAvailability] = useState<AvailabilityCellInput[]>([]);
 
   const num = (s: string) => (s.trim() === "" ? NaN : Number(s));
 
@@ -67,7 +80,7 @@ export function OnboardingWizard() {
       const cap = num(sessionLengthCapMin);
       return daysPerWeek >= 1 && daysPerWeek <= 7 && Number.isInteger(cap) && cap >= 15 && cap <= 240;
     }
-    return true; // steps 2 & 3 always have a valid default selection
+    return true; // steps 2–4 always have a valid default selection
   };
 
   const canContinue = stepValid(step);
@@ -91,6 +104,9 @@ export function OnboardingWizard() {
       splitType,
       proficiency,
       priorityMuscles,
+      scheduleMode,
+      availability,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     });
   }
 
@@ -225,6 +241,37 @@ export function OnboardingWizard() {
                 </div>
               </Field>
             )}
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <Field label="How you plan your week">
+              <div className="flex flex-col gap-2">
+                <CardChoice
+                  selected={scheduleMode === "DAY"}
+                  onClick={() => setScheduleMode("DAY")}
+                  title="One session a day"
+                  hint="Plan by day. The simplest view."
+                />
+                <CardChoice
+                  selected={scheduleMode === "HALF_DAY"}
+                  onClick={() => setScheduleMode("HALF_DAY")}
+                  title="AM / PM"
+                  hint="Plan by morning and afternoon, with room for two-a-days."
+                />
+              </div>
+            </Field>
+            <Field label="When you can train — optional">
+              <AvailabilityGrid mode={scheduleMode} value={availability} onChange={setAvailability} />
+            </Field>
+            {openDayCount(availability) < daysPerWeek ? (
+              <p className="rounded-control border border-border-subtle bg-canvas px-3 py-2.5 text-nav text-fg-subtle">
+                You train {daysPerWeek} days a week but have left {openDayCount(availability)} open
+                {scheduleMode === "HALF_DAY" ? ", so some days will have two sessions or stay unplaced" : ", so some sessions will start unplaced"}.
+                You can place them yourself afterwards.
+              </p>
+            ) : null}
           </>
         )}
       </div>
