@@ -3,9 +3,12 @@ import type { ExerciseDef } from "~/domain/exercise-library";
 import type { Daypart, MuscleGroup, ScheduleMode } from "~/schema";
 import {
   MAX_STREAK_DAYS,
+  MAX_SUGGESTIONS,
   OVERLAP_MIN_SETS,
   REST_TARGET_HALF_DAYS,
+  SCHEDULE_EPS,
   SPREAD_FACT_MIN_DAYS,
+  SUGGESTION_MIN_GAIN,
   W_LOAD_STREAK,
   W_OFF_PREFERENCE,
   W_ON_BLOCKED_CELL,
@@ -358,4 +361,155 @@ export function scoreLayout(input: ScheduleInput, layout: Layout): LayoutScore {
   }
 
   return { cost: Math.round(cost * 1e6) / 1e6, facts };
+}
+
+export type PlaceResult = { kind: "placed"; layout: Layout } | { kind: "infeasible"; facts: DecisionFact[] };
+
+export interface MoveSuggestion {
+  sessionId: string;
+  from: Placement;
+  to: Placement;
+  /** Set when the move is a swap: this session takes `from`. */
+  swapWithSessionId: string | null;
+  gain: number;
+  resolves: DecisionFact[];
+}
+
+interface Neighbour {
+  layout: Layout;
+  sessionId: string;
+  from: Placement;
+  to: Placement;
+  swapWithSessionId: string | null;
+}
+
+/** Layout after a move or swap. */
+export function applySuggestion(
+  layout: Layout,
+  s: Pick<MoveSuggestion, "sessionId" | "from" | "to" | "swapWithSessionId">,
+): Layout {
+  const next: Layout = { ...layout, [s.sessionId]: s.to };
+  if (s.swapWithSessionId !== null) next[s.swapWithSessionId] = s.from;
+  return next;
+}
+
+/**
+ * Every legal single change to a layout: an unlocked session moving to an empty open
+ * cell, or two unlocked sessions trading places. Generated in a fixed order (session
+ * order, then cell position, then swaps) so ties always resolve the same way.
+ */
+function neighbours(input: ScheduleInput, layout: Layout): Neighbour[] {
+  const movable = [...input.sessions]
+    .sort((a, b) => a.order - b.order)
+    .filter((s) => !s.locked && layout[s.id] !== undefined);
+  const occupied = new Set(Object.values(layout).map((p) => cellKey(p, input.mode)));
+  const cells = openCells(input);
+  const out: Neighbour[] = [];
+
+  for (const s of movable) {
+    const from = layout[s.id]!;
+    for (const to of cells) {
+      if (occupied.has(cellKey(to, input.mode))) continue;
+      out.push({ layout: { ...layout, [s.id]: to }, sessionId: s.id, from, to, swapWithSessionId: null });
+    }
+  }
+  for (let i = 0; i < movable.length; i++) {
+    for (let j = i + 1; j < movable.length; j++) {
+      const a = movable[i]!;
+      const b = movable[j]!;
+      const pa = layout[a.id]!;
+      const pb = layout[b.id]!;
+      if (!isOpenTarget(input, pa) || !isOpenTarget(input, pb)) continue;
+      out.push({ layout: { ...layout, [a.id]: pb, [b.id]: pa }, sessionId: a.id, from: pa, to: pb, swapWithSessionId: b.id });
+    }
+  }
+  return out;
+}
+
+/** Guard against a runaway loop; each step strictly lowers cost, so this is never reached in practice. */
+const LOCAL_SEARCH_MAX_STEPS = 200;
+
+/**
+ * Auto-place a week. Locked sessions stay put; every unlocked session is (re)placed.
+ * Greedy construction in session order (each takes the open cell that costs least,
+ * earliest on ties), then local search over `neighbours` until no single move or swap
+ * lowers the cost. Deterministic. Because it stops at a local optimum of the same
+ * neighbourhood `suggestMoves` searches, a freshly placed week has no suggestion.
+ */
+export function placeWeek(input: ScheduleInput): PlaceResult {
+  let layout: Layout = {};
+  for (const s of input.sessions) {
+    if (s.locked && s.placement) layout[s.id] = s.placement;
+  }
+  const toPlace = [...input.sessions].sort((a, b) => a.order - b.order).filter((s) => !s.locked);
+  const cells = openCells(input);
+
+  for (const s of toPlace) {
+    const occupied = new Set(Object.values(layout).map((p) => cellKey(p, input.mode)));
+    let best: Placement | null = null;
+    let bestCost = Infinity;
+    for (const c of cells) {
+      if (occupied.has(cellKey(c, input.mode))) continue;
+      const cost = scoreLayout(input, { ...layout, [s.id]: c }).cost;
+      if (cost < bestCost - SCHEDULE_EPS) {
+        best = c;
+        bestCost = cost;
+      }
+    }
+    if (best === null) {
+      const taken = new Set(
+        input.sessions.filter((x) => x.locked && x.placement).map((x) => cellKey(x.placement!, input.mode)),
+      );
+      const open = cells.filter((c) => !taken.has(cellKey(c, input.mode))).length;
+      return {
+        kind: "infeasible",
+        facts: [{ kind: "infeasible", constraint: "schedule_cells", detail: { needed: toPlace.length, open } }],
+      };
+    }
+    layout = { ...layout, [s.id]: best };
+  }
+
+  for (let step = 0; step < LOCAL_SEARCH_MAX_STEPS; step++) {
+    let bestCost = scoreLayout(input, layout).cost;
+    let bestLayout: Layout | null = null;
+    for (const n of neighbours(input, layout)) {
+      const cost = scoreLayout(input, n.layout).cost;
+      if (cost < bestCost - SCHEDULE_EPS) {
+        bestCost = cost;
+        bestLayout = n.layout;
+      }
+    }
+    if (bestLayout === null) break;
+    layout = bestLayout;
+  }
+
+  return { kind: "placed", layout };
+}
+
+/**
+ * The single moves or swaps that most improve a layout. Starts from the layout the
+ * athlete chose rather than the engine's ideal, so each suggestion is a small tweak
+ * with a reason. Empty when nothing clears the threshold.
+ */
+export function suggestMoves(input: ScheduleInput, layout: Layout): MoveSuggestion[] {
+  const base = scoreLayout(input, layout);
+  return neighbours(input, layout)
+    .map((n, index) => {
+      const after = scoreLayout(input, n.layout);
+      return { n, index, after, gain: base.cost - after.cost };
+    })
+    .filter((x) => x.gain > SUGGESTION_MIN_GAIN)
+    .sort((a, b) => b.gain - a.gain || a.index - b.index)
+    .slice(0, MAX_SUGGESTIONS)
+    .map((x) => {
+      const remaining = new Set(x.after.facts.map((f) => JSON.stringify(f)));
+      return {
+        sessionId: x.n.sessionId,
+        from: x.n.from,
+        to: x.n.to,
+        swapWithSessionId: x.n.swapWithSessionId,
+        gain: Math.round(x.gain * 1e6) / 1e6,
+        resolves: base.facts.filter((f) => !remaining.has(JSON.stringify(f))),
+      };
+    });
 }
