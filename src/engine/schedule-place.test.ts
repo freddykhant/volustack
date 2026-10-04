@@ -112,7 +112,9 @@ describe("suggestMoves", () => {
       makeInput({ sessions: [sess("done", 0, LEGS, day(0), true), sess("b", 1, LEGS)] }),
       layout,
     );
-    for (const s of suggestMoves(input, layout)) {
+    const out = suggestMoves(input, layout);
+    expect(out.length).toBeGreaterThan(0);
+    for (const s of out) {
       expect(s.sessionId).toBe("b");
       expect(s.swapWithSessionId).toBeNull();
     }
@@ -158,3 +160,60 @@ describe("suggestMoves", () => {
     for (let i = 1; i < out.length; i++) expect(out[i - 1]!.gain).toBeGreaterThanOrEqual(out[i]!.gain);
   });
 });
+
+describe("suggestMoves resolves and eases", () => {
+  const halfDay = (d: number, dp: "AM" | "PM"): Placement => ({ day: d, daypart: dp });
+
+  it("lists a fully removed problem under resolves only", () => {
+    const layout = { a: day(0), b: day(1) };
+    const input = withSaved(makeInput({ sessions: [sess("a", 0, LEGS), sess("b", 1, LEGS)] }), layout);
+    const [top] = suggestMoves(input, layout);
+    expect(top).toBeDefined();
+    expect(top!.resolves.map((f) => f.kind)).toContain("short_rest");
+    expect(top!.eases.map((f) => f.kind)).not.toContain("short_rest");
+  });
+
+  it("lists a problem that survives with a different gap under eases, not resolves", () => {
+    // Only the first two days are open, so no cell is a full rest target (4 half-days) away.
+    const blocked = [2, 3, 4, 5, 6].flatMap((d) => [
+      { day: d, daypart: "AM" as const, state: "BLOCKED" as const },
+      { day: d, daypart: "PM" as const, state: "BLOCKED" as const },
+    ]);
+    const layout: Layout = { a: halfDay(0, "AM"), b: halfDay(0, "PM") };
+    const input = withSaved(
+      makeInput({ mode: "HALF_DAY", availability: blocked, sessions: [sess("a", 0, LEGS), sess("b", 1, LEGS)] }),
+      layout,
+    );
+    const [top] = suggestMoves(input, layout);
+    expect(top).toBeDefined();
+    const before = scoreLayout(input, layout).facts.find((f) => f.kind === "short_rest");
+    const after = scoreLayout(input, applySuggestion(layout, top!)).facts.find((f) => f.kind === "short_rest");
+    // The same pair is still too close, only by a different margin.
+    expect(after).toBeDefined();
+    expect(after).not.toEqual(before);
+    expect(top!.eases).toContainEqual(before);
+    expect(top!.resolves).not.toContainEqual(before);
+    expect(top!.resolves.map((f) => f.kind)).toContain("same_day_stack");
+  });
+
+  it("leaves a fact the move does not touch out of both lists", () => {
+    const layout = { a: day(0), b: day(1), c: day(2) };
+    const input = withSaved(
+      makeInput({ sessions: [sess("a", 0, LEGS), sess("b", 1, LEGS), sess("c", 2, LEGS)] }),
+      layout,
+    );
+    const base = scoreLayout(input, layout).facts;
+    const suggestions = suggestMoves(input, layout);
+    expect(suggestions.length).toBeGreaterThan(0);
+    for (const s of suggestions) {
+      const afterFacts = scoreLayout(input, applySuggestion(layout, s)).facts.map((f) => JSON.stringify(f));
+      for (const f of base) {
+        if (afterFacts.includes(JSON.stringify(f))) {
+          expect(s.resolves).not.toContainEqual(f);
+          expect(s.eases).not.toContainEqual(f);
+        }
+      }
+    }
+  });
+});
+

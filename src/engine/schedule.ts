@@ -372,7 +372,14 @@ export interface MoveSuggestion {
   /** Set when the move is a swap: this session takes `from`. */
   swapWithSessionId: string | null;
   gain: number;
+  /** Facts of the current layout whose identity is absent after the change: the problem is gone. */
   resolves: DecisionFact[];
+  /**
+   * Facts of the current layout whose identity is still present after the change but whose
+   * content differs: the problem remains, changed (a gap lengthened but still short, say).
+   * A fact that is unchanged by the move is in neither list.
+   */
+  eases: DecisionFact[];
 }
 
 interface Neighbour {
@@ -381,6 +388,40 @@ interface Neighbour {
   from: Placement;
   to: Placement;
   swapWithSessionId: string | null;
+}
+
+/**
+ * What a fact is about, independent of its numbers: the same pair of sessions being too
+ * close, the same session being off preference. Two facts with one identity describe the
+ * same problem even when a move changes its size.
+ */
+function factIdentity(f: DecisionFact): string {
+  switch (f.kind) {
+    case "short_rest":
+      return `short_rest:${[f.sessionId, f.otherSessionId ?? "prev-week"].sort().join("+")}`;
+    case "same_day_stack":
+      return `same_day_stack:${[...f.sessionIds].sort().join("+")}`;
+    case "off_preference":
+      return `off_preference:${f.sessionId}`;
+    case "on_blocked_cell":
+      return `on_blocked_cell:${f.sessionId}`;
+    case "load_streak":
+      return "load_streak";
+    case "uneven_spread":
+      return "uneven_spread";
+    default:
+      return `${(f as DecisionFact).kind}:${JSON.stringify(f)}`;
+  }
+}
+
+/** A fact's content, with the order of a session pair ignored (it flips with relative position). */
+function factContent(f: DecisionFact): string {
+  if (f.kind === "short_rest") {
+    const pair = [f.sessionId, f.otherSessionId ?? "prev-week"].sort();
+    return JSON.stringify({ ...f, sessionId: pair[0], otherSessionId: pair[1] });
+  }
+  if (f.kind === "same_day_stack") return JSON.stringify({ ...f, sessionIds: [...f.sessionIds].sort() });
+  return JSON.stringify(f);
 }
 
 /** Layout after a move or swap. */
@@ -490,6 +531,10 @@ export function placeWeek(input: ScheduleInput): PlaceResult {
  * The single moves or swaps that most improve a layout. Starts from the layout the
  * athlete chose rather than the engine's ideal, so each suggestion is a small tweak
  * with a reason. Empty when nothing clears the threshold.
+ *
+ * `resolves` and `eases` both list facts of the CURRENT layout, compared by identity
+ * (see `factIdentity`): `resolves` when the problem is gone after the change, `eases`
+ * when it remains but differs. A fact the move leaves unchanged is in neither.
  */
 export function suggestMoves(input: ScheduleInput, layout: Layout): MoveSuggestion[] {
   const base = scoreLayout(input, layout);
@@ -502,14 +547,28 @@ export function suggestMoves(input: ScheduleInput, layout: Layout): MoveSuggesti
     .sort((a, b) => b.gain - a.gain || a.index - b.index)
     .slice(0, MAX_SUGGESTIONS)
     .map((x) => {
-      const remaining = new Set(x.after.facts.map((f) => JSON.stringify(f)));
+      const afterByIdentity = new Map<string, Set<string>>();
+      for (const f of x.after.facts) {
+        const id = factIdentity(f);
+        const contents = afterByIdentity.get(id) ?? new Set<string>();
+        contents.add(factContent(f));
+        afterByIdentity.set(id, contents);
+      }
+      const resolves: DecisionFact[] = [];
+      const eases: DecisionFact[] = [];
+      for (const f of base.facts) {
+        const same = afterByIdentity.get(factIdentity(f));
+        if (same === undefined) resolves.push(f);
+        else if (!same.has(factContent(f))) eases.push(f);
+      }
       return {
         sessionId: x.n.sessionId,
         from: x.n.from,
         to: x.n.to,
         swapWithSessionId: x.n.swapWithSessionId,
         gain: Math.round(x.gain * 1e6) / 1e6,
-        resolves: base.facts.filter((f) => !remaining.has(JSON.stringify(f))),
+        resolves,
+        eases,
       };
     });
 }
