@@ -106,11 +106,30 @@ export function scheduleInputFromDb(args: {
   };
 }
 
-/** Write placements. Touches only `dayOfWeek` and `daypart`: never a prescription. */
-export async function applyLayoutToDb(tx: Prisma.TransactionClient, layout: Layout): Promise<void> {
+/**
+ * Write placements. Touches only `dayOfWeek` and `daypart`: never a prescription.
+ * Returns the number of sessions written. With `onlyScheduled`, a session that is no
+ * longer SCHEDULED is left alone (and not counted), so a placement can never land on a
+ * session that was completed or missed concurrently. Backfill leaves it off because it
+ * must place completed sessions.
+ */
+export async function applyLayoutToDb(
+  tx: Prisma.TransactionClient,
+  layout: Layout,
+  opts?: { onlyScheduled?: boolean },
+): Promise<number> {
+  let written = 0;
   for (const [id, p] of Object.entries(layout)) {
-    await tx.trainingSession.update({ where: { id }, data: { dayOfWeek: p.day, daypart: p.daypart } });
+    const data = { dayOfWeek: p.day, daypart: p.daypart };
+    if (opts?.onlyScheduled) {
+      const res = await tx.trainingSession.updateMany({ where: { id, status: "SCHEDULED" }, data });
+      written += res.count;
+    } else {
+      await tx.trainingSession.update({ where: { id }, data });
+      written += 1;
+    }
   }
+  return written;
 }
 
 /** Where a session that was actually completed belongs: its local weekday and half. */

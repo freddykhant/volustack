@@ -57,7 +57,9 @@ interface Opts {
   laterWeeks?: ReturnType<typeof weekRow>[];
   availability?: { dayOfWeek: number; daypart: "AM" | "PM"; state: "PREFERRED" | "BLOCKED" }[];
   dismissed?: { payload: unknown }[];
-  stillScheduled?: number;
+  /** Rows the guarded (status = SCHEDULED) update reports per session; default 1. */
+  writeCount?: number;
+  noLock?: boolean;
 }
 
 function makeCaller(opts: Opts = {}) {
@@ -74,14 +76,13 @@ function makeCaller(opts: Opts = {}) {
     week: { findMany: vi.fn().mockResolvedValue(opts.laterWeeks ?? []) },
     trainingSession: {
       update: vi.fn().mockResolvedValue({}),
-      count: vi.fn().mockImplementation((args: { where: { id: { in: string[] } } }) =>
-        Promise.resolve(opts.stillScheduled ?? args.where.id.in.length),
-      ),
+      updateMany: vi.fn().mockResolvedValue({ count: opts.writeCount ?? 1 }),
     },
     decisionLog: {
       create: vi.fn().mockResolvedValue({}),
       findMany: vi.fn().mockResolvedValue(opts.dismissed ?? []),
     },
+    $queryRaw: vi.fn().mockResolvedValue(opts.noLock ? [] : [{ id: "meso-1" }]),
     $transaction: vi.fn(),
   };
   db.$transaction.mockImplementation((fn: (tx: typeof db) => unknown) => fn(db));
@@ -132,8 +133,12 @@ describe("applyLayout", () => {
     const { caller, db } = makeCaller();
     const res = await caller.applyLayout(move(6));
     expect(res).toEqual({ weekIndex: 1, applied: [], skipped: [] });
-    expect(db.trainingSession.update).toHaveBeenCalledTimes(1);
-    expect(db.trainingSession.update).toHaveBeenCalledWith({ where: { id: "s2" }, data: { dayOfWeek: 6, daypart: null } });
+    expect(db.trainingSession.updateMany).toHaveBeenCalledTimes(1);
+    expect(db.trainingSession.updateMany).toHaveBeenCalledWith({
+      where: { id: "s2", status: "SCHEDULED" },
+      data: { dayOfWeek: 6, daypart: null },
+    });
+    expect(db.trainingSession.update).not.toHaveBeenCalled();
     const log = (db.decisionLog.create.mock.calls[0]![0] as { data: { type: string; status: string; weekIndex: number; payload: { origin: string; before: unknown; after: unknown } } }).data;
     expect(log.type).toBe("SCHEDULE");
     expect(log.status).toBe("APPLIED");
@@ -146,7 +151,7 @@ describe("applyLayout", () => {
   it("writes nothing when nothing moved", async () => {
     const { caller, db } = makeCaller();
     await caller.applyLayout(move(5));
-    expect(db.trainingSession.update).not.toHaveBeenCalled();
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
     expect(db.decisionLog.create).not.toHaveBeenCalled();
   });
 
@@ -154,7 +159,7 @@ describe("applyLayout", () => {
     const { caller, db } = makeCaller();
     const stale = { ...move(6), expected: expectedOf([{ sessionId: "s1", day: 3 }, { sessionId: "s2", day: 4 }]) };
     await expect(caller.applyLayout(stale)).rejects.toMatchObject({ code: "CONFLICT" });
-    expect(db.trainingSession.update).not.toHaveBeenCalled();
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
   });
 
   it("is CONFLICT when expected does not cover every session in the week", async () => {
@@ -163,17 +168,57 @@ describe("applyLayout", () => {
     await expect(caller.applyLayout(partial)).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
-  it("is CONFLICT when a moved session stopped being SCHEDULED mid-flight", async () => {
-    const { caller, db } = makeCaller({ stillScheduled: 0 });
+  it("is CONFLICT, and logs nothing, when the guarded write reports fewer rows than sessions moved", async () => {
+    const { caller, db } = makeCaller({ writeCount: 0 });
     await expect(caller.applyLayout(move(6))).rejects.toMatchObject({ code: "CONFLICT" });
-    expect(db.trainingSession.update).not.toHaveBeenCalled();
+    expect(db.decisionLog.create).not.toHaveBeenCalled();
   });
 
-  it("refuses to move a completed session", async () => {
-    const { caller } = makeCaller({
+  it("is CONFLICT (not BAD_REQUEST) when a moved session was completed since the client loaded the week", async () => {
+    const { caller, db } = makeCaller({
       week1: [sessionRow("s1", "wk-1", 0, "Upper A", 3), sessionRow("s2", "wk-1", 1, "Upper B", 5, "COMPLETED")],
     });
-    await expect(caller.applyLayout(move(6))).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.applyLayout(move(6))).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+    expect(db.decisionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("takes the block row lock before any validation read or write", async () => {
+    const { caller, db } = makeCaller();
+    await caller.applyLayout(move(6));
+    const lock = db.$queryRaw.mock.invocationCallOrder[0]!;
+    expect(lock).toBeLessThan(db.mesocycle.findFirst.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.trainingSession.updateMany.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.decisionLog.create.mock.invocationCallOrder[0]!);
+  });
+
+  it("is NOT_FOUND when the lock finds no active block", async () => {
+    const { caller, db } = makeCaller({ noLock: true });
+    await expect(caller.applyLayout(move(6))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(db.mesocycle.findFirst).not.toHaveBeenCalled();
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("reports every violated rule, labelled by session", async () => {
+    // s1 onto Monday (already past) and s2 onto the blocked Saturday, in one request.
+    const { caller } = makeCaller({
+      availability: [
+        { dayOfWeek: 6, daypart: "AM", state: "BLOCKED" },
+        { dayOfWeek: 6, daypart: "PM", state: "BLOCKED" },
+      ],
+    });
+    const both = {
+      ...move(6),
+      placements: [
+        { sessionId: "s1", day: 0, daypart: null },
+        { sessionId: "s2", day: 6, daypart: null },
+      ],
+    };
+    const err = await caller.applyLayout(both).catch((e: unknown) => e as { code: string; message: string });
+    expect(err).toMatchObject({ code: "BAD_REQUEST" });
+    const message = (err as { message: string }).message;
+    expect(message).toContain("Upper A: That day has already passed.");
+    expect(message).toContain("Upper B: That time is blocked in your availability.");
   });
 
   it("refuses a day that has already passed", async () => {
@@ -215,8 +260,12 @@ describe("applyLayout", () => {
       { weekIndex: 3, reason: "already_started" },
       { weekIndex: 4, reason: "different_sessions" },
     ]);
-    expect(db.trainingSession.update).toHaveBeenCalledWith({ where: { id: "a2" }, data: { dayOfWeek: 6, daypart: null } });
-    expect(db.trainingSession.update).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "b2" } }));
+    expect(db.trainingSession.updateMany).toHaveBeenCalledWith({
+      where: { id: "a2", status: "SCHEDULED" },
+      data: { dayOfWeek: 6, daypart: null },
+    });
+    const written = db.trainingSession.updateMany.mock.calls.map((c) => (c[0] as { where: { id: string } }).where.id);
+    expect(written).not.toContain("b2");
   });
 });
 

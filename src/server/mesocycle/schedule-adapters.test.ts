@@ -130,10 +130,31 @@ describe("applyLayoutToDb", () => {
   it("writes only the day and daypart of each session", async () => {
     const update = vi.fn().mockResolvedValue({});
     const tx = { trainingSession: { update } } as unknown as Prisma.TransactionClient;
-    await applyLayoutToDb(tx, { a: { day: 2, daypart: "PM" }, b: { day: 4, daypart: null } });
+    const written = await applyLayoutToDb(tx, { a: { day: 2, daypart: "PM" }, b: { day: 4, daypart: null } });
+    expect(written).toBe(2);
     expect(update.mock.calls.map((c) => c[0] as unknown)).toEqual([
       { where: { id: "a" }, data: { dayOfWeek: 2, daypart: "PM" } },
       { where: { id: "b" }, data: { dayOfWeek: 4, daypart: null } },
+    ]);
+  });
+
+  it("with onlyScheduled, updates conditionally on status and counts the rows actually written", async () => {
+    const update = vi.fn();
+    const updateMany = vi
+      .fn()
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+    const tx = { trainingSession: { update, updateMany } } as unknown as Prisma.TransactionClient;
+    const written = await applyLayoutToDb(
+      tx,
+      { a: { day: 2, daypart: "PM" }, b: { day: 4, daypart: null } },
+      { onlyScheduled: true },
+    );
+    expect(written).toBe(1);
+    expect(update).not.toHaveBeenCalled();
+    expect(updateMany.mock.calls.map((c) => c[0] as unknown)).toEqual([
+      { where: { id: "a", status: "SCHEDULED" }, data: { dayOfWeek: 2, daypart: "PM" } },
+      { where: { id: "b", status: "SCHEDULED" }, data: { dayOfWeek: 4, daypart: null } },
     ]);
   });
 });

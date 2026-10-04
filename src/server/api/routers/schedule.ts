@@ -132,6 +132,19 @@ export const scheduleRouter = createTRPCRouter({
       const now = new Date();
       return ctx.db.$transaction(
         async (tx) => {
+          // Serialise applies per block. Under Read Committed two concurrent applies could
+          // both read the same saved layout, both pass validation and both commit, leaving
+          // two sessions on one day. Locking the block's row first makes the second apply
+          // wait, then re-read (and fail the `expected` check against) the first one's result.
+          const locked = await tx.$queryRaw<{ id: string }[]>`
+            SELECT m."id" FROM "mesocycle" m
+            JOIN "athlete_profile" p ON p."id" = m."athleteProfileId"
+            WHERE p."userId" = ${userId} AND m."status" = 'ACTIVE'::"BlockStatus"
+            ORDER BY m."createdAt" DESC
+            LIMIT 1
+            FOR UPDATE OF m`;
+          if (locked.length === 0) throw new TRPCError({ code: "NOT_FOUND" });
+
           const c = await loadWeekContext(tx, userId, input.weekIndex, now);
           if (c.readOnly) {
             throw new TRPCError({ code: "BAD_REQUEST", message: "That week has already finished." });
@@ -156,23 +169,40 @@ export const scheduleRouter = createTRPCRouter({
             proposed[p.sessionId] = { day: p.day, daypart: p.daypart };
           }
 
-          const violations = checkLayout(c.input, proposed);
-          if (violations.length > 0) {
-            throw new TRPCError({ code: "BAD_REQUEST", message: VIOLATION_MESSAGE[violations[0]!.kind] });
-          }
-
           const movedIds = [...ids].filter((id) => !samePlacement(saved[id] ?? null, proposed[id] ?? null));
-          if (movedIds.length === 0) return { weekIndex: input.weekIndex, applied: [], skipped: [] };
 
-          // Statuses were read a moment ago; a session logged concurrently must not be moved.
-          const stillScheduled = await tx.trainingSession.count({
-            where: { id: { in: movedIds }, status: "SCHEDULED" },
-          });
-          if (stillScheduled !== movedIds.length) {
+          // A session completed or missed since the client loaded the week is a conflict
+          // (the board is stale), not a bad request.
+          const lockedIds = new Set(c.input.sessions.filter((s) => s.locked).map((s) => s.id));
+          if (movedIds.some((id) => lockedIds.has(id))) {
             throw new TRPCError({ code: "CONFLICT", message: "A session changed while you were moving it. Please try again." });
           }
 
-          await applyLayoutToDb(tx, Object.fromEntries(movedIds.map((id) => [id, proposed[id]!])));
+          const violations = checkLayout(c.input, proposed);
+          if (violations.length > 0) {
+            const lines = new Set(
+              violations.map((v) =>
+                v.kind === "unknown_session"
+                  ? VIOLATION_MESSAGE.unknown_session
+                  : `${c.label(v.sessionId)}: ${VIOLATION_MESSAGE[v.kind]}`,
+              ),
+            );
+            throw new TRPCError({ code: "BAD_REQUEST", message: [...lines].join(" ") });
+          }
+
+          if (movedIds.length === 0) return { weekIndex: input.weekIndex, applied: [], skipped: [] };
+
+          // The write itself is conditional on status, so a session logged in the meantime
+          // is never moved; fewer rows written than moved rolls the whole transaction back.
+          const written = await applyLayoutToDb(
+            tx,
+            Object.fromEntries(movedIds.map((id) => [id, proposed[id]!])),
+            { onlyScheduled: true },
+          );
+          if (written !== movedIds.length) {
+            throw new TRPCError({ code: "CONFLICT", message: "A session changed while you were moving it. Please try again." });
+          }
+
           await tx.decisionLog.create({
             data: {
               mesocycleId: c.mesocycleId,
@@ -213,7 +243,7 @@ export const scheduleRouter = createTRPCRouter({
               const changed = Object.fromEntries(
                 Object.entries(target).filter(([id, p]) => !samePlacement(before[id] ?? null, p)),
               );
-              await applyLayoutToDb(tx, changed);
+              await applyLayoutToDb(tx, changed, { onlyScheduled: true });
               await tx.decisionLog.create({
                 data: {
                   mesocycleId: c.mesocycleId,
