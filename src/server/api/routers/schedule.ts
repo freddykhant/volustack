@@ -3,15 +3,17 @@ import { z } from "zod";
 import type { Prisma } from "../../../../generated/prisma";
 import {
   checkLayout,
+  daypartForDay,
   layoutKey,
   samePlacement,
   savedLayout,
   scoreLayout,
   suggestMoves,
+  type AvailabilityCellInput,
   type HardViolationKind,
   type Layout,
 } from "~/engine";
-import { ApplyLayoutInputSchema } from "~/schema";
+import { ApplyLayoutInputSchema, SchedulePrefsInputSchema, TimezoneSchema, type ScheduleMode } from "~/schema";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
   applyLayoutToDb,
@@ -23,6 +25,7 @@ import {
 } from "~/server/mesocycle/schedule-adapters";
 import { currentWeekIndex } from "~/server/views/to-mesocycle-view";
 import {
+  DAY_NAMES,
   toMoveSuggestionView,
   toScheduleWeekView,
   type MoveSuggestionView,
@@ -264,6 +267,99 @@ export const scheduleRouter = createTRPCRouter({
       );
     },
   ),
+
+  getPrefs: protectedProcedure.query(
+    async ({ ctx }): Promise<{ scheduleMode: ScheduleMode; timezone: string; availability: AvailabilityCellInput[] }> => {
+      const profile = await ctx.db.athleteProfile.findUnique({
+        where: { userId: ctx.session.user.id },
+        select: { scheduleMode: true, timezone: true, availability: true },
+      });
+      if (!profile) return { scheduleMode: "DAY", timezone: "UTC", availability: [] };
+      return {
+        scheduleMode: profile.scheduleMode,
+        timezone: profile.timezone,
+        availability: availabilityFromRows(profile.availability),
+      };
+    },
+  ),
+
+  // Preferences never move a session's day. A mode switch only adds or clears dayparts,
+  // and is refused when it would leave two sessions on one day in one-a-day mode.
+  updatePrefs: protectedProcedure
+    .input(SchedulePrefsInputSchema)
+    .mutation(async ({ ctx, input }): Promise<{ scheduleMode: ScheduleMode }> => {
+      const userId = ctx.session.user.id;
+      await ctx.db.$transaction(
+        async (tx) => {
+          const profile = await tx.athleteProfile.findUnique({
+            where: { userId },
+            select: { id: true, scheduleMode: true },
+          });
+          if (!profile) throw new TRPCError({ code: "NOT_FOUND" });
+
+          if (profile.scheduleMode !== input.scheduleMode) {
+            const scheduled = {
+              status: "SCHEDULED" as const,
+              dayOfWeek: { not: null },
+              week: { mesocycle: { status: "ACTIVE" as const, athleteProfileId: profile.id } },
+            };
+            const sessions = await tx.trainingSession.findMany({
+              where: scheduled,
+              select: { id: true, weekId: true, dayOfWeek: true, week: { select: { index: true } } },
+            });
+            if (input.scheduleMode === "DAY") {
+              const seen = new Map<string, number>();
+              const clashes: string[] = [];
+              for (const s of sessions) {
+                const key = `${s.weekId}:${s.dayOfWeek}`;
+                const n = (seen.get(key) ?? 0) + 1;
+                seen.set(key, n);
+                if (n === 2) clashes.push(`${DAY_NAMES[s.dayOfWeek ?? 0]} in week ${s.week.index}`);
+              }
+              if (clashes.length > 0) {
+                throw new TRPCError({
+                  code: "BAD_REQUEST",
+                  message: `Two sessions share ${clashes.join(", ")}. Move one of each pair to another day, then switch to one session a day.`,
+                });
+              }
+              await tx.trainingSession.updateMany({ where: scheduled, data: { daypart: null } });
+            } else {
+              for (const s of sessions) {
+                await tx.trainingSession.update({
+                  where: { id: s.id },
+                  data: { daypart: daypartForDay(input.availability, s.dayOfWeek ?? 0) },
+                });
+              }
+            }
+          }
+
+          await tx.availabilityCell.deleteMany({ where: { athleteProfileId: profile.id } });
+          if (input.availability.length > 0) {
+            await tx.availabilityCell.createMany({
+              data: input.availability.map((c) => ({
+                athleteProfileId: profile.id,
+                dayOfWeek: c.day,
+                daypart: c.daypart,
+                state: c.state,
+              })),
+            });
+          }
+          await tx.athleteProfile.update({ where: { id: profile.id }, data: { scheduleMode: input.scheduleMode } });
+        },
+        { timeout: 15000 },
+      );
+      return { scheduleMode: input.scheduleMode };
+    }),
+
+  setTimezone: protectedProcedure
+    .input(z.object({ timezone: TimezoneSchema }))
+    .mutation(async ({ ctx, input }): Promise<{ timezone: string }> => {
+      await ctx.db.athleteProfile.updateMany({
+        where: { userId: ctx.session.user.id },
+        data: { timezone: input.timezone },
+      });
+      return { timezone: input.timezone };
+    }),
 
   // Remember that the athlete declined the suggestion for this exact layout.
   dismissSuggestion: protectedProcedure.input(WeekInput).mutation(async ({ ctx, input }): Promise<{ ok: true }> => {
