@@ -134,6 +134,7 @@ enum DecisionType {
   DELOAD
   REDISTRIBUTE
   MANUAL_ADJUST
+  SCHEDULE
 }
 
 enum DecisionStatus {
@@ -141,6 +142,21 @@ enum DecisionStatus {
   ACCEPTED
   REJECTED
   APPLIED
+}
+
+enum ScheduleMode {
+  DAY
+  HALF_DAY
+}
+
+enum Daypart {
+  AM
+  PM
+}
+
+enum AvailabilityState {
+  PREFERRED
+  BLOCKED
 }
 
 model User {
@@ -216,6 +232,8 @@ model AthleteProfile {
   tdee          Float?
   phase         TrainingPhase   @default(MAINTAIN)
   experience    ExperienceLevel @default(INTERMEDIATE)
+  scheduleMode  ScheduleMode    @default(DAY)
+  timezone      String          @default("UTC") // IANA name, e.g. "Australia/Sydney"
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -223,6 +241,7 @@ model AthleteProfile {
   constraintSets ConstraintSet[]
   mesocycles Mesocycle[]
   checkIns   CheckIn[]
+  availability AvailabilityCell[]
 
   @@map("athlete_profile")
 }
@@ -238,6 +257,20 @@ model MuscleLandmark {
 
   @@unique([athleteProfileId, muscle])
   @@map("muscle_landmark")
+}
+
+/// One cell of the athlete's standing weekly availability. Sparse: no row = Available.
+/// Always stored at AM/PM resolution, whatever the schedule mode.
+model AvailabilityCell {
+  id               String            @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile    @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  dayOfWeek        Int // 0=Mon … 6=Sun
+  daypart          Daypart
+  state            AvailabilityState
+
+  @@unique([athleteProfileId, dayOfWeek, daypart])
+  @@map("availability_cell")
 }
 
 model Exercise {
@@ -365,6 +398,7 @@ model TrainingSession {
   order             Int // position within the week (0-based)
   splitSlot         String // e.g. "Upper A", "Push"
   dayOfWeek         Int? // 0=Mon … 6=Sun, if the user pins days
+  daypart           Daypart? // null = placed in DAY mode (or not placed)
   targetDurationMin Int?
   status            SessionStatus @default(SCHEDULED)
   completedAt       DateTime?

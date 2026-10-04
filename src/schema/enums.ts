@@ -111,6 +111,7 @@ export const DecisionTypeEnum = z.enum([
   "DELOAD",
   "REDISTRIBUTE",
   "MANUAL_ADJUST",
+  "SCHEDULE",
 ]);
 export type DecisionType = z.infer<typeof DecisionTypeEnum>;
 
@@ -121,3 +122,12 @@ export const DecisionStatusEnum = z.enum([
   "APPLIED",
 ]);
 export type DecisionStatus = z.infer<typeof DecisionStatusEnum>;
+
+export const ScheduleModeEnum = z.enum(["DAY", "HALF_DAY"]);
+export type ScheduleMode = z.infer<typeof ScheduleModeEnum>;
+
+export const DaypartEnum = z.enum(["AM", "PM"]);
+export type Daypart = z.infer<typeof DaypartEnum>;
+
+export const AvailabilityStateEnum = z.enum(["PREFERRED", "BLOCKED"]);
+export type AvailabilityState = z.infer<typeof AvailabilityStateEnum>;
