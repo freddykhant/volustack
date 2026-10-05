@@ -91,6 +91,53 @@ describe("weekDays / firstOpenDay", () => {
   });
 });
 
+describe("weekDays / firstOpenDay in a non-UTC timezone", () => {
+  const PERTH = "Australia/Perth"; // UTC+8, no DST
+
+  it("dates the week by the local calendar when the local date differs from the UTC date", () => {
+    const start = new Date("2026-10-06T17:00:00Z"); // Tue 6 Oct in UTC, Wed 7 Oct 01:00 in Perth
+    expect(weekDays(start, 1, PERTH)[0]).toEqual({ date: "2026-10-07", weekday: 2 });
+    expect(weekDays(start, 1, "UTC")[0]).toEqual({ date: "2026-10-06", weekday: 1 });
+    expect(weekDays(start, 2, PERTH).map((d) => d.date)).toEqual([
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16",
+      "2026-10-17",
+      "2026-10-18",
+      "2026-10-19",
+      "2026-10-20",
+    ]);
+    expect(weekDays(start, 2, PERTH)[0]!.weekday).toBe(2);
+  });
+
+  it("moves the open day at local midnight, which is not a UTC midnight", () => {
+    const start = new Date("2026-10-04T16:00:00Z"); // Mon 5 Oct 00:00 in Perth
+    // 23:59:59 and 00:00:00 Perth either side of Tuesday: the same UTC date (5 Oct).
+    expect(firstOpenDay(start, 1, PERTH, new Date("2026-10-05T15:59:59Z"))).toBe(0);
+    expect(firstOpenDay(start, 1, PERTH, new Date("2026-10-05T16:00:00Z"))).toBe(1);
+    expect(firstOpenDay(start, 1, "UTC", new Date("2026-10-05T15:59:59Z"))).toBe(1);
+  });
+
+  it("finishes a week at local Monday midnight and opens the next one", () => {
+    const start = new Date("2026-10-04T16:00:00Z"); // Mon 5 Oct 00:00 in Perth
+    const sunNight = new Date("2026-10-11T15:59:59Z"); // Sun 11 Oct 23:59:59 Perth
+    const monMorning = new Date("2026-10-11T16:00:00Z"); // Mon 12 Oct 00:00 Perth
+    expect(firstOpenDay(start, 1, PERTH, sunNight)).toBe(6);
+    expect(firstOpenDay(start, 1, PERTH, monMorning)).toBe(7);
+    expect(firstOpenDay(start, 2, PERTH, sunNight)).toBe(0);
+    expect(firstOpenDay(start, 2, PERTH, monMorning)).toBe(0);
+  });
+
+  it("feeds the athlete's local week into the engine input", () => {
+    const start = new Date("2026-10-06T17:00:00Z"); // Wed 7 Oct 01:00 in Perth
+    const w = week(1, [session({ id: "a", order: 0 })]);
+    const settings: ScheduleSettings = { ...UTC, timezone: PERTH };
+    const input = scheduleInputFromDb({ week: w, prevWeek: null, settings, startDate: start, now: new Date("2026-10-07T17:00:00Z") });
+    expect(input.weekStartDay).toBe(2); // Wednesday, though the UTC date is a Tuesday
+    expect(input.firstOpenDay).toBe(1); // Thursday 8 Oct 01:00 in Perth: Wednesday has passed
+  });
+});
+
 describe("scheduleInputFromDb", () => {
   const now = new Date("2026-10-07T10:00:00Z");
 
