@@ -180,7 +180,7 @@ describe("checkLayout", () => {
     expect(checkLayout(input, { a: day(0), ghost: day(1) })).toEqual([{ kind: "unknown_session", sessionId: "ghost" }]);
   });
 
-  // Review Focus 5: locked sessions left in an old shape must not poison the week.
+  // Locked sessions left in an old shape must not poison the week.
   it("ignores a locked session with no daypart in HALF_DAY mode", () => {
     const input = makeInput({
       mode: "HALF_DAY",

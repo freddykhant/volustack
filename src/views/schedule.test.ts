@@ -138,4 +138,33 @@ describe("toScheduleWeekView", () => {
     expect(view.sessions.map((s) => s.locked)).toEqual([true, false]);
     expect(view.warnings).toContain("Lower A is only 1 day after Upper A, and both train quads.");
   });
+
+  it("shows no warnings for a finished week: nobody can act on them", () => {
+    const view = toScheduleWeekView({
+      weekIndex: 1,
+      readOnly: true,
+      mode: "DAY",
+      timezone: "UTC",
+      days: [],
+      sessions: [
+        { id: "a", label: "Upper A", estimatedMinutes: 60, status: "COMPLETED" },
+        { id: "b", label: "Lower A", estimatedMinutes: 50, status: "COMPLETED" },
+      ],
+      input: {
+        mode: "DAY",
+        weekStartDay: 0,
+        firstOpenDay: 7,
+        availability: [],
+        carryIn: [],
+        sessions: [
+          { id: "a", order: 0, footprint: { QUADS: 6 }, locked: true, inert: false, placement: { day: 0, daypart: null } },
+          { id: "b", order: 1, footprint: { QUADS: 6 }, locked: true, inert: false, placement: { day: 1, daypart: null } },
+        ],
+      },
+    });
+    expect(view.readOnly).toBe(true);
+    expect(view.warnings).toEqual([]);
+    // The layout itself is still shown.
+    expect(view.layout).toEqual({ a: { day: 0, daypart: null }, b: { day: 1, daypart: null } });
+  });
 });

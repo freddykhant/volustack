@@ -114,6 +114,7 @@ export function toScheduleWeekView(
     ...args,
     sessions: args.sessions.map((s) => ({ ...s, locked: s.status !== "SCHEDULED" })),
     layout,
-    warnings: toWarnings(scoreLayout(args.input, layout).facts, label),
+    // A finished week cannot be changed, so a warning about it is noise.
+    warnings: args.readOnly ? [] : toWarnings(scoreLayout(args.input, layout).facts, label),
   };
 }

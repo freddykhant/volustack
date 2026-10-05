@@ -76,7 +76,7 @@ describe("weekDays / firstOpenDay", () => {
     expect(days[6]).toEqual({ date: "2026-10-18", weekday: 6 });
   });
 
-  // Review Focus 1.
+  // The local weekday, not the UTC one, starts the week.
   it("starts the week on the athlete's local weekday", () => {
     const start = new Date("2026-10-06T23:30:00Z"); // Wed in Sydney, Tue in UTC
     expect(weekDays(start, 1, "Australia/Sydney")[0]).toEqual({ date: "2026-10-07", weekday: 2 });
@@ -325,7 +325,7 @@ describe("placePlanWeeks", () => {
     }
   });
 
-  // Review Focus 3.
+  // An unplaceable week yields no layout; the block is still created.
   it("returns null for a week that cannot be placed, without throwing", () => {
     const allBlocked: ScheduleSettings = {
       ...UTC,

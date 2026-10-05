@@ -64,7 +64,7 @@ describe("scoreLayout — short_rest", () => {
     expect(kinds(scoreLayout(mixed, { a: day(0), b: day(1) }).facts)).not.toContain("short_rest");
   });
 
-  // Review Focus 4: a week that starts mid-week.
+  // A week that starts mid-week measures distance from its own first day.
   it("treats Tue and Wed as far apart in a Wed-start week", () => {
     const wedStart = makeInput({ weekStartDay: 2, sessions: [sess("a", 0, LEGS), sess("b", 1, LEGS)] });
     expect(kinds(scoreLayout(wedStart, { a: day(2), b: day(1) }).facts)).not.toContain("short_rest");

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isoDateOfDayNumber, localDayNumber, localHour, weekdayOfDayNumber } from "./local-day";
 
 describe("local-day", () => {
-  // Review Focus 1: 2026-10-06 23:30 UTC is 10:30 on Wednesday 7 October in Sydney (UTC+11).
+  // 2026-10-06 23:30 UTC is 10:30 on Wednesday 7 October in Sydney (UTC+11).
   const instant = new Date("2026-10-06T23:30:00Z");
 
   it("reads the local calendar date, not the UTC one", () => {

@@ -69,7 +69,7 @@ describe("placeWeek", () => {
     expect(res.layout.a).toEqual(day(4));
   });
 
-  // Review Focus 3: too few open cells.
+  // Too few open cells: report it rather than return a partial layout.
   it("reports infeasible instead of a partial layout", () => {
     const input = makeInput({ firstOpenDay: 6, sessions: [sess("a", 0, LEGS), sess("b", 1, PUSH)] });
     const res = placeWeek(input);
@@ -137,7 +137,7 @@ describe("suggestMoves", () => {
     expect(top!.to.day).not.toBe(3);
   });
 
-  // Review Focus 2: a full week has no empty cell, so only swaps can help.
+  // A full week has no empty cell, so only swaps can help.
   it("suggests a swap when every day is taken", () => {
     const footprints: Footprint[] = [LEGS, LEGS, PUSH, PUSH, { BACK: 6 }, { BACK: 6 }, { ABS: 4 }];
     const sessions = footprints.map((f, i) => sess(`s${i}`, i, f));

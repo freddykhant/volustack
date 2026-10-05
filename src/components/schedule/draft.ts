@@ -98,10 +98,17 @@ export function dropTargets(
   });
 }
 
-/** True when the saved layout is no longer the one a draft started from: the week
- * was changed somewhere else, so confirming the draft would overwrite that change. */
-export function isDraftStale(base: Layout, saved: Layout): boolean {
-  return layoutKey(base) !== layoutKey(saved);
+/** True when the week has changed under a draft, so confirming it would overwrite that
+ * change or be refused for ever: the saved layout is no longer the one the draft started
+ * from, or a session the draft moves (`movedIds`) has since been completed or missed
+ * (`lockedIds`, from the live data) and can no longer be moved. */
+export function isDraftStale(
+  base: Layout,
+  saved: Layout,
+  movedIds: readonly string[] = [],
+  lockedIds: ReadonlySet<string> = new Set(),
+): boolean {
+  return layoutKey(base) !== layoutKey(saved) || movedIds.some((id) => lockedIds.has(id));
 }
 
 /** A suggestion was computed against a saved layout. It may only be applied while that

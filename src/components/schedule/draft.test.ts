@@ -107,7 +107,7 @@ describe("applyDrop", () => {
     expect(applyDrop(blocked, moved, "a", day(0))).toEqual(layout);
   });
 
-  // Review Focus 2: a full week can still be rearranged.
+  // A full week can still be rearranged.
   it("rearranges a seven-session week by swapping", () => {
     const sessions = Array.from({ length: 7 }, (_, i) =>
       sess(`s${i}`, i, LEGS),
@@ -216,6 +216,29 @@ describe("isDraftStale", () => {
   it("is true when a session was newly placed or unplaced elsewhere", () => {
     expect(isDraftStale({ a: day(0) }, { a: day(0), b: day(2) })).toBe(true);
     expect(isDraftStale({ a: day(0), b: day(2) }, { a: day(0) })).toBe(true);
+  });
+});
+
+describe("isDraftStale with a session locked elsewhere", () => {
+  const base: Layout = { a: day(0), b: day(2) };
+  const draft: Layout = { a: day(0), b: day(4) }; // the draft moved b
+
+  it("is true when a session the draft moved has since been completed or missed", () => {
+    expect(isDraftStale(base, base, changedIds(base, draft), new Set(["b"]))).toBe(true);
+  });
+
+  it("is false when the locked session is not one the draft moved", () => {
+    expect(isDraftStale(base, base, changedIds(base, draft), new Set(["a"]))).toBe(false);
+  });
+
+  it("is false when nothing is locked, and unchanged for callers that pass no extras", () => {
+    expect(isDraftStale(base, base, changedIds(base, draft), new Set())).toBe(false);
+    expect(isDraftStale(base, base)).toBe(false);
+  });
+
+  it("covers both sessions of a swap", () => {
+    const swapped: Layout = { a: day(2), b: day(0) };
+    expect(isDraftStale(base, base, changedIds(base, swapped), new Set(["a"]))).toBe(true);
   });
 });
 

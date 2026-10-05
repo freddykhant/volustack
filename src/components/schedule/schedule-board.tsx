@@ -172,8 +172,20 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   const input = draft?.input ?? data.input;
   const base = draft?.base ?? data.layout;
   const layout = draft?.layout ?? data.layout;
+  // Stale when the week moved on under the draft, or a session the draft moves has since
+  // been completed or missed (the server would refuse it for ever).
+  const liveLocked = new Set(
+    data.input.sessions.filter((s) => s.locked).map((s) => s.id),
+  );
   const stale =
-    draft !== null && !apply.isPending && isDraftStale(draft.base, data.layout);
+    draft !== null &&
+    !apply.isPending &&
+    isDraftStale(
+      draft.base,
+      data.layout,
+      changedIds(draft.base, draft.layout),
+      liveLocked,
+    );
   const editable = !data.readOnly && !apply.isPending;
   const labelOf = (id: string) =>
     data.sessions.find((s) => s.id === id)?.label ?? "Session";

@@ -62,7 +62,7 @@ describe("persistMesocyclePlan — placement", () => {
     expect(written).toEqual(plan.weeks[0]!.sessions.map((s) => s.prescriptions.map((p) => p.sets)));
   });
 
-  // Review Focus 3.
+  // No open cell anywhere: the block is still created, with its sessions unplaced.
   it("still creates the block, unplaced, when availability leaves no open cell", async () => {
     const { tx, sessionsOf, logCreateMany } = fakeTx();
     const availability = [0, 1, 2, 3, 4, 5, 6].flatMap((day) => [
