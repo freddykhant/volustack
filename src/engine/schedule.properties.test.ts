@@ -24,7 +24,9 @@ const arbFootprint = fc.dictionary(fc.constantFrom(...ALL_MUSCLES), fc.integer({
 /**
  * Sessions may be locked (COMPLETED or MISSED), each with a saved placement on a distinct
  * cell legal for the mode. Locked sessions can sit anywhere, blocked or past cells included,
- * because history can.
+ * because history can. Some locked sessions are inert (MISSED): they share a cell with a
+ * session that really trains only if the generator happens to put them there, and the
+ * properties must hold either way.
  */
 function arbInput(): fc.Arbitrary<ScheduleInput> {
   return fc
@@ -34,6 +36,7 @@ function arbInput(): fc.Arbitrary<ScheduleInput> {
       firstOpenDay: fc.integer({ min: 0, max: 2 }),
       footprints: fc.array(arbFootprint, { minLength: 1, maxLength: 5 }),
       locks: fc.array(fc.boolean(), { minLength: 5, maxLength: 5 }),
+      inerts: fc.array(fc.boolean(), { minLength: 5, maxLength: 5 }),
       availability: fc.uniqueArray(
         fc.record({
           day: fc.integer({ min: 0, max: 6 }),
@@ -52,7 +55,8 @@ function arbInput(): fc.Arbitrary<ScheduleInput> {
         carryIn: [],
         sessions: r.footprints.map((footprint, i) => {
           const locked = r.locks[i]!;
-          return { id: `s${i}`, order: i, footprint, locked, placement: locked ? cells[i]! : null };
+          const inert = locked && r.inerts[i]!;
+          return { id: `s${i}`, order: i, footprint, locked, inert, placement: locked ? cells[i]! : null };
         }),
       })),
     );
@@ -60,11 +64,12 @@ function arbInput(): fc.Arbitrary<ScheduleInput> {
 
 /**
  * A legal but naive layout: locked sessions stay on their saved placements, the unlocked
- * ones are packed into the earliest open cells not taken by a locked session.
+ * ones are packed into the earliest open cells not taken by a locked session that happened
+ * (an inert session takes no cell).
  */
 function packedLayout(input: ScheduleInput): Layout | null {
   const taken = new Set(
-    input.sessions.filter((s) => s.locked).map((s) => cellKey(s.placement!, input.mode)),
+    input.sessions.filter((s) => s.locked && !s.inert).map((s) => cellKey(s.placement!, input.mode)),
   );
   const free = openCells(input).filter((c) => !taken.has(cellKey(c, input.mode)));
   const unlocked = input.sessions.filter((s) => !s.locked);
@@ -119,11 +124,13 @@ describe("schedule properties", () => {
             s.locked ? { ...s, placement: { day: s.placement!.day, daypart: null } } : s,
           ),
         };
-        const lockedDays = dayInput.sessions.filter((s) => s.locked).map((s) => s.placement!.day);
+        const lockedDays = dayInput.sessions.filter((s) => s.locked && !s.inert).map((s) => s.placement!.day);
         fc.pre(new Set(lockedDays).size === lockedDays.length);
         const res = placeWeek(dayInput);
         if (res.kind !== "placed") return;
-        const days = Object.values(res.layout).map((p) => cellKey(p, "DAY"));
+        const days = dayInput.sessions
+          .filter((s) => !s.inert && res.layout[s.id] !== undefined)
+          .map((s) => cellKey(res.layout[s.id]!, "DAY"));
         expect(new Set(days).size).toBe(days.length);
       }),
     );
@@ -167,6 +174,45 @@ describe("schedule properties", () => {
         for (const s of suggestMoves(input, layout)) {
           expect(locked.has(s.sessionId)).toBe(false);
           if (s.swapWithSessionId !== null) expect(locked.has(s.swapWithSessionId)).toBe(false);
+        }
+      }),
+    );
+  });
+
+  it("an inert session changes nothing: scoring and checking ignore it", () => {
+    fc.assert(
+      fc.property(arbInput(), (raw) => {
+        const layout = packedLayout(raw);
+        fc.pre(layout !== null);
+        const input = withSaved(raw, layout);
+        const inertIds = new Set(input.sessions.filter((s) => s.inert).map((s) => s.id));
+        fc.pre(inertIds.size > 0);
+        const without: ScheduleInput = { ...input, sessions: input.sessions.filter((s) => !inertIds.has(s.id)) };
+        const withoutLayout = Object.fromEntries(Object.entries(layout).filter(([id]) => !inertIds.has(id)));
+        expect(scoreLayout(input, layout)).toEqual(scoreLayout(without, withoutLayout));
+        expect(checkLayout(input, layout)).toEqual(checkLayout(without, withoutLayout));
+      }),
+    );
+  });
+
+  it("no suggestion moves or swaps an inert session", () => {
+    fc.assert(
+      fc.property(arbInput(), (raw) => {
+        const layout = packedLayout(raw);
+        fc.pre(layout !== null);
+        // Drop the lock but keep the session inert: the engine must still leave it alone.
+        const input = withSaved(
+          { ...raw, sessions: raw.sessions.map((s) => (s.inert ? { ...s, locked: false } : s)) },
+          layout,
+        );
+        const inert = new Set(input.sessions.filter((s) => s.inert).map((s) => s.id));
+        for (const s of suggestMoves(input, layout)) {
+          expect(inert.has(s.sessionId)).toBe(false);
+          if (s.swapWithSessionId !== null) expect(inert.has(s.swapWithSessionId)).toBe(false);
+        }
+        const res = placeWeek(input);
+        if (res.kind === "placed") {
+          for (const s of input.sessions) if (s.inert) expect(res.layout[s.id]).toEqual(s.placement);
         }
       }),
     );

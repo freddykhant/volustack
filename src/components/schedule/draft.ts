@@ -33,8 +33,8 @@ export function parseCellId(id: string): Placement {
 }
 
 /**
- * What a drop does to a draft layout. An empty cell takes the session; an occupied
- * cell swaps the two. Returns the SAME layout object when the drop is refused (locked
+ * What a drop does to a draft layout. An empty cell takes the session (a cell holding
+ * only a missed session counts as empty); an occupied cell swaps the two. Returns the SAME layout object when the drop is refused (locked
  * session, blocked or past cell, a swap the other session isn't allowed to make), so
  * callers can test `next === layout`. `input.sessions[].placement` must be the saved
  * placements: returning a session to where it is saved is always allowed.
@@ -46,13 +46,18 @@ export function applyDrop(
   target: Placement,
 ): Layout {
   const session = input.sessions.find((s) => s.id === sessionId);
-  if (!session || session.locked) return layout;
+  if (!session || session.locked || session.inert) return layout;
   const from = layout[sessionId];
   if (samePlacement(from, target)) return layout;
 
   const key = cellKey(target, input.mode);
+  // A missed session did not happen, so it does not hold its cell.
+  const inertIds = new Set(input.sessions.filter((s) => s.inert).map((s) => s.id));
   const occupantId = Object.keys(layout).find(
-    (id) => id !== sessionId && cellKey(layout[id]!, input.mode) === key,
+    (id) =>
+      id !== sessionId &&
+      !inertIds.has(id) &&
+      cellKey(layout[id]!, input.mode) === key,
   );
 
   let next: Layout;
@@ -60,7 +65,7 @@ export function applyDrop(
     next = { ...layout, [sessionId]: target };
   } else {
     const occupant = input.sessions.find((s) => s.id === occupantId);
-    if (!occupant || occupant.locked || !from) return layout;
+    if (!occupant || occupant.locked || occupant.inert || !from) return layout;
     next = { ...layout, [sessionId]: target, [occupantId]: from };
   }
   return checkLayout(input, next).length === 0 ? next : layout;

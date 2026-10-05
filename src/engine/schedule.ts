@@ -37,6 +37,11 @@ export interface ScheduleSession {
   footprint: Footprint;
   /** COMPLETED or MISSED: cannot be moved. */
   locked: boolean;
+  /**
+   * Did not and will not happen (MISSED): kept in the layout so the board can show it, but
+   * it trains nothing. It is never moved, is not scored, and does not take its cell or day.
+   */
+  inert: boolean;
   /** The placement currently saved; `checkLayout` treats any difference as a move. */
   placement: Placement | null;
 }
@@ -91,6 +96,21 @@ export function placementPosition(p: Placement, weekStartDay: number): number {
 export function samePlacement(a: Placement | null | undefined, b: Placement | null | undefined): boolean {
   if (!a || !b) return !a && !b;
   return a.day === b.day && a.daypart === b.daypart;
+}
+
+/** A session that cannot be moved: completed, or inert (missed). */
+function isFixed(s: ScheduleSession): boolean {
+  return s.locked || s.inert;
+}
+
+/** Identities of the cells held by sessions that really train: an inert session holds none. */
+function heldCells(input: ScheduleInput, layout: Layout): Set<string> {
+  const held = new Set<string>();
+  for (const s of input.sessions) {
+    const p = layout[s.id];
+    if (p !== undefined && !s.inert) held.add(cellKey(p, input.mode));
+  }
+  return held;
 }
 
 /** Every cell a session could occupy in this mode, Monday first. */
@@ -192,7 +212,7 @@ export function checkLayout(input: ScheduleInput, layout: Layout): HardViolation
   for (const s of placed) {
     const p = layout[s.id]!;
     const moved = !samePlacement(s.placement, p);
-    if (s.locked) {
+    if (isFixed(s)) {
       if (moved) out.push({ kind: "locked", sessionId: s.id });
       continue;
     }
@@ -209,10 +229,12 @@ export function checkLayout(input: ScheduleInput, layout: Layout): HardViolation
     }
   }
 
-  for (let i = 0; i < placed.length; i++) {
-    for (let j = i + 1; j < placed.length; j++) {
-      const a = placed[i]!;
-      const b = placed[j]!;
+  // A session that did not happen takes nothing, so it cannot collide with anything.
+  const live = placed.filter((s) => !s.inert);
+  for (let i = 0; i < live.length; i++) {
+    for (let j = i + 1; j < live.length; j++) {
+      const a = live[i]!;
+      const b = live[j]!;
       if (a.locked && b.locked) continue;
       const pa = layout[a.id]!;
       const pb = layout[b.id]!;
@@ -259,9 +281,10 @@ export function scoreLayout(input: ScheduleInput, layout: Layout): LayoutScore {
   const facts: DecisionFact[] = [];
   let cost = 0;
 
+  // Inert (missed) sessions did not happen: they take no part in any term.
   const placed = [...input.sessions]
     .sort((a, b) => a.order - b.order)
-    .filter((s) => layout[s.id] !== undefined)
+    .filter((s) => !s.inert && layout[s.id] !== undefined)
     .map((s) => {
       const p = layout[s.id]!;
       return { s, p, pos: placementPosition(p, input.weekStartDay) };
@@ -442,8 +465,8 @@ export function applySuggestion(
 function neighbours(input: ScheduleInput, layout: Layout): Neighbour[] {
   const movable = [...input.sessions]
     .sort((a, b) => a.order - b.order)
-    .filter((s) => !s.locked && layout[s.id] !== undefined);
-  const occupied = new Set(Object.values(layout).map((p) => cellKey(p, input.mode)));
+    .filter((s) => !isFixed(s) && layout[s.id] !== undefined);
+  const occupied = heldCells(input, layout);
   const cells = openCells(input);
   const out: Neighbour[] = [];
 
@@ -471,7 +494,7 @@ function neighbours(input: ScheduleInput, layout: Layout): Neighbour[] {
 const LOCAL_SEARCH_MAX_STEPS = 200;
 
 /**
- * Auto-place a week. Locked sessions stay put; every unlocked session is (re)placed.
+ * Auto-place a week. Locked and inert sessions stay put; every other session is (re)placed.
  * Greedy construction in session order (each takes the open cell that costs least,
  * earliest on ties), then local search over `neighbours` until no single move or swap
  * lowers the cost. Deterministic. Because it stops at a local optimum of the same
@@ -480,13 +503,13 @@ const LOCAL_SEARCH_MAX_STEPS = 200;
 export function placeWeek(input: ScheduleInput): PlaceResult {
   let layout: Layout = {};
   for (const s of input.sessions) {
-    if (s.locked && s.placement) layout[s.id] = s.placement;
+    if (isFixed(s) && s.placement) layout[s.id] = s.placement;
   }
-  const toPlace = [...input.sessions].sort((a, b) => a.order - b.order).filter((s) => !s.locked);
+  const toPlace = [...input.sessions].sort((a, b) => a.order - b.order).filter((s) => !isFixed(s));
   const cells = openCells(input);
 
   for (const s of toPlace) {
-    const occupied = new Set(Object.values(layout).map((p) => cellKey(p, input.mode)));
+    const occupied = heldCells(input, layout);
     let best: Placement | null = null;
     let bestCost = Infinity;
     for (const c of cells) {
@@ -499,7 +522,7 @@ export function placeWeek(input: ScheduleInput): PlaceResult {
     }
     if (best === null) {
       const taken = new Set(
-        input.sessions.filter((x) => x.locked && x.placement).map((x) => cellKey(x.placement!, input.mode)),
+        input.sessions.filter((x) => x.locked && !x.inert && x.placement).map((x) => cellKey(x.placement!, input.mode)),
       );
       const open = cells.filter((c) => !taken.has(cellKey(c, input.mode))).length;
       return {

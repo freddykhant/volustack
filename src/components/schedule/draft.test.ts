@@ -121,6 +121,20 @@ describe("applyDrop", () => {
     expect(next.s6).toEqual(day(0));
   });
 
+  it("places a session on a missed session's day without swapping", () => {
+    const withMissed: Layout = { gone: day(0), b: day(2) };
+    const missedInput = withSaved(
+      makeInput({ sessions: [sess("gone", 0, LEGS, null, true, true), sess("b", 1, LEGS)] }),
+      withMissed,
+    );
+    expect(applyDrop(missedInput, withMissed, "b", day(0))).toEqual({
+      gone: day(0),
+      b: day(0),
+    });
+    // The missed session itself still cannot be dragged.
+    expect(applyDrop(missedInput, withMissed, "gone", day(4))).toBe(withMissed);
+  });
+
   it("swaps within a day in HALF_DAY mode", () => {
     const half: Layout = {
       a: { day: 1, daypart: "AM" },
@@ -169,6 +183,16 @@ describe("dropTargets", () => {
     expect(kindOf(3)).toBe("current");
     expect(kindOf(6)).toBe("refused");
     expect(kindOf(1)).toBe("warn"); // the day after the other leg session
+  });
+
+  it("offers a missed session's day as an ordinary target", () => {
+    const withMissed: Layout = { gone: day(0), b: day(3) };
+    const missedInput = withSaved(
+      makeInput({ sessions: [sess("gone", 0, LEGS, null, true, true), sess("b", 1, LEGS)] }),
+      withMissed,
+    );
+    const target = dropTargets(missedInput, withMissed, "b").find((t) => t.placement.day === 0)!;
+    expect(["ok", "warn"]).toContain(target.kind);
   });
 
   it("has one entry per cell", () => {

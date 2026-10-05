@@ -66,7 +66,8 @@ function footprintOfSession(s: WeekForSchedule["sessions"][number]) {
 
 /**
  * Persisted week → the engine's ScheduleInput. Session id = TrainingSession.id, so a
- * layout maps straight back to rows. A session is locked once it is no longer SCHEDULED.
+ * layout maps straight back to rows. A session is locked once it is no longer SCHEDULED,
+ * and inert when it was MISSED: it did not happen, so it trains nothing (no carry-in either).
  */
 export function scheduleInputFromDb(args: {
   week: WeekForSchedule;
@@ -80,6 +81,7 @@ export function scheduleInputFromDb(args: {
 
   const carryIn: CarryIn[] = [];
   for (const s of prevWeek?.sessions ?? []) {
+    if (s.status === "MISSED") continue;
     const p = placementOf(s);
     if (!p) continue;
     carryIn.push({
@@ -101,6 +103,7 @@ export function scheduleInputFromDb(args: {
         order: s.order,
         footprint: footprintOfSession(s),
         locked: s.status !== "SCHEDULED",
+        inert: s.status === "MISSED",
         placement: placementOf(s),
       })),
   };
@@ -179,6 +182,7 @@ export function placePlanWeeks(
         order: i,
         footprint: footprints[i]!,
         locked: false,
+        inert: false,
         placement: null,
       })),
     });

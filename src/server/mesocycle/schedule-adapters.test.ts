@@ -2,7 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import type { Prisma } from "../../../generated/prisma";
 import { EXERCISE_LIBRARY } from "~/domain/exercise-library";
 import { DEFAULT_LANDMARKS } from "~/domain/landmarks";
-import { checkLayout, generateMesocycle, resolveConstraints, type MuscleVolumeMap, type ScheduleInput } from "~/engine";
+import {
+  checkLayout,
+  generateMesocycle,
+  resolveConstraints,
+  savedLayout,
+  scoreLayout,
+  type MuscleVolumeMap,
+  type ScheduleInput,
+} from "~/engine";
 import { applyWeekPlanToDb } from "./apply-week-plan";
 import {
   applyLayoutToDb,
@@ -97,9 +105,49 @@ describe("scheduleInputFromDb", () => {
     expect(input.firstOpenDay).toBe(2);
     expect(input.carryIn).toEqual([]);
     expect(input.sessions).toEqual([
-      { id: "a", order: 0, footprint: expect.objectContaining({ CHEST: 4 }) as unknown, locked: true, placement: { day: 0, daypart: null } },
-      { id: "b", order: 1, footprint: expect.objectContaining({ CHEST: 4 }) as unknown, locked: false, placement: null },
+      { id: "a", order: 0, footprint: expect.objectContaining({ CHEST: 4 }) as unknown, locked: true, inert: false, placement: { day: 0, daypart: null } },
+      { id: "b", order: 1, footprint: expect.objectContaining({ CHEST: 4 }) as unknown, locked: false, inert: false, placement: null },
     ]);
+  });
+
+  it("marks a missed session locked and inert, but a completed one only locked", () => {
+    const w = week(1, [
+      session({ id: "done", order: 0, dayOfWeek: 0, status: "COMPLETED", completedAt: MON }),
+      session({ id: "gone", order: 1, dayOfWeek: 1, status: "MISSED" }),
+      session({ id: "todo", order: 2, dayOfWeek: 2 }),
+    ]);
+    const input = scheduleInputFromDb({ week: w, prevWeek: null, settings: UTC, startDate: MON, now });
+    expect(input.sessions.map((s) => [s.id, s.locked, s.inert])).toEqual([
+      ["done", true, false],
+      ["gone", true, true],
+      ["todo", false, false],
+    ]);
+    // It stays in the saved layout so the board can show it.
+    expect(savedLayout(input).gone).toEqual({ day: 1, daypart: null });
+  });
+
+  it("scores and checks the week as if the missed session were not there", () => {
+    const w = week(1, [
+      session({ id: "gone", order: 0, dayOfWeek: 3, status: "MISSED" }),
+      session({ id: "todo", order: 1, dayOfWeek: 4 }),
+    ]);
+    const input = scheduleInputFromDb({ week: w, prevWeek: null, settings: UTC, startDate: MON, now });
+    const layout = savedLayout(input);
+    // Both train chest, one day apart: a short rest if the missed one counted.
+    expect(scoreLayout(input, layout).facts.map((f) => f.kind)).not.toContain("short_rest");
+    // The missed session's day is free for the other session in DAY mode.
+    expect(checkLayout(input, { gone: layout.gone!, todo: layout.gone! })).toEqual([]);
+  });
+
+  it("leaves missed sessions of the previous week out of the carry-in", () => {
+    const prev = week(1, [
+      session({ id: "p", order: 0, dayOfWeek: 6, status: "MISSED" }),
+      session({ id: "q", order: 1, dayOfWeek: 5, status: "COMPLETED", completedAt: MON }),
+    ]);
+    const w = week(2, [session({ id: "a", order: 0 })]);
+    const input = scheduleInputFromDb({ week: w, prevWeek: prev, settings: UTC, startDate: MON, now });
+    expect(input.carryIn).toHaveLength(1);
+    expect(input.carryIn[0]!.halfDaysBeforeWeekStart).toBe(4); // the completed Saturday only
   });
 
   it("carries in the previous week's placed sessions with their distance to the week start", () => {
@@ -251,7 +299,7 @@ describe("placePlanWeeks", () => {
       firstOpenDay: 0,
       availability: [],
       carryIn: [],
-      sessions: Object.keys(first).map((id, order) => ({ id, order, footprint: {}, locked: false, placement: null })),
+      sessions: Object.keys(first).map((id, order) => ({ id, order, footprint: {}, locked: false, inert: false, placement: null })),
     };
     expect(checkLayout(input, first)).toEqual([]);
   });

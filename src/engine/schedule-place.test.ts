@@ -217,3 +217,62 @@ describe("suggestMoves resolves and eases", () => {
   });
 });
 
+describe("inert (missed) sessions", () => {
+  const missed = (placement: Placement) => sess("missed", 0, LEGS, placement, true, true);
+
+  it("placeWeek leaves a missed session where it is and may use its day", () => {
+    // Only Mon (the missed session's day) is open.
+    const blocked = [1, 2, 3, 4, 5, 6].flatMap((d) => [
+      { day: d, daypart: "AM" as const, state: "BLOCKED" as const },
+      { day: d, daypart: "PM" as const, state: "BLOCKED" as const },
+    ]);
+    const input = makeInput({ availability: blocked, sessions: [missed(day(0)), sess("a", 1, PUSH)] });
+    const res = placeWeek(input);
+    if (res.kind !== "placed") throw new Error("expected placed");
+    expect(res.layout.missed).toEqual(day(0));
+    expect(res.layout.a).toEqual(day(0));
+    expect(checkLayout(input, res.layout)).toEqual([]);
+  });
+
+  it("does not count a missed session's cell in the infeasible tally", () => {
+    const blocked = [1, 2, 3, 4, 5, 6].flatMap((d) => [
+      { day: d, daypart: "AM" as const, state: "BLOCKED" as const },
+      { day: d, daypart: "PM" as const, state: "BLOCKED" as const },
+    ]);
+    const input = makeInput({ availability: blocked, sessions: [missed(day(0)), sess("a", 1, PUSH), sess("b", 2, PUSH)] });
+    expect(placeWeek(input)).toEqual({
+      kind: "infeasible",
+      facts: [{ kind: "infeasible", constraint: "schedule_cells", detail: { needed: 2, open: 1 } }],
+    });
+  });
+
+  it("never suggests moving or swapping a missed session, and can move onto its day", () => {
+    const layout = { missed: day(0), b: day(1), c: day(2) };
+    const input = withSaved(
+      makeInput({ sessions: [missed(day(0)), sess("b", 1, LEGS), sess("c", 2, PUSH)] }),
+      layout,
+    );
+    const out = suggestMoves(input, layout);
+    for (const s of out) {
+      expect(s.sessionId).not.toBe("missed");
+      expect(s.swapWithSessionId).not.toBe("missed");
+    }
+  });
+
+  it("treats a missed session's day as empty, so a session can be suggested onto it", () => {
+    // Days 3-6 are blocked, so Monday (where the missed session sits) is the only way to space a and b out.
+    const blocked = [3, 4, 5, 6].flatMap((d) => [
+      { day: d, daypart: "AM" as const, state: "BLOCKED" as const },
+      { day: d, daypart: "PM" as const, state: "BLOCKED" as const },
+    ]);
+    const layout = { missed: day(0), a: day(1), b: day(2) };
+    const input = withSaved(
+      makeInput({ availability: blocked, sessions: [missed(day(0)), sess("a", 1, LEGS), sess("b", 2, LEGS)] }),
+      layout,
+    );
+    const [top] = suggestMoves(input, layout);
+    expect(top).toMatchObject({ sessionId: "a", to: day(0), swapWithSessionId: null });
+    expect(top!.resolves.map((f) => f.kind)).toContain("short_rest");
+    expect(checkLayout(input, applySuggestion(layout, top!))).toEqual([]);
+  });
+});

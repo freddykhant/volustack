@@ -129,8 +129,8 @@ describe("toScheduleWeekView", () => {
         availability: [],
         carryIn: [],
         sessions: [
-          { id: "a", order: 0, footprint: { QUADS: 6 }, locked: true, placement: { day: 0, daypart: null } },
-          { id: "b", order: 1, footprint: { QUADS: 6 }, locked: false, placement: { day: 1, daypart: null } },
+          { id: "a", order: 0, footprint: { QUADS: 6 }, locked: true, inert: false, placement: { day: 0, daypart: null } },
+          { id: "b", order: 1, footprint: { QUADS: 6 }, locked: false, inert: false, placement: { day: 1, daypart: null } },
         ],
       },
     });

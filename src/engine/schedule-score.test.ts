@@ -141,3 +141,53 @@ describe("scoreLayout — other terms", () => {
     expect(scoreLayout(makeInput({ sessions: [sess("a", 0, LEGS)] }), {})).toEqual({ cost: 0, facts: [] });
   });
 });
+
+describe("scoreLayout — inert (missed) sessions", () => {
+  const MISSED_PULL = (placement: Placement) => sess("missed", 0, LEGS, placement, true, true);
+
+  it("raises no short_rest against a session that did not happen", () => {
+    const input = makeInput({ sessions: [MISSED_PULL(day(0)), sess("b", 1, LEGS)] });
+    const { facts, cost } = scoreLayout(input, { missed: day(0), b: day(1) });
+    expect(kinds(facts)).not.toContain("short_rest");
+    expect(cost).toBe(scoreLayout(makeInput({ sessions: [sess("b", 1, LEGS)] }), { b: day(1) }).cost);
+  });
+
+  it("does not count towards a training streak or the spread", () => {
+    const n = MAX_STREAK_DAYS;
+    const real = Array.from({ length: n }, (_, i) => sess(`s${i}`, i + 1, {}));
+    const layout = Object.fromEntries(real.map((s, i) => [s.id, day(i)]));
+    const missed = sess("missed", 0, {}, day(n), true, true);
+    const withMissed = scoreLayout(makeInput({ sessions: [missed, ...real] }), { ...layout, missed: day(n) });
+    const without = scoreLayout(makeInput({ sessions: real }), layout);
+    expect(kinds(withMissed.facts)).not.toContain("load_streak");
+    expect(withMissed).toEqual(without);
+  });
+
+  it("reports no same-day stack with a missed session in HALF_DAY mode", () => {
+    const input = makeInput({
+      mode: "HALF_DAY",
+      sessions: [sess("missed", 0, LEGS, { day: 2, daypart: "AM" }, true, true), sess("b", 1, LEGS)],
+    });
+    const { facts } = scoreLayout(input, { missed: { day: 2, daypart: "AM" }, b: { day: 2, daypart: "PM" } });
+    expect(kinds(facts)).not.toContain("same_day_stack");
+  });
+
+  it("does not make a preferred cell look taken", () => {
+    const availability = [
+      { day: 1, daypart: "AM" as const, state: "PREFERRED" as const },
+      { day: 1, daypart: "PM" as const, state: "PREFERRED" as const },
+    ];
+    const input = makeInput({ availability, sessions: [sess("missed", 0, {}, day(1), true, true), sess("a", 1, {})] });
+    // Day 1 is preferred and only a missed session sits there, so it is still open.
+    expect(scoreLayout(input, { missed: day(1), a: day(0) }).facts).toContainEqual({ kind: "off_preference", sessionId: "a" });
+  });
+
+  it("charges no blocked-cell cost for a missed session on a blocked cell", () => {
+    const availability = [
+      { day: 3, daypart: "AM" as const, state: "BLOCKED" as const },
+      { day: 3, daypart: "PM" as const, state: "BLOCKED" as const },
+    ];
+    const input = makeInput({ availability, sessions: [sess("missed", 0, {}, day(3), false, true)] });
+    expect(scoreLayout(input, { missed: day(3) })).toEqual({ cost: 0, facts: [] });
+  });
+});

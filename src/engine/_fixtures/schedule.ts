@@ -7,7 +7,8 @@ export const sess = (
   footprint: Footprint,
   placement: Placement | null = null,
   locked = false,
-): ScheduleSession => ({ id, order, footprint, locked, placement });
+  inert = false,
+): ScheduleSession => ({ id, order, footprint, locked, inert, placement });
 
 export const makeInput = (over: Partial<ScheduleInput> = {}): ScheduleInput => ({
   mode: "DAY",

@@ -207,3 +207,25 @@ describe("checkLayout", () => {
     expect(checkLayout(input, { done: day(0), a: day(0) })).toEqual([{ kind: "day_limit", sessionId: "a" }]);
   });
 });
+
+describe("checkLayout — inert (missed) sessions", () => {
+  it("lets another session take a missed session's day in DAY mode", () => {
+    const input = makeInput({ sessions: [sess("missed", 0, {}, day(0), true, true), sess("a", 1, {}, day(2))] });
+    expect(checkLayout(input, { missed: day(0), a: day(0) })).toEqual([]);
+  });
+
+  it("lets another session take a missed session's half-day in HALF_DAY mode", () => {
+    const am = { day: 1, daypart: "AM" as const };
+    const input = makeInput({
+      mode: "HALF_DAY",
+      sessions: [sess("missed", 0, {}, am, true, true), sess("a", 1, {}, { day: 2, daypart: "AM" })],
+    });
+    expect(checkLayout(input, { missed: am, a: am })).toEqual([]);
+  });
+
+  it("still refuses moving a missed session", () => {
+    const input = makeInput({ sessions: [sess("missed", 0, {}, day(0), true, true)] });
+    expect(checkLayout(input, { missed: day(2) })).toEqual([{ kind: "locked", sessionId: "missed" }]);
+  });
+});
+
