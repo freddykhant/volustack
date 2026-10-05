@@ -7,6 +7,7 @@ import {
   DndContext,
   MouseSensor,
   TouchSensor,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
@@ -15,6 +16,7 @@ import {
 import {
   applySuggestion,
   cellKey,
+  cellState,
   placeWeek,
   scoreLayout,
   type Layout,
@@ -60,18 +62,19 @@ function Cell({
   placement,
   target,
   showHalf,
+  blocked,
   children,
 }: {
   placement: Placement;
   target: DropTarget | undefined;
   showHalf: boolean;
+  blocked: boolean;
   children: React.ReactNode;
 }) {
   const refused = target?.kind === "refused";
-  const { setNodeRef, isOver } = useDroppable({
-    id: cellId(placement),
-    disabled: refused,
-  });
+  // Refused cells stay registered: a drop on one must resolve to that cell (and be a
+  // no-op in the board's move), not fall through to whichever enabled cell is nearest.
+  const { setNodeRef, isOver } = useDroppable({ id: cellId(placement) });
   const tone = !target
     ? "border-border-subtle"
     : refused
@@ -84,8 +87,23 @@ function Cell({
       ref={setNodeRef}
       className={`rounded-control flex min-h-20 flex-col gap-1.5 border p-1.5 transition-colors ${tone} ${isOver && !refused ? "ring-accent ring-1" : ""}`}
     >
-      {showHalf ? (
-        <span className="text-fg-subtle text-[11px]">{placement.daypart}</span>
+      {showHalf || blocked ? (
+        <div className="flex items-center gap-1.5">
+          {showHalf ? (
+            <span className="text-fg-subtle text-[11px]">
+              {placement.daypart}
+            </span>
+          ) : null}
+          {blocked ? (
+            <span
+              aria-label="Blocked"
+              title="Blocked"
+              className="text-fg-subtle text-[11px]"
+            >
+              ✕
+            </span>
+          ) : null}
+        </div>
       ) : null}
       {children}
     </div>
@@ -290,6 +308,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     <section aria-label="Week schedule" className="flex flex-col gap-4">
       <DndContext
         sensors={sensors}
+        collisionDetection={pointerWithin}
         onDragStart={(e) => setDragging(String(e.active.id))}
         onDragCancel={() => setDragging(null)}
         onDragEnd={onDragEnd}
@@ -321,6 +340,10 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
                       (t) => cellId(t.placement) === cellId(placement),
                     )}
                     showHalf={daypart !== null}
+                    blocked={
+                      cellState(input.availability, data.mode, placement) ===
+                      "BLOCKED"
+                    }
                   >
                     {here.map((s) => chip(s.id))}
                   </Cell>
