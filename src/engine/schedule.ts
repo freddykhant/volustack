@@ -200,9 +200,11 @@ export function layoutKey(layout: Layout): string {
 
 /**
  * Hard rules. These judge MOVES, not standing state: a session already sitting on a
- * Blocked or past cell is not a violation until someone tries to put it there. Two
- * locked sessions are never reported against each other, so history left in an older
- * shape (after a mode switch) cannot make every later move in the week fail.
+ * Blocked or past cell is not a violation until someone tries to put it there. Likewise a
+ * pair sharing a day or half-day is reported only when at least one of the two moved (and
+ * the mover is blamed), so a pair left that way by a mode switch cannot make every later move
+ * in the week fail. Two locked sessions are never reported against each other, and a session
+ * that did not happen (inert) collides with nothing.
  */
 export function checkLayout(input: ScheduleInput, layout: Layout): HardViolation[] {
   const out: HardViolation[] = [];
@@ -239,7 +241,12 @@ export function checkLayout(input: ScheduleInput, layout: Layout): HardViolation
       const pa = layout[a.id]!;
       const pb = layout[b.id]!;
       if (pa.day !== pb.day) continue;
-      const offender = b.locked ? a : b;
+      // A pair already sharing a cell or day is standing state, not a move: report it only
+      // when one of the two moved, and blame the one that did.
+      const movedA = !samePlacement(a.placement, pa);
+      const movedB = !samePlacement(b.placement, pb);
+      if (!movedA && !movedB) continue;
+      const offender = movedA && movedB ? (b.locked ? a : b) : movedA ? a : b;
       if (input.mode === "DAY") out.push({ kind: "day_limit", sessionId: offender.id });
       else if ((pa.daypart ?? "AM") === (pb.daypart ?? "AM")) out.push({ kind: "occupied", sessionId: offender.id });
     }

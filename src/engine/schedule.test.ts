@@ -202,6 +202,47 @@ describe("checkLayout", () => {
     ).toEqual([]);
   });
 
+  it("does not freeze the week over a locked and an unlocked session that already share a day", () => {
+    // A completed AM session and a scheduled PM one, then a switch to one-a-day: neither moved.
+    const input = makeInput({
+      sessions: [sess("done", 0, {}, day(0), true), sess("pm", 1, {}, day(0)), sess("a", 2, {}, day(2))],
+    });
+    expect(checkLayout(input, { done: day(0), pm: day(0), a: day(4) })).toEqual([]);
+  });
+
+  it("does not freeze the week over two unlocked sessions that already share a day", () => {
+    const input = makeInput({
+      sessions: [sess("x", 0, {}, day(1)), sess("y", 1, {}, day(1)), sess("a", 2, {}, day(2))],
+    });
+    expect(checkLayout(input, { x: day(1), y: day(1), a: day(4) })).toEqual([]);
+  });
+
+  it("still refuses moving an unlocked session onto a locked one's day, with others standing", () => {
+    const input = makeInput({
+      sessions: [sess("done", 0, {}, day(0), true), sess("x", 1, {}, day(1)), sess("a", 2, {}, day(2))],
+    });
+    expect(checkLayout(input, { done: day(0), x: day(1), a: day(0) })).toEqual([{ kind: "day_limit", sessionId: "a" }]);
+  });
+
+  it("blames the session that moved when it lands on one that stood still", () => {
+    const input = makeInput({ sessions: [sess("x", 0, {}, day(1)), sess("y", 1, {}, day(3))] });
+    // x moved onto y; x is earlier by order but y did not move.
+    expect(checkLayout(input, { x: day(3), y: day(3) })).toEqual([{ kind: "day_limit", sessionId: "x" }]);
+  });
+
+  it("still refuses moving a session onto an occupied half-day in HALF_DAY mode", () => {
+    const am = (d: number) => ({ day: d, daypart: "AM" as const });
+    const input = makeInput({
+      mode: "HALF_DAY",
+      sessions: [sess("x", 0, {}, am(1)), sess("y", 1, {}, am(1)), sess("a", 2, {}, am(2)), sess("b", 3, {}, am(3))],
+    });
+    // x and y already share Tuesday AM (older shape); moving b onto Wednesday AM is refused, the standing pair is not.
+    expect(checkLayout(input, { x: am(1), y: am(1), a: am(2), b: am(4) })).toEqual([]);
+    expect(checkLayout(input, { x: am(1), y: am(1), a: am(2), b: am(2) })).toEqual([{ kind: "occupied", sessionId: "b" }]);
+    // Moving one of the pair itself onto another's cell is refused too.
+    expect(checkLayout(input, { x: am(2), y: am(1), a: am(2), b: am(3) })).toEqual([{ kind: "occupied", sessionId: "x" }]);
+  });
+
   it("still refuses an unlocked session joining a locked one's day in DAY mode", () => {
     const input = makeInput({ sessions: [sess("done", 0, {}, day(0), true), sess("a", 1, {}, day(2))] });
     expect(checkLayout(input, { done: day(0), a: day(0) })).toEqual([{ kind: "day_limit", sessionId: "a" }]);
