@@ -87,7 +87,7 @@ async function loadWeekContext(db: Pick<Tx, "mesocycle">, userId: string, weekIn
     settings,
     startDate,
     input,
-    readOnly: weekIndex < currentWeekIndex(meso.startDate, meso.lengthWeeks, now),
+    readOnly: weekIndex < currentWeekIndex(meso.startDate, meso.lengthWeeks, now, settings.timezone),
     days: weekDays(startDate, weekIndex, settings.timezone),
     label: (id: string) => week.sessions.find((s) => s.id === id)?.splitSlot ?? "Session",
   };
@@ -302,7 +302,7 @@ export const scheduleRouter = createTRPCRouter({
 
           const profile = await tx.athleteProfile.findUnique({
             where: { userId },
-            select: { id: true, scheduleMode: true },
+            select: { id: true, scheduleMode: true, timezone: true },
           });
           if (!profile) throw new TRPCError({ code: "NOT_FOUND" });
 
@@ -313,7 +313,7 @@ export const scheduleRouter = createTRPCRouter({
               select: { startDate: true, lengthWeeks: true },
             });
             if (!meso) throw new TRPCError({ code: "NOT_FOUND" });
-            const currentWeek = currentWeekIndex(meso.startDate, meso.lengthWeeks, now);
+            const currentWeek = currentWeekIndex(meso.startDate, meso.lengthWeeks, now, profile.timezone);
             const scheduled = {
               status: "SCHEDULED" as const,
               dayOfWeek: { not: null },

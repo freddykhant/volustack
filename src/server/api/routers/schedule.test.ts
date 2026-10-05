@@ -60,16 +60,21 @@ interface Opts {
   /** Rows the guarded (status = SCHEDULED) update reports per session; default 1. */
   writeCount?: number;
   noLock?: boolean;
+  /** The athlete's calendar zone (default UTC) and when the block started (default Mon 5 Oct 00:00Z). */
+  timezone?: string;
+  startDate?: Date;
+  /** Every week of the block that the query should be able to find (default: week 1 only). */
+  weeks?: ReturnType<typeof weekRow>[];
 }
 
 function makeCaller(opts: Opts = {}) {
   const week1 = opts.week1 ?? [sessionRow("s1", "wk-1", 0, "Upper A", 3), sessionRow("s2", "wk-1", 1, "Upper B", 5)];
   const meso = {
     id: "meso-1",
-    startDate: START,
+    startDate: opts.startDate ?? START,
     lengthWeeks: 4,
-    athleteProfile: { scheduleMode: "DAY", timezone: "UTC", availability: opts.availability ?? [] },
-    weeks: [weekRow(1, week1)],
+    athleteProfile: { scheduleMode: "DAY", timezone: opts.timezone ?? "UTC", availability: opts.availability ?? [] },
+    weeks: opts.weeks ?? [weekRow(1, week1)],
   };
   const db = {
     mesocycle: { findFirst: vi.fn().mockResolvedValue(opts.noBlock ? null : meso) },
@@ -118,6 +123,61 @@ describe("getWeekSchedule", () => {
   it("is NOT_FOUND for a week the block does not have", async () => {
     const { caller } = makeCaller();
     await expect(caller.getWeekSchedule({ weekIndex: 9 })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("read-only weeks follow the athlete's calendar", () => {
+  // Perth is UTC+8. The block started Monday 5 Oct at 20:00 Perth, so week 1 is 5-11 Oct
+  // local and week 2 is 12-18 Oct. Elapsed time from the start instant is not the question:
+  // a week is finished exactly when every one of its local dates has passed.
+  const PERTH_START = new Date("2026-10-05T12:00:00Z");
+  const perth = () =>
+    makeCaller({
+      timezone: "Australia/Perth",
+      startDate: PERTH_START,
+      weeks: [
+        weekRow(1, [sessionRow("s1", "wk-1", 0, "Upper A", 3), sessionRow("s2", "wk-1", 1, "Upper B", 5)]),
+        weekRow(2, [sessionRow("t1", "wk-2", 0, "Upper A", 3), sessionRow("t2", "wk-2", 1, "Upper B", 5)]),
+      ],
+    });
+
+  const at = async (iso: string, fn: () => Promise<void>) => {
+    vi.setSystemTime(new Date(iso));
+    try {
+      await fn();
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  };
+
+  it("keeps week 1 editable through its last local evening", async () => {
+    await at("2026-10-11T15:30:00Z", async () => {
+      // Sunday 23:30 in Perth.
+      const { caller } = perth();
+      expect((await caller.getWeekSchedule({ weekIndex: 1 })).readOnly).toBe(false);
+      expect((await caller.getWeekSchedule({ weekIndex: 2 })).readOnly).toBe(false);
+    });
+  });
+
+  it("makes week 1 read-only from the first local minute of the next Monday, and refuses writes to it", async () => {
+    await at("2026-10-11T16:30:00Z", async () => {
+      // Monday 00:30 in Perth; only 6 days 4.5 hours since the block started.
+      const { caller, db } = perth();
+      const one = await caller.getWeekSchedule({ weekIndex: 1 });
+      expect(one.readOnly).toBe(true);
+      expect(one.input.firstOpenDay).toBe(7);
+      expect((await caller.getWeekSchedule({ weekIndex: 2 })).readOnly).toBe(false);
+      expect(await caller.getSuggestions({ weekIndex: 1 })).toEqual([]);
+      await expect(
+        caller.applyLayout({
+          weekIndex: 1,
+          placements: [{ sessionId: "s2", day: 6, daypart: null }],
+          expected: SAVED,
+          origin: "athlete",
+        }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "That week has already finished." });
+      expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+    });
   });
 });
 

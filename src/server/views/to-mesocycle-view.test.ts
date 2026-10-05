@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MesocycleWithRelations } from "./to-mesocycle-view";
 import { currentWeekIndex, toMesocycleView } from "./to-mesocycle-view";
 import type { MuscleGroup } from "~/schema";
@@ -13,6 +13,7 @@ function makeMesocycle(over: Partial<{
   deloadIndex: number | null; // which week has isDeload=true
   csDeloadWeekIndex: number | null;
   omitMuscleInWeek: { week: number; muscle: MuscleGroup };
+  timezone: string;
 }> = {}): MesocycleWithRelations {
   const lengthWeeks = over.lengthWeeks ?? 6;
   const deloadIndex = over.deloadIndex === undefined ? 6 : over.deloadIndex;
@@ -109,7 +110,7 @@ function makeMesocycle(over: Partial<{
     startDate: over.startDate === undefined ? new Date(Date.now() - 14 * DAY_MS) : over.startDate,
     lengthWeeks,
     createdAt: new Date(),
-    athleteProfile: { timezone: "UTC" },
+    athleteProfile: { timezone: over.timezone ?? "UTC" },
     constraintSet: {
       id: "cs-1",
       athleteProfileId: "ap-1",
@@ -146,6 +147,43 @@ describe("currentWeekIndex", () => {
   it("clamps to 1 for a future startDate", () => {
     const start = new Date(Date.now() + 100 * DAY_MS);
     expect(currentWeekIndex(start, 6)).toBe(1);
+  });
+});
+
+describe("currentWeekIndex in the athlete's timezone", () => {
+  // Perth is UTC+8 with no DST. The block starts Monday 5 Oct at 20:00 Perth (12:00Z).
+  const START = new Date("2026-10-05T12:00:00Z");
+  const PERTH = "Australia/Perth";
+
+  it("is still week 1 on Sunday 23:30 local", () => {
+    expect(currentWeekIndex(START, 6, new Date("2026-10-11T15:30:00Z"), PERTH)).toBe(1);
+  });
+
+  it("is week 2 from Monday 00:30 local, although fewer than 7x24h have elapsed", () => {
+    const now = new Date("2026-10-11T16:30:00Z"); // Mon 12 Oct 00:30 Perth
+    expect(currentWeekIndex(START, 6, now, PERTH)).toBe(2);
+    expect(currentWeekIndex(START, 6, now)).toBe(1); // without a timezone: the elapsed-time count, unchanged
+  });
+
+  it("still clamps to [1, lengthWeeks]", () => {
+    expect(currentWeekIndex(START, 6, new Date("2027-03-01T00:00:00Z"), PERTH)).toBe(6);
+    expect(currentWeekIndex(START, 6, new Date("2026-09-01T00:00:00Z"), PERTH)).toBe(1);
+    expect(currentWeekIndex(null, 6, new Date("2026-10-11T16:30:00Z"), PERTH)).toBe(1);
+  });
+});
+
+describe("toMesocycleView in the athlete's timezone", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("marks the week the athlete's calendar is in as current", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-11T16:30:00Z")); // Mon 12 Oct 00:30 Perth
+    const m = makeMesocycle({ startDate: new Date("2026-10-05T12:00:00Z"), timezone: "Australia/Perth" });
+    const v = toMesocycleView(m);
+    expect(v.currentWeekIndex).toBe(2);
+    expect(v.weeks.find((w) => w.isCurrent)?.index).toBe(2);
   });
 });
 

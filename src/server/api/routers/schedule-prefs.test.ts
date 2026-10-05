@@ -22,13 +22,14 @@ interface Opts {
   /** The athlete has no ACTIVE block: the lock query returns no row. */
   noBlock?: boolean;
   startDate?: Date;
+  timezone?: string;
   scheduled?: { id: string; weekId: string; dayOfWeek: number; week: { index: number } }[];
 }
 
 function makeCaller(opts: Opts = {}) {
   const profile = opts.noProfile
     ? null
-    : { id: "ap-1", scheduleMode: opts.mode ?? "DAY", timezone: "UTC", availability: [{ dayOfWeek: 6, daypart: "AM", state: "BLOCKED" }] };
+    : { id: "ap-1", scheduleMode: opts.mode ?? "DAY", timezone: opts.timezone ?? "UTC", availability: [{ dayOfWeek: 6, daypart: "AM", state: "BLOCKED" }] };
   const db = {
     athleteProfile: {
       findUnique: vi.fn().mockResolvedValue(profile),
@@ -164,6 +165,27 @@ describe("updatePrefs", () => {
     const call = db.trainingSession.updateMany.mock.calls[0]![0] as { data: Record<string, unknown> };
     expect(call.data).toEqual({ daypart: null });
     expect(db.athleteProfile.update).toHaveBeenCalledWith({ where: { id: "ap-1" }, data: { scheduleMode: "DAY" } });
+  });
+
+  it("counts the week by the athlete's calendar: a clash in the week that just finished does not block", async () => {
+    // Block started Mon 5 Oct 20:00 Perth. It is now Mon 12 Oct 00:30 Perth (6d 4.5h later),
+    // so week 1 is over and week 2 is the current one.
+    vi.setSystemTime(new Date("2026-10-11T16:30:00Z"));
+    try {
+      const { caller, db } = makeCaller({
+        mode: "HALF_DAY",
+        timezone: "Australia/Perth",
+        startDate: new Date("2026-10-05T12:00:00Z"),
+        scheduled: [
+          { id: "a", weekId: "wk-1", dayOfWeek: 4, week: { index: 1 } },
+          { id: "b", weekId: "wk-1", dayOfWeek: 4, week: { index: 1 } },
+        ],
+      });
+      await caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
+      expect(db.athleteProfile.update).toHaveBeenCalledWith({ where: { id: "ap-1" }, data: { scheduleMode: "DAY" } });
+    } finally {
+      vi.setSystemTime(NOW);
+    }
   });
 
   it("is still blocked by a clash in the current week", async () => {
