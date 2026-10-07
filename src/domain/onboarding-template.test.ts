@@ -12,6 +12,9 @@ const base: OnboardingInput = {
   splitType: "PUSH_PULL_LEGS",
   proficiency: "INTERMEDIATE",
   priorityMuscles: [],
+  scheduleMode: "DAY",
+  availability: [],
+  timezone: "UTC",
 };
 
 describe("PROFICIENCY_TEMPLATE", () => {

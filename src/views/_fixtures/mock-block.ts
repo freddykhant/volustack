@@ -134,6 +134,7 @@ function week(weekIndex: number): WeekView {
     totalSets,
     sessions,
     cells,
+    days: [],
   };
 }
 

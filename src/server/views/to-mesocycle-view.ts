@@ -1,5 +1,8 @@
 import type { Prisma } from "../../../generated/prisma";
 import { DEFAULT_LANDMARKS } from "~/domain/landmarks";
+import { localDayNumber } from "~/domain/local-day";
+import { placementPosition } from "~/engine";
+import { weekDays } from "~/server/mesocycle/schedule-adapters";
 import { MUSCLE_GROUPS, type MuscleGroup } from "~/schema";
 import type {
   LoggedSetView,
@@ -8,6 +11,7 @@ import type {
   MuscleWeekCell,
   PrescriptionView,
   SessionView,
+  WeekDayView,
   WeekView,
 } from "~/views/types";
 
@@ -18,6 +22,7 @@ import type {
  * in lockstep.
  */
 export const MESOCYCLE_INCLUDE = {
+  athleteProfile: { select: { timezone: true } },
   constraintSet: { include: { muscleTargets: true } },
   weeks: {
     include: {
@@ -53,16 +58,25 @@ const DAY_TAGS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * 1-based current week from the block's start date: full weeks elapsed + 1,
- * clamped to [1, lengthWeeks]. No start date → week 1.
+ * 1-based current week from the block's start date, clamped to [1, lengthWeeks]. No start
+ * date → week 1.
+ *
+ * Without `tz` it counts whole 7x24h periods since the start instant. With `tz` it counts
+ * whole weeks of calendar days in the athlete's timezone, the same clock that dates a
+ * week's columns, so the week turns over at their local midnight, not at the time of day
+ * the block started.
  */
 export function currentWeekIndex(
   startDate: Date | null,
   lengthWeeks: number,
   now: Date = new Date(),
+  tz?: string,
 ): number {
   if (!startDate) return 1;
-  const elapsed = Math.floor((now.getTime() - startDate.getTime()) / WEEK_MS) + 1;
+  const elapsed =
+    tz === undefined
+      ? Math.floor((now.getTime() - startDate.getTime()) / WEEK_MS) + 1
+      : Math.floor((localDayNumber(now, tz) - localDayNumber(startDate, tz)) / 7) + 1;
   return Math.min(Math.max(elapsed, 1), lengthWeeks);
 }
 
@@ -102,6 +116,7 @@ function toSessionView(s: SessionWithRelations): SessionView {
     slotId: s.id,
     label: s.splitSlot,
     dayTag: s.dayOfWeek == null ? undefined : DAY_TAGS[s.dayOfWeek],
+    placement: s.dayOfWeek == null ? undefined : { day: s.dayOfWeek, daypart: s.daypart },
     estimatedMinutes: s.targetDurationMin ?? 0,
     status: s.status,
     prescriptions: [...s.prescriptions]
@@ -111,8 +126,25 @@ function toSessionView(s: SessionWithRelations): SessionView {
   };
 }
 
-function toWeekView(w: WeekWithRelations, curIdx: number, muscles: readonly MuscleGroup[]): WeekView {
-  const sessions = [...w.sessions].sort((a, b) => a.order - b.order).map(toSessionView);
+function toWeekView(
+  w: WeekWithRelations,
+  curIdx: number,
+  muscles: readonly MuscleGroup[],
+  days: WeekDayView[],
+): WeekView {
+  // Placement order within the rolling week; unplaced sessions keep plan order at the end.
+  const startDay = days[0]?.weekday ?? 0;
+  const position = (s: SessionWithRelations) =>
+    s.dayOfWeek == null
+      ? Number.POSITIVE_INFINITY
+      : placementPosition({ day: s.dayOfWeek, daypart: s.daypart }, startDay);
+  const sessions = [...w.sessions]
+    .sort((a, b) => {
+      const pa = position(a);
+      const pb = position(b);
+      return pa === pb ? a.order - b.order : pa - pb;
+    })
+    .map(toSessionView);
   // A cell for every block-trained muscle every week, reconciled with
   // block.muscles by construction — a week that omits a muscle yields a
   // factual plannedSets:0 cell (BlockGrid force-unwraps these; it must never miss).
@@ -139,13 +171,15 @@ function toWeekView(w: WeekWithRelations, curIdx: number, muscles: readonly Musc
     totalSets,
     sessions,
     cells,
+    days,
   };
 }
 
 export function toMesocycleView(m: MesocycleWithRelations): MesocycleView {
   const cs = m.constraintSet;
   const lengthWeeks = m.lengthWeeks;
-  const curIdx = currentWeekIndex(m.startDate, lengthWeeks);
+  const tz = m.athleteProfile.timezone;
+  const curIdx = currentWeekIndex(m.startDate, lengthWeeks, new Date(), tz);
   const deloadIdx = m.weeks.find((w) => w.isDeload)?.index ?? cs.deloadWeekIndex ?? lengthWeeks;
 
   const present = new Set<MuscleGroup>();
@@ -156,7 +190,9 @@ export function toMesocycleView(m: MesocycleWithRelations): MesocycleView {
     cs.muscleTargets.some((t) => t.muscle === mm && t.priority > 0),
   );
 
-  const weeks = [...m.weeks].sort((a, b) => a.index - b.index).map((w) => toWeekView(w, curIdx, muscles));
+  const weeks = [...m.weeks]
+    .sort((a, b) => a.index - b.index)
+    .map((w) => toWeekView(w, curIdx, muscles, m.startDate ? weekDays(m.startDate, w.index, tz) : []));
 
   return {
     id: m.id,

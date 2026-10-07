@@ -70,6 +70,8 @@ export const onboardingRouter = createTRPCRouter({
               heightCm: input.heightCm,
               weightKg: input.weightKg,
               experience: input.proficiency,
+              scheduleMode: input.scheduleMode,
+              timezone: input.timezone,
             },
             create: {
               userId,
@@ -78,8 +80,22 @@ export const onboardingRouter = createTRPCRouter({
               heightCm: input.heightCm,
               weightKg: input.weightKg,
               experience: input.proficiency,
+              scheduleMode: input.scheduleMode,
+              timezone: input.timezone,
             },
           });
+
+          await tx.availabilityCell.deleteMany({ where: { athleteProfileId: profile.id } });
+          if (input.availability.length > 0) {
+            await tx.availabilityCell.createMany({
+              data: input.availability.map((c) => ({
+                athleteProfileId: profile.id,
+                dayOfWeek: c.day,
+                daypart: c.daypart,
+                state: c.state,
+              })),
+            });
+          }
 
           const last = await tx.constraintSet.findFirst({
             where: { athleteProfileId: profile.id },
@@ -113,6 +129,7 @@ export const onboardingRouter = createTRPCRouter({
             plan,
             startDate: new Date(), // brand-new block → current week 1
             name: "Block 1",
+            schedule: { mode: input.scheduleMode, availability: input.availability, timezone: input.timezone },
           });
         },
         { timeout: 15000 },

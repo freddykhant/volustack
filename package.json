@@ -10,6 +10,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "db:backfill-schedule": "tsx --env-file=.env prisma/backfill-schedule.ts",
     "db:studio": "prisma studio",
     "dev": "next dev --turbo",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
@@ -29,6 +30,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
+    "@dnd-kit/core": "^6.3.1",
     "@prisma/client": "^6.6.0",
     "@t3-oss/env-nextjs": "^0.12.0",
     "@tanstack/react-query": "^5.69.0",

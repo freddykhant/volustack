@@ -40,6 +40,9 @@ const PAIRS: ReadonlyArray<
   ["BlockStatus", Prisma.BlockStatus, Domain.BlockStatusEnum.options],
   ["DecisionType", Prisma.DecisionType, Domain.DecisionTypeEnum.options],
   ["DecisionStatus", Prisma.DecisionStatus, Domain.DecisionStatusEnum.options],
+  ["ScheduleMode", Prisma.ScheduleMode, Domain.ScheduleModeEnum.options],
+  ["Daypart", Prisma.Daypart, Domain.DaypartEnum.options],
+  ["AvailabilityState", Prisma.AvailabilityState, Domain.AvailabilityStateEnum.options],
 ];
 
 describe("Zod ↔ Prisma enum parity", () => {

@@ -1,7 +1,7 @@
 import type { SessionView, WeekView } from "~/views/types";
 
-/** The next session to train in a week. Skeleton rule: the first session
- * (no completion state yet). Returns undefined for a session-less week. */
+/** The next session to train in a week: the first still-scheduled one, in the order
+ * the week lays them out (placement order). Undefined when nothing is left. */
 export function nextSession(week: WeekView): SessionView | undefined {
-  return week.sessions[0];
+  return week.sessions.find((s) => s.status === "SCHEDULED");
 }

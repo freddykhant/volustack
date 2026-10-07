@@ -46,4 +46,22 @@ describe("OnboardingInputSchema", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("defaults the schedule fields", () => {
+    const parsed = OnboardingInputSchema.parse(valid);
+    expect(parsed.scheduleMode).toBe("DAY");
+    expect(parsed.availability).toEqual([]);
+    expect(parsed.timezone).toBe("UTC");
+  });
+
+  it("accepts schedule fields and rejects an unknown timezone", () => {
+    const ok = OnboardingInputSchema.parse({
+      ...valid,
+      scheduleMode: "HALF_DAY",
+      availability: [{ day: 6, daypart: "AM", state: "BLOCKED" }],
+      timezone: "Australia/Sydney",
+    });
+    expect(ok.scheduleMode).toBe("HALF_DAY");
+    expect(OnboardingInputSchema.safeParse({ ...valid, timezone: "Nowhere/Land" }).success).toBe(false);
+  });
 });

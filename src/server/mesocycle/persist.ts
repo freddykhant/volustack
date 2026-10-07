@@ -1,6 +1,7 @@
 import type { Prisma } from "../../../generated/prisma";
 import type { MesocyclePlan } from "~/engine";
 import type { MuscleGroup } from "~/schema";
+import { placePlanWeeks, type ScheduleSettings } from "./schedule-adapters";
 
 export interface PersistMesocycleArgs {
   athleteProfileId: string;
@@ -8,6 +9,8 @@ export interface PersistMesocycleArgs {
   plan: MesocyclePlan;
   startDate: Date;
   name: string;
+  /** Athlete scheduling settings. Omitted = one-a-day, everything available, UTC. */
+  schedule?: ScheduleSettings;
 }
 
 /**
@@ -16,6 +19,10 @@ export interface PersistMesocycleArgs {
  * the caller's transaction client. Shared by the seed and the onboarding
  * mutation. It does NOT create the ConstraintSet — the caller owns that, since
  * the two callers differ there (seed delete-first vs. mutation version-bump).
+ *
+ * Sessions are placed (day, and daypart in half-day mode) against the athlete's
+ * schedule settings. A week that cannot be placed is persisted unplaced and a
+ * SCHEDULE decision-log row records it; placement never changes a prescription.
  *
  * WeekMuscleVolume rows are written only for muscles with volume > 0.
  * Each prescription's exerciseName is resolved to an Exercise.id; an unknown
@@ -26,7 +33,7 @@ export async function persistMesocyclePlan(
   tx: Prisma.TransactionClient,
   args: PersistMesocycleArgs,
 ): Promise<{ mesocycleId: string; weeks: number }> {
-  const { athleteProfileId, constraintSetId, plan, startDate, name } = args;
+  const { athleteProfileId, constraintSetId, plan, startDate, name, schedule } = args;
 
   const exercises = await tx.exercise.findMany({ select: { id: true, name: true } });
   const idByName = new Map(exercises.map((e) => [e.name, e.id]));
@@ -41,6 +48,11 @@ export async function persistMesocyclePlan(
       lengthWeeks: plan.blockLengthWeeks,
     },
   });
+
+  const settings: ScheduleSettings = schedule ?? { mode: "DAY", availability: [], timezone: "UTC" };
+  const sortedIndexes = [...plan.weeks].sort((a, b) => a.index - b.index).map((w) => w.index);
+  const layouts = placePlanWeeks(plan, settings, startDate, startDate);
+  const layoutFor = (weekIndex: number) => layouts[sortedIndexes.indexOf(weekIndex)] ?? null;
 
   for (const week of plan.weeks) {
     await tx.week.create({
@@ -57,7 +69,8 @@ export async function persistMesocyclePlan(
           create: week.sessions.map((session, order) => ({
             order,
             splitSlot: session.label,
-            dayOfWeek: null,
+            dayOfWeek: layoutFor(week.index)?.[String(order)]?.day ?? null,
+            daypart: layoutFor(week.index)?.[String(order)]?.daypart ?? null,
             targetDurationMin: session.estimatedMinutes,
             prescriptions: {
               create: session.prescriptions.map((rx, rxOrder) => {
@@ -92,6 +105,21 @@ export async function persistMesocyclePlan(
         summary: fact.kind,
         reasoning: fact.kind,
         payload: fact,
+      })),
+    });
+  }
+
+  const unplaced = sortedIndexes.filter((i) => layoutFor(i) === null);
+  if (unplaced.length > 0) {
+    await tx.decisionLog.createMany({
+      data: unplaced.map((weekIndex) => ({
+        mesocycleId: meso.id,
+        weekIndex,
+        type: "SCHEDULE" as const,
+        status: "APPLIED" as const,
+        summary: "Week left unplaced",
+        reasoning: "infeasible",
+        payload: { origin: "auto", facts: [{ kind: "infeasible", constraint: "schedule_cells", detail: {} }] },
       })),
     });
   }

@@ -56,3 +56,36 @@ export type {
   RedistributionCandidate,
   Tradeoff,
 } from "./types";
+
+export {
+  allCells,
+  applySuggestion,
+  cellKey,
+  cellState,
+  checkLayout,
+  dayIndex,
+  daypartForDay,
+  footprintOf,
+  layoutKey,
+  openCells,
+  placeWeek,
+  placementPosition,
+  samePlacement,
+  savedLayout,
+  scoreLayout,
+  suggestMoves,
+} from "./schedule";
+export type {
+  AvailabilityCellInput,
+  CarryIn,
+  Footprint,
+  HardViolation,
+  HardViolationKind,
+  Layout,
+  LayoutScore,
+  MoveSuggestion,
+  PlaceResult,
+  Placement,
+  ScheduleInput,
+  ScheduleSession,
+} from "./schedule";

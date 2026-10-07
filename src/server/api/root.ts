@@ -3,6 +3,7 @@ import { healthRouter } from "~/server/api/routers/health";
 import { mesocycleRouter } from "~/server/api/routers/mesocycle";
 import { onboardingRouter } from "~/server/api/routers/onboarding";
 import { readinessRouter } from "~/server/api/routers/readiness";
+import { scheduleRouter } from "~/server/api/routers/schedule";
 import { sessionRouter } from "~/server/api/routers/session";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   mesocycle: mesocycleRouter,
   onboarding: onboardingRouter,
   session: sessionRouter,
+  schedule: scheduleRouter,
   checkin: checkinRouter,
   readiness: readinessRouter,
 });

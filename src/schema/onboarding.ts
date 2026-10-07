@@ -2,9 +2,11 @@ import { z } from "zod";
 import {
   ExperienceLevelEnum,
   MuscleGroupEnum,
+  ScheduleModeEnum,
   SexEnum,
   SplitTypeEnum,
 } from "./enums";
+import { AvailabilityInputSchema, TimezoneSchema } from "./schedule";
 
 /**
  * Everything the first-run wizard collects. Bio fields are stored on
@@ -22,5 +24,8 @@ export const OnboardingInputSchema = z.object({
   splitType: SplitTypeEnum,
   proficiency: ExperienceLevelEnum,
   priorityMuscles: z.array(MuscleGroupEnum).max(3).default([]),
+  scheduleMode: ScheduleModeEnum.default("DAY"),
+  availability: AvailabilityInputSchema.default([]),
+  timezone: TimezoneSchema.default("UTC"),
 });
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
