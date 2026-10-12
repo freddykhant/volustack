@@ -5,9 +5,11 @@ import {
   allCells,
   applySuggestion,
   cellKey,
+  cellState,
   checkLayout,
   openCells,
   placeWeek,
+  proposeLayouts,
   scoreLayout,
   suggestMoves,
   type Footprint,
@@ -246,6 +248,30 @@ describe("schedule properties", () => {
           checkLayout(input, res.layout);
         }
         expect(input).toEqual(snapshot);
+      }),
+    );
+  });
+});
+
+describe("proposeLayouts properties", () => {
+  it("never breaks a hard rule, never uses a blocked cell, accounts for every movable session", () => {
+    fc.assert(
+      fc.property(arbInput(), (input) => {
+        const options = proposeLayouts(input);
+        expect(options.length).toBeLessThanOrEqual(3);
+        expect(new Set(options.map((o) => o.id)).size).toBe(options.length);
+        for (const o of options) {
+          const kept = { ...input, sessions: input.sessions.filter((s) => !o.skipped.includes(s.id)) };
+          expect(checkLayout(kept, o.layout)).toEqual([]);
+          for (const m of o.moves) {
+            expect(cellState(input.availability, input.mode, m.to)).not.toBe("BLOCKED");
+          }
+          for (const s of input.sessions) {
+            if (s.locked || s.inert) continue;
+            expect(o.layout[s.id] !== undefined || o.skipped.includes(s.id)).toBe(true);
+          }
+        }
+        expect(proposeLayouts(input)).toEqual(options);
       }),
     );
   });
