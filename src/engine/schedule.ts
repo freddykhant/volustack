@@ -5,10 +5,12 @@ import {
   MAX_STREAK_DAYS,
   MAX_SUGGESTIONS,
   OVERLAP_MIN_SETS,
+  PREFERENCE_LENS_FACTOR,
   REST_TARGET_HALF_DAYS,
   SCHEDULE_EPS,
   SPREAD_FACT_MIN_DAYS,
   SUGGESTION_MIN_GAIN,
+  W_DISPLACEMENT,
   W_LOAD_STREAK,
   W_OFF_PREFERENCE,
   W_ON_BLOCKED_CELL,
@@ -502,19 +504,64 @@ function neighbours(input: ScheduleInput, layout: Layout): Neighbour[] {
 /** Guard against a runaway loop; each step strictly lowers cost, so this is never reached in practice. */
 const LOCAL_SEARCH_MAX_STEPS = 200;
 
+/** The weighting a layout was searched under. */
+export type Lens = "BALANCED" | "FEWEST_CHANGES" | "KEEPS_PREFERENCES";
+
+export const LENS_ORDER: readonly Lens[] = ["BALANCED", "FEWEST_CHANGES", "KEEPS_PREFERENCES"];
+
 /**
- * Auto-place a week. Locked and inert sessions stay put; every other session is (re)placed.
- * Greedy construction in session order (each takes the open cell that costs least,
- * earliest on ties), then local search over `neighbours` until no single move or swap
- * lowers the cost. Deterministic. Because it stops at a local optimum of the same
- * neighbourhood `suggestMoves` searches, a freshly placed week has no suggestion.
+ * A layout's cost as one lens sees it. Every lens starts from `scoreLayout`, so the hard
+ * preferences (blocked cells, rest) still count; a lens only adds weight to one concern.
  */
-export function placeWeek(input: ScheduleInput): PlaceResult {
-  let layout: Layout = {};
-  for (const s of input.sessions) {
-    if (isFixed(s) && s.placement) layout[s.id] = s.placement;
+export function lensCost(input: ScheduleInput, layout: Layout, lens: Lens): number {
+  const score = scoreLayout(input, layout);
+  if (lens === "FEWEST_CHANGES") {
+    const moved = input.sessions.filter(
+      (s) => !isFixed(s) && s.placement !== null && layout[s.id] !== undefined && !samePlacement(s.placement, layout[s.id]),
+    ).length;
+    return score.cost + W_DISPLACEMENT * moved;
   }
-  const toPlace = [...input.sessions].sort((a, b) => a.order - b.order).filter((s) => !isFixed(s));
+  if (lens === "KEEPS_PREFERENCES") {
+    const off = score.facts.filter((f) => f.kind === "off_preference").length;
+    return score.cost + (PREFERENCE_LENS_FACTOR - 1) * W_OFF_PREFERENCE * off;
+  }
+  return score.cost;
+}
+
+/**
+ * Where a search starts. Fixed sessions always keep their placement. With `keepStanding`,
+ * so does every other session whose saved cell is still open and not already taken, so the
+ * search only has to find homes for the sessions that were displaced.
+ */
+function seedLayout(input: ScheduleInput, keepStanding: boolean): Layout {
+  const seed: Layout = {};
+  for (const s of input.sessions) {
+    if (isFixed(s) && s.placement) seed[s.id] = s.placement;
+  }
+  if (!keepStanding) return seed;
+  const held = heldCells(input, seed);
+  for (const s of [...input.sessions].sort((a, b) => a.order - b.order)) {
+    if (isFixed(s) || !s.placement || !isOpenTarget(input, s.placement)) continue;
+    // A day-only placement in AM/PM mode (or the reverse) has to be re-placed.
+    if ((s.placement.daypart !== null) !== (input.mode === "HALF_DAY")) continue;
+    const key = cellKey(s.placement, input.mode);
+    if (held.has(key)) continue;
+    seed[s.id] = s.placement;
+    held.add(key);
+  }
+  return seed;
+}
+
+/**
+ * Greedy construction in session order (each unseeded session takes the open cell that
+ * costs least, earliest on ties), then local search over `neighbours` until no single
+ * move or swap lowers the cost. Deterministic.
+ */
+function searchLayout(input: ScheduleInput, costOf: (layout: Layout) => number, seed: Layout): PlaceResult {
+  let layout: Layout = { ...seed };
+  const toPlace = [...input.sessions]
+    .sort((a, b) => a.order - b.order)
+    .filter((s) => !isFixed(s) && layout[s.id] === undefined);
   const cells = openCells(input);
 
   for (const s of toPlace) {
@@ -523,7 +570,7 @@ export function placeWeek(input: ScheduleInput): PlaceResult {
     let bestCost = Infinity;
     for (const c of cells) {
       if (occupied.has(cellKey(c, input.mode))) continue;
-      const cost = scoreLayout(input, { ...layout, [s.id]: c }).cost;
+      const cost = costOf({ ...layout, [s.id]: c });
       if (cost < bestCost - SCHEDULE_EPS) {
         best = c;
         bestCost = cost;
@@ -534,19 +581,20 @@ export function placeWeek(input: ScheduleInput): PlaceResult {
         input.sessions.filter((x) => x.locked && !x.inert && x.placement).map((x) => cellKey(x.placement!, input.mode)),
       );
       const open = cells.filter((c) => !taken.has(cellKey(c, input.mode))).length;
+      const needed = input.sessions.filter((x) => !isFixed(x)).length;
       return {
         kind: "infeasible",
-        facts: [{ kind: "infeasible", constraint: "schedule_cells", detail: { needed: toPlace.length, open } }],
+        facts: [{ kind: "infeasible", constraint: "schedule_cells", detail: { needed, open } }],
       };
     }
     layout = { ...layout, [s.id]: best };
   }
 
   for (let step = 0; step < LOCAL_SEARCH_MAX_STEPS; step++) {
-    let bestCost = scoreLayout(input, layout).cost;
+    let bestCost = costOf(layout);
     let bestLayout: Layout | null = null;
     for (const n of neighbours(input, layout)) {
-      const cost = scoreLayout(input, n.layout).cost;
+      const cost = costOf(n.layout);
       if (cost < bestCost - SCHEDULE_EPS) {
         bestCost = cost;
         bestLayout = n.layout;
@@ -557,6 +605,26 @@ export function placeWeek(input: ScheduleInput): PlaceResult {
   }
 
   return { kind: "placed", layout };
+}
+
+/**
+ * Auto-place a week. Locked and inert sessions stay put; every other session is (re)placed.
+ * Greedy construction in session order (each takes the open cell that costs least,
+ * earliest on ties), then local search over `neighbours` until no single move or swap
+ * lowers the cost. Deterministic. Because it stops at a local optimum of the same
+ * neighbourhood `suggestMoves` searches, a freshly placed week has no suggestion.
+ */
+export function placeWeek(input: ScheduleInput): PlaceResult {
+  return searchLayout(input, (layout) => scoreLayout(input, layout).cost, seedLayout(input, false));
+}
+
+/**
+ * Place a week as one lens would. BALANCED is `placeWeek`. FEWEST_CHANGES starts from the
+ * saved layout and pays for every session it moves. KEEPS_PREFERENCES re-places everything
+ * with preferred times weighted up.
+ */
+export function placeWithLens(input: ScheduleInput, lens: Lens): PlaceResult {
+  return searchLayout(input, (layout) => lensCost(input, layout, lens), seedLayout(input, lens === "FEWEST_CHANGES"));
 }
 
 /**
