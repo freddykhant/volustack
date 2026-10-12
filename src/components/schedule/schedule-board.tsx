@@ -37,6 +37,7 @@ import {
   changedIds,
   dropTargets,
   isDraftStale,
+  optionStillValid,
   parseCellId,
   suggestionStillValid,
   type DropTarget,
@@ -76,9 +77,7 @@ function BlockToggle({
     <button
       type="button"
       aria-pressed={state === "one_off"}
-      aria-label={
-        state === "one_off" ? `Unblock ${label}` : `Can’t train ${label}`
-      }
+      aria-label={`Can’t train ${label}`}
       disabled={disabled}
       onClick={onToggle}
       className="text-fg-muted hover:text-fg text-[11px] transition-colors disabled:opacity-50"
@@ -158,6 +157,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [carryForward, setCarryForward] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [dismissedOptions, setDismissedOptions] = useState<string | null>(null);
   const tzSynced = useRef(false);
 
   const refresh = () => {
@@ -207,9 +207,13 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     onError: (err) => setNotice({ text: err.message, availabilityLink: false }),
   });
   const clearException = api.schedule.clearException.useMutation({
-    onSuccess: onExceptionChange,
+    onSuccess: async () => {
+      await onExceptionChange();
+      setNotice(null);
+    },
     onError: (err) => setNotice({ text: err.message, availabilityLink: false }),
   });
+  const blockPending = setException.isPending || clearException.isPending;
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
@@ -264,13 +268,10 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
       changedIds(draft.base, draft.layout),
       liveLocked,
     );
-  const editable = !data.readOnly && !apply.isPending;
+  // A draft must not snapshot availability that a block in flight is about to change.
+  const editable = !data.readOnly && !apply.isPending && !blockPending;
   // Blocked time is saved straight away, so it cannot be mixed with an unsaved drag.
-  const canBlock =
-    editable &&
-    draft === null &&
-    !setException.isPending &&
-    !clearException.isPending;
+  const canBlock = editable && draft === null;
   const dateOf = (weekday: number) =>
     data.days.find((d) => d.weekday === weekday)!.date;
   const labelOf = (id: string) =>
@@ -381,11 +382,23 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     };
   }
 
+  // The option was computed for a saved week that may have moved on since.
+  function optionFits(o: ReplacementOptionView): boolean {
+    const fits = optionStillValid(
+      data.layout,
+      o,
+      data.sessions.map((s) => s.id),
+    );
+    if (!fits) void utils.schedule.getReplacementOptions.invalidate();
+    return fits;
+  }
+
   function acceptOption(o: ReplacementOptionView) {
-    confirm(optionLayout(o), "replacement");
+    if (optionFits(o)) confirm(optionLayout(o), "replacement");
   }
 
   function showOption(o: ReplacementOptionView) {
+    if (!optionFits(o)) return;
     setNotice(null);
     startOrUpdateDraft(optionLayout(o));
   }
@@ -407,7 +420,9 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
         moveOptions={editable && !session.locked ? moveOptionsFor(id) : []}
         onMove={(target) => move(id, target)}
         onCantMake={
-          canFlag && at ? () => toggleBlock(at.day, at.daypart) : undefined
+          canFlag && at
+            ? () => toggleBlock(at.day, data.mode === "DAY" ? null : at.daypart)
+            : undefined
         }
       />
     );
@@ -551,9 +566,9 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
           {!data.readOnly ? (
             <ReplacementPanel
               weekIndex={weekIndex}
-              disabled={
-                !editable || setException.isPending || clearException.isPending
-              }
+              disabled={!editable}
+              dismissed={dismissedOptions}
+              onDismiss={setDismissedOptions}
               onAccept={acceptOption}
               onShow={showOption}
             />

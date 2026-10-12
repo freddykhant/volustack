@@ -124,3 +124,19 @@ export function suggestionStillValid(
     samePlacement(saved[s.swapWithSessionId], s.to)
   );
 }
+
+/** A re-arrangement option was computed against a saved week. It may only be applied
+ * while every session it leaves alone is still where it put it, and every session it
+ * moves still exists. */
+export function optionStillValid(
+  saved: Layout,
+  option: { layout: Layout; placements: { sessionId: string }[] },
+  sessionIds: string[],
+): boolean {
+  const moved = new Set(option.placements.map((p) => p.sessionId));
+  if (!option.placements.every((p) => sessionIds.includes(p.sessionId)))
+    return false;
+  return Object.entries(option.layout).every(
+    ([id, p]) => moved.has(id) || samePlacement(saved[id], p),
+  );
+}

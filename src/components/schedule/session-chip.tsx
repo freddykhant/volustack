@@ -89,6 +89,7 @@ export function SessionChip({
       {draggable && onCantMake ? (
         <button
           type="button"
+          aria-label={`Can’t make ${session.label}`}
           onClick={onCantMake}
           className="text-fg-muted hover:text-fg mt-1 text-[12px] transition-colors"
         >

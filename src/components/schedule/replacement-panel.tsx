@@ -11,22 +11,27 @@ import type { ReplacementOptionView } from "~/views/schedule";
 export function ReplacementPanel({
   weekIndex,
   disabled,
+  dismissed,
+  onDismiss,
   onAccept,
   onShow,
 }: {
   weekIndex: number;
   /** A drag draft is open, or a save is in flight. */
   disabled: boolean;
+  /** Signature of the options the athlete chose to arrange themselves; kept by the board. */
+  dismissed: string | null;
+  onDismiss: (signature: string) => void;
   onAccept: (option: ReplacementOptionView) => void;
   onShow: (option: ReplacementOptionView) => void;
 }) {
   const utils = api.useUtils();
   const query = api.schedule.getReplacementOptions.useQuery({ weekIndex });
-  const [dismissed, setDismissed] = useState<string | null>(null);
   const [skipping, setSkipping] = useState<string | null>(null);
 
   const options = query.data ?? [];
-  // Dismissal is for exactly these options; a change in blocked time brings the panel back.
+  // Dismissal matches these exact options, so it outlasts a refetch that returns the same
+  // ones and lapses when blocked time changes them.
   const signature = JSON.stringify(
     options.map((o) => [o.id, o.placements, o.skipped.map((s) => s.sessionId)]),
   );
@@ -40,7 +45,7 @@ export function ReplacementPanel({
     >
       <div>
         <div className="text-accent text-[12px] font-medium">
-          You&rsquo;ve blocked time this week
+          A session is on time you&rsquo;ve blocked
         </div>
         <div className="text-card-title text-fg mt-1">
           {options.length === 1
@@ -62,7 +67,7 @@ export function ReplacementPanel({
                 </span>
               ) : null}
             </div>
-            {o.moves.length > 0 ? (
+            {o.kind !== "skip" && o.moves.length > 0 ? (
               <ul className="text-nav text-fg-soft flex flex-col gap-0.5">
                 {o.moves.map((m) => (
                   <li key={m}>{m}</li>
@@ -80,7 +85,7 @@ export function ReplacementPanel({
               {o.kind === "skip" ? (
                 <button
                   type="button"
-                  disabled={disabled}
+                  disabled={disabled || query.isFetching}
                   onClick={() => setSkipping(o.skipped[0]!.sessionId)}
                   className="rounded-control bg-accent text-nav hover:bg-accent-strong px-3 py-1.5 font-medium text-white transition-colors disabled:opacity-60"
                 >
@@ -89,7 +94,8 @@ export function ReplacementPanel({
               ) : (
                 <button
                   type="button"
-                  disabled={disabled}
+                  aria-label={`Accept: ${o.title}`}
+                  disabled={disabled || query.isFetching}
                   onClick={() => onAccept(o)}
                   className="rounded-control bg-accent text-nav hover:bg-accent-strong px-3 py-1.5 font-medium text-white transition-colors disabled:opacity-60"
                 >
@@ -99,7 +105,8 @@ export function ReplacementPanel({
               {o.kind !== "skip" && o.moves.length > 0 ? (
                 <button
                   type="button"
-                  disabled={disabled}
+                  aria-label={`Show on board: ${o.title}`}
+                  disabled={disabled || query.isFetching}
                   onClick={() => onShow(o)}
                   className="text-nav text-fg-muted hover:text-fg transition-colors disabled:opacity-60"
                 >
@@ -112,7 +119,7 @@ export function ReplacementPanel({
       </ul>
       <button
         type="button"
-        onClick={() => setDismissed(signature)}
+        onClick={() => onDismiss(signature)}
         className="text-nav text-fg-muted hover:text-fg self-start transition-colors"
       >
         I&rsquo;ll arrange it myself
