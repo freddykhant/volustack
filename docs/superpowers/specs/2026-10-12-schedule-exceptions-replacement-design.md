@@ -1,10 +1,23 @@
 # Dynamic Scheduling ③ — Blocked Time and Week Re-placement (Design)
 
-**Status:** Design approved in conversation 2026-10-12. Awaiting review of this document.
+**Status:** Approved 2026-10-12. Amended the same day during planning; see "Amendments" directly below and the plan's "Refinements" section. Where the body of this document disagrees with the amendments, the amendments win.
 **Scope:** Let an athlete say "I can't train then" for a specific date, and have the engine propose new layouts for the affected week. Adds one-off availability exceptions, a pure function that produces up to three distinct layouts, an advisory Jev ranking of them, and a proposal panel on the week board.
 **Branch target:** merges into `freddy/experimental` (standing rule). Feature branch `freddy/feat/schedule-exceptions`.
 **Builds on:** Dynamic Scheduling ① + ② (`docs/superpowers/specs/2026-10-04-schedule-foundation-dnd-design.md`): placements, the standing availability grid, `checkLayout` / `scoreLayout` / `placeWeek`, `applyLayout` with the block lock, and the week board. Also the missed-session flow (`session.getRescheduleOptions` / `applyReschedule`) and the judgement layer (`executeJudgement`, ADVISORY choice verdicts).
 **Part of:** Dynamic Scheduling — ① schedule foundation + ② drag-and-drop (merged) → **③ blocked time and week re-placement (this)** → ④ Coach conversation → ⑤ situational coach cues.
+
+## Amendments (2026-10-12, during planning)
+
+1. **Skip comes first.** A skipped session still holds its cell until it is marked missed, and redistribution changes the remaining sessions' footprints. Choosing a skip option therefore opens the existing missed-session dialog; once it is accepted, the panel recomputes ordinary options for what is left. `applyLayout` gains no `skip` input and returns no `skipped` sessions for this purpose.
+2. **No `Week.needsPlacementReview` column.** Options are offered whenever a movable session is standing on a blocked cell, which a future week that could not be re-placed quietly already is.
+3. **Crowding is measured in days**, not cells: a week is crowded when movable sessions outnumber free days. In AM/PM mode that is exactly when doubling up becomes necessary.
+4. **One new fact**, `session_does_not_fit { sessionId, sessions, freeDays }`. `one_off_block` and `lens` facts are not added; the lens and outcome travel as data on the option, and a one-off cell is flagged `oneOff` on the availability input.
+5. **Option ids** are a lens name, `DOUBLE_UP`, `SKIP_1` or `SKIP_2`. Crowded-week options are returned in that fixed order (keep everything first).
+6. **"Show on board"** button replaces hover preview.
+7. **The lead is labelled "Coach's pick"** whenever a usable Jev verdict chose it, including when it agrees with the engine.
+8. **`nominateOverflow(input, candidates)` returns a ranking** (`string[]`, most skippable first).
+9. **The property "fewest changes never moves more sessions than balanced" is dropped**: both are local searches, so it is not guaranteed. A fixture test covers the intent.
+10. **Ordinary move suggestions are suppressed** while a session is standing on blocked time, so the panel is the only voice.
 
 ## Problem
 
