@@ -29,6 +29,7 @@ import {
   placementLabel,
   toWarnings,
   type MoveSuggestionView,
+  type ReplacementOptionView,
 } from "~/views/schedule";
 import {
   applyDrop,
@@ -41,6 +42,8 @@ import {
   type DropTarget,
 } from "./draft";
 import { DraftBar } from "./draft-bar";
+import { blockState } from "./exceptions";
+import { ReplacementPanel } from "./replacement-panel";
 import { SessionChip, type MoveOption } from "./session-chip";
 import { SuggestionCard } from "./suggestion-card";
 
@@ -58,17 +61,48 @@ interface Notice {
   availabilityLink: boolean;
 }
 
+function BlockToggle({
+  state,
+  label,
+  disabled,
+  onToggle,
+}: {
+  state: "open" | "one_off";
+  label: string;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={state === "one_off"}
+      aria-label={
+        state === "one_off" ? `Unblock ${label}` : `Can’t train ${label}`
+      }
+      disabled={disabled}
+      onClick={onToggle}
+      className="text-fg-muted hover:text-fg text-[11px] transition-colors disabled:opacity-50"
+    >
+      {state === "one_off" ? "Undo" : "Can’t train"}
+    </button>
+  );
+}
+
 function Cell({
   placement,
   target,
   showHalf,
   blocked,
+  note,
+  toggle,
   children,
 }: {
   placement: Placement;
   target: DropTarget | undefined;
   showHalf: boolean;
   blocked: boolean;
+  note?: string;
+  toggle?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const refused = target?.kind === "refused";
@@ -87,7 +121,7 @@ function Cell({
       ref={setNodeRef}
       className={`rounded-control flex min-h-20 flex-col gap-1.5 border p-1.5 transition-colors ${tone} ${isOver && !refused ? "ring-accent ring-1" : ""}`}
     >
-      {showHalf || blocked ? (
+      {showHalf || blocked || toggle ? (
         <div className="flex items-center gap-1.5">
           {showHalf ? (
             <span className="text-fg-subtle text-[11px]">
@@ -103,6 +137,10 @@ function Cell({
               ✕
             </span>
           ) : null}
+          {note ? (
+            <span className="text-fg-subtle text-[11px]">{note}</span>
+          ) : null}
+          {toggle ? <span className="ml-auto">{toggle}</span> : null}
         </div>
       ) : null}
       {children}
@@ -149,6 +187,28 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     onError: (err) => {
       if (err.data?.code === "CONFLICT") refresh();
     },
+  });
+  const onExceptionChange = async () => {
+    await utils.schedule.invalidate();
+    router.refresh();
+  };
+  const setException = api.schedule.setException.useMutation({
+    onSuccess: async (res) => {
+      await onExceptionChange();
+      setNotice(
+        res.moved.length > 0
+          ? {
+              text: `Re-arranged: ${res.moved.join(", ")}.`,
+              availabilityLink: false,
+            }
+          : null,
+      );
+    },
+    onError: (err) => setNotice({ text: err.message, availabilityLink: false }),
+  });
+  const clearException = api.schedule.clearException.useMutation({
+    onSuccess: onExceptionChange,
+    onError: (err) => setNotice({ text: err.message, availabilityLink: false }),
   });
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -205,6 +265,14 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
       liveLocked,
     );
   const editable = !data.readOnly && !apply.isPending;
+  // Blocked time is saved straight away, so it cannot be mixed with an unsaved drag.
+  const canBlock =
+    editable &&
+    draft === null &&
+    !setException.isPending &&
+    !clearException.isPending;
+  const dateOf = (weekday: number) =>
+    data.days.find((d) => d.weekday === weekday)!.date;
   const labelOf = (id: string) =>
     data.sessions.find((s) => s.id === id)?.label ?? "Session";
   const changed = changedIds(base, layout);
@@ -225,6 +293,14 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
           placementLabel(t.placement) +
           (t.kind === "warn" ? " (adds a warning)" : ""),
       }));
+
+  function toggleBlock(weekday: number, daypart: "AM" | "PM" | null) {
+    const state = blockState(data.input, weekday, daypart);
+    if (state === "open")
+      setException.mutate({ date: dateOf(weekday), daypart });
+    else if (state === "one_off")
+      clearException.mutate({ date: dateOf(weekday), daypart });
+  }
 
   function startOrUpdateDraft(next: Layout) {
     setDraft(
@@ -264,7 +340,10 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     }
   }
 
-  function confirm(next: Layout, origin: "athlete" | "suggestion") {
+  function confirm(
+    next: Layout,
+    origin: "athlete" | "suggestion" | "replacement",
+  ) {
     apply.mutate({
       weekIndex,
       placements: Object.entries(next).map(([sessionId, p]) => ({
@@ -290,8 +369,35 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     confirm(applySuggestion(data.layout, s), "suggestion");
   }
 
+  function optionLayout(o: ReplacementOptionView): Layout {
+    return {
+      ...data.layout,
+      ...Object.fromEntries(
+        o.placements.map((p) => [
+          p.sessionId,
+          { day: p.day, daypart: p.daypart },
+        ]),
+      ),
+    };
+  }
+
+  function acceptOption(o: ReplacementOptionView) {
+    confirm(optionLayout(o), "replacement");
+  }
+
+  function showOption(o: ReplacementOptionView) {
+    setNotice(null);
+    startOrUpdateDraft(optionLayout(o));
+  }
+
   const chip = (id: string) => {
     const session = data.sessions.find((s) => s.id === id)!;
+    const at = data.layout[id];
+    const canFlag =
+      canBlock &&
+      !session.locked &&
+      at !== undefined &&
+      blockState(data.input, at.day, at.daypart) === "open";
     return (
       <SessionChip
         key={id}
@@ -300,6 +406,9 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
         changed={changed.includes(id)}
         moveOptions={editable && !session.locked ? moveOptionsFor(id) : []}
         onMove={(target) => move(id, target)}
+        onCantMake={
+          canFlag && at ? () => toggleBlock(at.day, at.daypart) : undefined
+        }
       />
     );
   };
@@ -315,18 +424,36 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
       >
         <div className="overflow-x-auto">
           <div className="grid min-w-[680px] grid-cols-7 gap-2">
-            {data.days.map((d) => (
-              <div key={d.date} className="text-fg-subtle px-1 text-[12px]">
-                <span className="text-fg-soft font-medium">
-                  {DAY_NAMES[d.weekday]}
-                </span>{" "}
-                {Number(d.date.slice(8))}
-              </div>
-            ))}
+            {data.days.map((d) => {
+              const state = blockState(data.input, d.weekday, null);
+              return (
+                <div
+                  key={d.date}
+                  className="text-fg-subtle flex items-baseline justify-between gap-1 px-1 text-[12px]"
+                >
+                  <span>
+                    <span className="text-fg-soft font-medium">
+                      {DAY_NAMES[d.weekday]}
+                    </span>{" "}
+                    {Number(d.date.slice(8))}
+                  </span>
+                  {!data.readOnly &&
+                  (state === "open" || state === "one_off") ? (
+                    <BlockToggle
+                      state={state}
+                      label={DAY_NAMES[d.weekday]!}
+                      disabled={!canBlock}
+                      onToggle={() => toggleBlock(d.weekday, null)}
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
             {rows.map((daypart) =>
               data.days.map((d) => {
                 const placement: Placement = { day: d.weekday, daypart };
                 const key = cellKey(placement, data.mode);
+                const saved = blockState(data.input, d.weekday, daypart);
                 const here = data.sessions.filter(
                   (s) =>
                     layout[s.id] !== undefined &&
@@ -343,6 +470,19 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
                     blocked={
                       cellState(input.availability, data.mode, placement) ===
                       "BLOCKED"
+                    }
+                    note={saved === "one_off" ? "this week" : undefined}
+                    toggle={
+                      !data.readOnly &&
+                      daypart !== null &&
+                      (saved === "open" || saved === "one_off") ? (
+                        <BlockToggle
+                          state={saved}
+                          label={`${DAY_NAMES[d.weekday]} ${daypart}`}
+                          disabled={!canBlock}
+                          onToggle={() => toggleBlock(d.weekday, daypart)}
+                        />
+                      ) : undefined
                     }
                   >
                     {here.map((s) => chip(s.id))}
@@ -408,6 +548,16 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
         />
       ) : (
         <>
+          {!data.readOnly ? (
+            <ReplacementPanel
+              weekIndex={weekIndex}
+              disabled={
+                !editable || setException.isPending || clearException.isPending
+              }
+              onAccept={acceptOption}
+              onShow={showOption}
+            />
+          ) : null}
           {warnings.length > 0 ? (
             <ul className="text-nav text-fg-muted flex flex-col gap-1">
               {warnings.map((w) => (
