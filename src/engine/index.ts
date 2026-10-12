@@ -6,6 +6,7 @@ export { sessionMinutes } from "./time";
 export { stepWeek, progressionQuestions, applyProgressionVerdicts, progressionNoulId } from "./step-week";
 export { evaluateDeload } from "./deload";
 export { redistributeWeek, rescheduleQuestions, applyRescheduleVerdicts, RESCHEDULE_PICK_ID } from "./redistribute";
+export { replacementQuestions, applyReplacementVerdict, REPLACEMENT_PICK_ID } from "./schedule-judgement";
 export { weekPlanFromAdjustment } from "./apply-adjustment";
 export { sessionStimulus, computeReadiness, weeklyRecoverySignal, blendRecovery } from "./readiness";
 export { deloadWeekPlan } from "./deload-week";

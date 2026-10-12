@@ -509,7 +509,7 @@ model Judgement {
   id            String    @id @default(cuid())
   mesocycleId   String
   mesocycle     Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
-  subject       String // "reschedule" | "progression"
+  subject       String // "reschedule" | "progression" | "replacement"
   stateHash     String // sha256 of the canonical JSON state projection
   questionsHash String // sha256 of the canonical question set — question meaning is part of the key
   model         String // the pinned version that actually answered, e.g. "jev-1.13.0"

@@ -11,7 +11,7 @@ import {
  * There is deliberately no third level: a verdict can never carry a quantity. */
 export type JudgementAuthority = "ADVISORY" | "PROPOSAL";
 
-export type JudgementSubject = "reschedule" | "progression";
+export type JudgementSubject = "reschedule" | "progression" | "replacement";
 
 /** Mirrors Jev's three primitives. Option descriptions may be null when the option
  * name speaks for itself. Question ids are for code only: they ARE transmitted, as
