@@ -96,5 +96,11 @@ export const W_ON_BLOCKED_CELL = 1000;
 export const SUGGESTION_MIN_GAIN = 2;
 /** Suggestions returned at most. */
 export const MAX_SUGGESTIONS = 3;
+/** Fewest-changes lens: cost of each session that leaves its saved placement. */
+export const W_DISPLACEMENT = 50;
+/** Keeps-preferences lens: how many times heavier an off-preference session counts. */
+export const PREFERENCE_LENS_FACTOR = 5;
+/** Re-placement options returned at most. */
+export const MAX_LAYOUT_OPTIONS = 3;
 /** Cost differences smaller than this are treated as equal. Not a tuning value. */
 export const SCHEDULE_EPS = 1e-6;

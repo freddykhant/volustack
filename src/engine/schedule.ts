@@ -50,6 +50,8 @@ export interface AvailabilityCellInput {
   day: number;
   daypart: Daypart;
   state: "PREFERRED" | "BLOCKED";
+  /** Set when the cell is blocked for this week only (an exception), not by the standing grid. */
+  oneOff?: boolean;
 }
 
 /** A session from the end of the previous week, for rest across the week boundary. */

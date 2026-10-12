@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ApplyLayoutInputSchema,
   AvailabilityInputSchema,
+  ExceptionInputSchema,
   PlacementSchema,
   SchedulePrefsInputSchema,
   TimezoneSchema,
@@ -51,5 +52,24 @@ describe("schedule schemas", () => {
     expect(
       ApplyLayoutInputSchema.safeParse({ weekIndex: 1, placements: [], expected: [], origin: "coach" }).success,
     ).toBe(false);
+  });
+});
+
+describe("ExceptionInputSchema", () => {
+  it("accepts a calendar date with a daypart or null", () => {
+    expect(ExceptionInputSchema.safeParse({ date: "2026-10-08", daypart: null }).success).toBe(true);
+    expect(ExceptionInputSchema.safeParse({ date: "2026-10-08", daypart: "PM" }).success).toBe(true);
+  });
+  it("rejects a date that is malformed or not on the calendar", () => {
+    expect(ExceptionInputSchema.safeParse({ date: "8/10/2026", daypart: null }).success).toBe(false);
+    expect(ExceptionInputSchema.safeParse({ date: "2026-02-30", daypart: null }).success).toBe(false);
+    expect(ExceptionInputSchema.safeParse({ date: "2026-10-08T00:00:00Z", daypart: null }).success).toBe(false);
+  });
+});
+
+describe("ApplyLayoutInputSchema replacement origin", () => {
+  it("accepts the replacement origin", () => {
+    const parsed = ApplyLayoutInputSchema.safeParse({ weekIndex: 1, placements: [], expected: [], origin: "replacement" });
+    expect(parsed.success).toBe(true);
   });
 });

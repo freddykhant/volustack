@@ -44,3 +44,8 @@ export function weekdayOfDayNumber(n: number): number {
 export function isoDateOfDayNumber(n: number): string {
   return new Date(n * DAY_MS).toISOString().slice(0, 10);
 }
+
+/** Day number of a "YYYY-MM-DD" calendar date. The inverse of `isoDateOfDayNumber`. */
+export function dayNumberOfIsoDate(iso: string): number {
+  return Math.floor(Date.parse(`${iso}T00:00:00Z`) / DAY_MS);
+}
