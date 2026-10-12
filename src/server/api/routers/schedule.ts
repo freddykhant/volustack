@@ -3,8 +3,14 @@ import { z } from "zod";
 import type { Prisma } from "../../../../generated/prisma";
 import {
   checkLayout,
+  applyReplacementVerdict,
   daypartForDay,
+  isCrowded,
+  isStranded,
   layoutKey,
+  placeWithLens,
+  proposeLayouts,
+  replacementQuestions,
   samePlacement,
   savedLayout,
   scoreLayout,
@@ -13,11 +19,20 @@ import {
   type HardViolationKind,
   type Layout,
 } from "~/engine";
-import { ApplyLayoutInputSchema, SchedulePrefsInputSchema, TimezoneSchema, type ScheduleMode } from "~/schema";
+import { dayNumberOfIsoDate, localDayNumber } from "~/domain/local-day";
+import {
+  ApplyLayoutInputSchema,
+  ExceptionInputSchema,
+  SchedulePrefsInputSchema,
+  TimezoneSchema,
+  type ScheduleMode,
+} from "~/schema";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { executeJudgement } from "~/server/judgement/execute";
 import {
   applyLayoutToDb,
   availabilityFromRows,
+  exceptionsFromRows,
   scheduleInputFromDb,
   weekDays,
   WEEK_FOR_SCHEDULE_INCLUDE,
@@ -26,9 +41,12 @@ import {
 import { currentWeekIndex } from "~/server/views/to-mesocycle-view";
 import {
   DAY_NAMES,
+  moveLine,
   toMoveSuggestionView,
+  toReplacementOptionView,
   toScheduleWeekView,
   type MoveSuggestionView,
+  type ReplacementOptionView,
   type ScheduleWeekView,
 } from "~/views/schedule";
 
@@ -39,6 +57,11 @@ type SkipReason = "already_started" | "different_sessions" | "not_allowed";
 const asJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 
 const WeekInput = z.object({ weekIndex: z.number().int().min(1) });
+
+/** The dayparts an exception covers. Null means the whole day. */
+const daypartsOf = (daypart: "AM" | "PM" | null): ("AM" | "PM")[] => (daypart === null ? ["AM", "PM"] : [daypart]);
+/** A calendar date as Prisma wants a `@db.Date`. */
+const dbDate = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
 const VIOLATION_MESSAGE: Record<HardViolationKind, string> = {
   blocked_cell: "That time is blocked in your availability.",
@@ -60,7 +83,9 @@ async function loadWeekContext(db: Pick<Tx, "mesocycle">, userId: string, weekIn
       id: true,
       startDate: true,
       lengthWeeks: true,
-      athleteProfile: { select: { scheduleMode: true, timezone: true, availability: true } },
+      athleteProfile: {
+        select: { id: true, scheduleMode: true, timezone: true, availability: true, availabilityExceptions: true },
+      },
       weeks: { where: { index: { in: [weekIndex - 1, weekIndex] } }, include: WEEK_FOR_SCHEDULE_INCLUDE },
     },
   });
@@ -74,18 +99,24 @@ async function loadWeekContext(db: Pick<Tx, "mesocycle">, userId: string, weekIn
     availability: availabilityFromRows(meso.athleteProfile.availability),
     timezone: meso.athleteProfile.timezone,
   };
+  const exceptions = exceptionsFromRows(meso.athleteProfile.availabilityExceptions);
   const input = scheduleInputFromDb({
     week,
     prevWeek: meso.weeks.find((w) => w.index === weekIndex - 1) ?? null,
     settings,
     startDate,
+    exceptions,
     now,
   });
   return {
     mesocycleId: meso.id,
+    athleteProfileId: meso.athleteProfile.id,
+    lengthWeeks: meso.lengthWeeks,
+    currentWeek: currentWeekIndex(meso.startDate, meso.lengthWeeks, now, settings.timezone),
     week,
     settings,
     startDate,
+    exceptions,
     input,
     readOnly: weekIndex < currentWeekIndex(meso.startDate, meso.lengthWeeks, now, settings.timezone),
     days: weekDays(startDate, weekIndex, settings.timezone),
@@ -130,6 +161,8 @@ export const scheduleRouter = createTRPCRouter({
   getSuggestions: protectedProcedure.input(WeekInput).query(async ({ ctx, input }): Promise<MoveSuggestionView[]> => {
     const c = await loadWeekContext(ctx.db, ctx.session.user.id, input.weekIndex, new Date());
     if (c.readOnly) return [];
+    // A stranded session is the replacement panel's job; one voice at a time.
+    if (isStranded(c.input)) return [];
     const layout = savedLayout(c.input);
     const key = layoutKey(layout);
     const dismissed = await ctx.db.decisionLog.findMany({
@@ -217,7 +250,12 @@ export const scheduleRouter = createTRPCRouter({
               weekIndex: input.weekIndex,
               type: "SCHEDULE",
               status: "APPLIED",
-              summary: input.origin === "suggestion" ? "Accepted a suggested move" : "Sessions moved",
+              summary:
+                input.origin === "suggestion"
+                  ? "Accepted a suggested move"
+                  : input.origin === "replacement"
+                    ? "Week re-arranged around blocked time"
+                    : "Sessions moved",
               reasoning: input.origin,
               payload: asJson({ origin: input.origin, before: saved, after: proposed, facts: scoreLayout(c.input, proposed).facts }),
             },
@@ -241,7 +279,7 @@ export const scheduleRouter = createTRPCRouter({
                 skipped.push({ weekIndex: w.index, reason: "different_sessions" });
                 continue;
               }
-              const wInput = scheduleInputFromDb({ week: w, prevWeek: null, settings: c.settings, startDate: c.startDate, now });
+              const wInput = scheduleInputFromDb({ week: w, prevWeek: null, settings: c.settings, startDate: c.startDate, exceptions: c.exceptions, now });
               const target: Layout = Object.fromEntries(w.sessions.map((s) => [s.id, byOrder.get(s.order)!]));
               if (checkLayout(wInput, target).length > 0) {
                 skipped.push({ weekIndex: w.index, reason: "not_allowed" });
@@ -272,6 +310,135 @@ export const scheduleRouter = createTRPCRouter({
       );
     },
   ),
+
+  // One-off blocked time. On the current week this only records the fact: the board
+  // then offers options. A later week has not been trained, so it is re-placed quietly.
+  setException: protectedProcedure
+    .input(ExceptionInputSchema)
+    .mutation(async ({ ctx, input }): Promise<{ weekIndex: number; moved: string[]; needsChoice: boolean }> => {
+      const userId = ctx.session.user.id;
+      const now = new Date();
+      return ctx.db.$transaction(
+        async (tx) => {
+          if ((await lockActiveBlock(tx, userId)) === null) throw new TRPCError({ code: "NOT_FOUND" });
+
+          // Week 1 always exists; it gives us the block's dates and the athlete's settings.
+          const block = await loadWeekContext(tx, userId, 1, now);
+          const tz = block.settings.timezone;
+          const day = dayNumberOfIsoDate(input.date);
+          const start = localDayNumber(block.startDate, tz);
+          if (day < start || day >= start + block.lengthWeeks * 7) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "That date is outside your current block." });
+          }
+          if (day < localDayNumber(now, tz)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "That day has already passed." });
+          }
+          if (block.settings.mode === "DAY" && input.daypart !== null) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "You're set to one session a day, so block the whole day." });
+          }
+
+          await tx.availabilityException.createMany({
+            data: daypartsOf(input.daypart).map((daypart) => ({
+              athleteProfileId: block.athleteProfileId,
+              date: dbDate(input.date),
+              daypart,
+            })),
+            skipDuplicates: true,
+          });
+
+          const weekIndex = Math.floor((day - start) / 7) + 1;
+          if (weekIndex <= block.currentWeek) return { weekIndex, moved: [], needsChoice: false };
+
+          const c = await loadWeekContext(tx, userId, weekIndex, now);
+          if (!isStranded(c.input)) return { weekIndex, moved: [], needsChoice: false };
+          if (isCrowded(c.input)) return { weekIndex, moved: [], needsChoice: true };
+          const res = placeWithLens(c.input, "FEWEST_CHANGES");
+          if (res.kind !== "placed") return { weekIndex, moved: [], needsChoice: true };
+
+          const before = savedLayout(c.input);
+          const changed = Object.fromEntries(
+            Object.entries(res.layout).filter(([id, p]) => !samePlacement(before[id] ?? null, p)),
+          );
+          const written = await applyLayoutToDb(tx, changed, { onlyScheduled: true });
+          if (written !== Object.keys(changed).length) {
+            throw new TRPCError({ code: "CONFLICT", message: "A session changed while we were re-arranging that week. Please try again." });
+          }
+          await tx.decisionLog.create({
+            data: {
+              mesocycleId: c.mesocycleId,
+              weekIndex,
+              type: "SCHEDULE",
+              status: "APPLIED",
+              summary: "Week re-arranged around blocked time",
+              reasoning: "exception",
+              payload: asJson({
+                origin: "exception",
+                lens: "FEWEST_CHANGES",
+                before,
+                after: res.layout,
+                facts: scoreLayout(c.input, res.layout).facts,
+              }),
+            },
+          });
+          return {
+            weekIndex,
+            moved: Object.entries(changed).map(([sessionId, to]) =>
+              moveLine({ sessionId, from: before[sessionId] ?? null, to }, c.label),
+            ),
+            needsChoice: false,
+          };
+        },
+        { timeout: 15000 },
+      );
+    }),
+
+  // Unblocking never moves a session back; the athlete or a suggestion can.
+  clearException: protectedProcedure.input(ExceptionInputSchema).mutation(async ({ ctx, input }): Promise<{ ok: true }> => {
+    const userId = ctx.session.user.id;
+    await ctx.db.$transaction(
+      async (tx) => {
+        if ((await lockActiveBlock(tx, userId)) === null) throw new TRPCError({ code: "NOT_FOUND" });
+        const block = await loadWeekContext(tx, userId, 1, new Date());
+        await tx.availabilityException.deleteMany({
+          where: {
+            athleteProfileId: block.athleteProfileId,
+            date: dbDate(input.date),
+            daypart: { in: block.settings.mode === "DAY" ? ["AM", "PM"] : daypartsOf(input.daypart) },
+          },
+        });
+      },
+      { timeout: 15000 },
+    );
+    return { ok: true };
+  }),
+
+  // Read: ways to re-arrange a week in which a session is standing on blocked time.
+  // Mutates nothing. The engine's order stands unless a confident verdict says otherwise;
+  // the judgement is best-effort, so any failure degrades to the engine's order.
+  getReplacementOptions: protectedProcedure
+    .input(WeekInput)
+    .query(async ({ ctx, input }): Promise<ReplacementOptionView[]> => {
+      const c = await loadWeekContext(ctx.db, ctx.session.user.id, input.weekIndex, new Date());
+      if (c.readOnly || !isStranded(c.input)) return [];
+      const options = proposeLayouts(c.input);
+      if (options.length === 0) return [];
+
+      let ordered = { options, judged: false };
+      if (options.length > 1) {
+        try {
+          const verdicts = await executeJudgement({
+            db: ctx.db,
+            mesocycleId: c.mesocycleId,
+            request: replacementQuestions(options, c.input, c.label),
+            fallback: { lead: options[0]!.id },
+          });
+          ordered = applyReplacementVerdict(options, verdicts);
+        } catch {
+          ordered = { options, judged: false };
+        }
+      }
+      return ordered.options.map((o, i) => toReplacementOptionView(o, c.label, { lead: i === 0, judged: ordered.judged }));
+    }),
 
   getPrefs: protectedProcedure.query(
     async ({ ctx }): Promise<{ scheduleMode: ScheduleMode; timezone: string; availability: AvailabilityCellInput[] }> => {
@@ -341,6 +508,21 @@ export const scheduleRouter = createTRPCRouter({
                 });
               }
               await tx.trainingSession.updateMany({ where: scheduled, data: { daypart: null } });
+
+              // One-a-day has no half-days, so a half-day exception becomes the whole day.
+              const partial = await tx.availabilityException.findMany({
+                where: { athleteProfileId: profile.id },
+                select: { date: true },
+              });
+              const dates = [...new Map(partial.map((e) => [e.date.toISOString(), e.date])).values()];
+              if (dates.length > 0) {
+                await tx.availabilityException.createMany({
+                  data: dates.flatMap((date) =>
+                    (["AM", "PM"] as const).map((daypart) => ({ athleteProfileId: profile.id, date, daypart })),
+                  ),
+                  skipDuplicates: true,
+                });
+              }
             } else {
               for (const s of sessions) {
                 await tx.trainingSession.update({

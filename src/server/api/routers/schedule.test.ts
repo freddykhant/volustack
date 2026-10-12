@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createCallerFactory } from "~/server/api/trpc";
+import type * as ExecuteModule from "~/server/judgement/execute";
 import { scheduleRouter } from "./schedule";
+
+vi.mock("~/server/judgement/execute", async (importOriginal) => {
+  const actual = await importOriginal<typeof ExecuteModule>();
+  return { ...actual, executeJudgement: vi.fn().mockResolvedValue([]) };
+});
+import { executeJudgement } from "~/server/judgement/execute";
 
 const createCaller = createCallerFactory(scheduleRouter);
 
@@ -65,6 +72,9 @@ interface Opts {
   startDate?: Date;
   /** Every week of the block that the query should be able to find (default: week 1 only). */
   weeks?: ReturnType<typeof weekRow>[];
+  /** One-off blocked time on the athlete's profile. */
+  exceptions?: { date: Date; daypart: "AM" | "PM" }[];
+  scheduleMode?: "DAY" | "HALF_DAY";
 }
 
 function makeCaller(opts: Opts = {}) {
@@ -73,7 +83,13 @@ function makeCaller(opts: Opts = {}) {
     id: "meso-1",
     startDate: opts.startDate ?? START,
     lengthWeeks: 4,
-    athleteProfile: { scheduleMode: "DAY", timezone: opts.timezone ?? "UTC", availability: opts.availability ?? [] },
+    athleteProfile: {
+      id: "profile-1",
+      scheduleMode: opts.scheduleMode ?? "DAY",
+      timezone: opts.timezone ?? "UTC",
+      availability: opts.availability ?? [],
+      availabilityExceptions: opts.exceptions ?? [],
+    },
     weeks: opts.weeks ?? [weekRow(1, week1)],
   };
   const db = {
@@ -82,6 +98,11 @@ function makeCaller(opts: Opts = {}) {
     trainingSession: {
       update: vi.fn().mockResolvedValue({}),
       updateMany: vi.fn().mockResolvedValue({ count: opts.writeCount ?? 1 }),
+    },
+    availabilityException: {
+      createMany: vi.fn().mockResolvedValue({ count: 2 }),
+      deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
+      findMany: vi.fn().mockResolvedValue(opts.exceptions ?? []),
     },
     decisionLog: {
       create: vi.fn().mockResolvedValue({}),
@@ -358,5 +379,179 @@ describe("getSuggestions / dismissSuggestion", () => {
     expect(log.type).toBe("SCHEDULE");
     expect(log.status).toBe("REJECTED");
     expect(log.payload).toEqual({ layoutKey: "s1:3:-|s2:4:-" });
+  });
+});
+
+const D = (iso: string) => new Date(`${iso}T00:00:00Z`);
+const bothHalves = (iso: string) => [
+  { date: D(iso), daypart: "AM" as const },
+  { date: D(iso), daypart: "PM" as const },
+];
+
+describe("setException", () => {
+  it("writes both halves for a whole day under the block lock and moves nothing this week", async () => {
+    const { caller, db } = makeCaller();
+    const res = await caller.setException({ date: "2026-10-08", daypart: null }); // Thu, week 1 (current)
+    expect(db.$queryRaw).toHaveBeenCalled();
+    expect(db.availabilityException.createMany).toHaveBeenCalledWith({
+      data: [
+        { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "AM" },
+        { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "PM" },
+      ],
+      skipDuplicates: true,
+    });
+    expect(res).toEqual({ weekIndex: 1, moved: [], needsChoice: false });
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses a day that has passed, a date outside the block, and a half-day in one-a-day mode", async () => {
+    const { caller, db } = makeCaller();
+    await expect(caller.setException({ date: "2026-10-06", daypart: null })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.setException({ date: "2026-11-02", daypart: null })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.setException({ date: "2026-10-04", daypart: null })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.setException({ date: "2026-10-08", daypart: "AM" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(db.availabilityException.createMany).not.toHaveBeenCalled();
+  });
+
+  it("allows today", async () => {
+    const { caller } = makeCaller();
+    await expect(caller.setException({ date: "2026-10-07", daypart: null })).resolves.toMatchObject({ weekIndex: 1 });
+  });
+
+  it("uses the athlete's local date: early morning in Perth is not yesterday", async () => {
+    // 23:30Z on Tue 6 Oct is 07:30 on Wed 7 Oct in Perth.
+    vi.setSystemTime(new Date("2026-10-06T23:30:00Z"));
+    try {
+      const { caller } = makeCaller({ timezone: "Australia/Perth", startDate: new Date("2026-10-04T16:00:00Z") });
+      await expect(caller.setException({ date: "2026-10-07", daypart: null })).resolves.toMatchObject({ weekIndex: 1 });
+      await expect(caller.setException({ date: "2026-10-06", daypart: null })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+
+  it("returns NOT_FOUND without an active block", async () => {
+    const { caller } = makeCaller({ noLock: true });
+    await expect(caller.setException({ date: "2026-10-08", daypart: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("quietly re-places a future week and logs it", async () => {
+    // Week 2 is Mon 12…Sun 18 Oct. s3 sits on Thu 15, which is being blocked.
+    const week2 = weekRow(2, [sessionRow("s3", "wk-2", 0, "Upper A", 3), sessionRow("s4", "wk-2", 1, "Upper B", 5)]);
+    const { caller, db } = makeCaller({ weeks: [weekRow(1, []), week2], exceptions: bothHalves("2026-10-15") });
+    const res = await caller.setException({ date: "2026-10-15", daypart: null });
+    expect(res.weekIndex).toBe(2);
+    expect(res.needsChoice).toBe(false);
+    expect(res.moved).toHaveLength(1);
+    expect(res.moved[0]).toMatch(/^Upper A: Thu → /);
+    expect(db.trainingSession.updateMany).toHaveBeenCalledTimes(1);
+    expect((db.trainingSession.updateMany.mock.calls[0]![0] as { where: unknown }).where).toEqual({ id: "s3", status: "SCHEDULED" });
+    expect((db.decisionLog.create.mock.calls[0]![0] as { data: unknown }).data).toMatchObject({ weekIndex: 2, type: "SCHEDULE", status: "APPLIED", reasoning: "exception" });
+  });
+
+  it("moves nothing in a future week that is too crowded, and says a choice is needed", async () => {
+    const ids = ["a", "b", "c", "d", "e", "f", "g"];
+    const week2 = weekRow(2, ids.map((id, i) => sessionRow(id, "wk-2", i, `S${i}`, i)));
+    const { caller, db } = makeCaller({ weeks: [weekRow(1, []), week2], exceptions: bothHalves("2026-10-15") });
+    const res = await caller.setException({ date: "2026-10-15", daypart: null });
+    expect(res).toEqual({ weekIndex: 2, moved: [], needsChoice: true });
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("clearException", () => {
+  it("deletes both halves for a whole day and never moves a session", async () => {
+    const { caller, db } = makeCaller();
+    await expect(caller.clearException({ date: "2026-10-08", daypart: null })).resolves.toEqual({ ok: true });
+    expect(db.availabilityException.deleteMany).toHaveBeenCalledWith({
+      where: { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: { in: ["AM", "PM"] } },
+    });
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("succeeds when there was nothing to clear", async () => {
+    const { caller, db } = makeCaller();
+    db.availabilityException.deleteMany.mockResolvedValue({ count: 0 });
+    await expect(caller.clearException({ date: "2026-10-08", daypart: null })).resolves.toEqual({ ok: true });
+  });
+});
+
+describe("getWeekSchedule with exceptions", () => {
+  it("shows the exception as a one-off blocked cell and warns about the stranded session", async () => {
+    const { caller } = makeCaller({ exceptions: bothHalves("2026-10-08") }); // s1 is on Thu
+    const view = await caller.getWeekSchedule({ weekIndex: 1 });
+    expect(view.input.availability).toContainEqual({ day: 3, daypart: "AM", state: "BLOCKED", oneOff: true });
+    expect(view.warnings.some((w) => w.includes("blocked"))).toBe(true);
+  });
+});
+
+describe("getReplacementOptions", () => {
+  it("returns nothing when no session is stranded", async () => {
+    const { caller } = makeCaller();
+    await expect(caller.getReplacementOptions({ weekIndex: 1 })).resolves.toEqual([]);
+  });
+
+  it("returns engine-ordered options with the first as lead when Jev says nothing", async () => {
+    vi.mocked(executeJudgement).mockResolvedValue([]);
+    const { caller } = makeCaller({ exceptions: bothHalves("2026-10-08") });
+    const options = await caller.getReplacementOptions({ weekIndex: 1 });
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    expect(options[0]!.lead).toBe(true);
+    expect(options.every((o) => !o.judged)).toBe(true);
+    expect(options[0]!.moves.some((m) => m.startsWith("Upper A: Thu → "))).toBe(true);
+  });
+
+  it("leads with Jev's confident pick", async () => {
+    const { caller } = makeCaller({
+      exceptions: bothHalves("2026-10-08"),
+      availability: [{ dayOfWeek: 6, daypart: "AM", state: "PREFERRED" }],
+    });
+    vi.mocked(executeJudgement).mockResolvedValue([]);
+    const plain = await caller.getReplacementOptions({ weekIndex: 1 });
+    expect(plain.length).toBeGreaterThanOrEqual(2); // something to reorder
+    const last = plain[plain.length - 1]!.id;
+    vi.mocked(executeJudgement).mockResolvedValue([
+      { id: "replacement_pick", kind: "choice", choice: last, confidence: 0.99, probabilities: { [last]: 0.99 } },
+    ]);
+    const judged = await caller.getReplacementOptions({ weekIndex: 1 });
+    expect(judged[0]!.id).toBe(last);
+    expect(judged[0]!.judged).toBe(true);
+    vi.mocked(executeJudgement).mockResolvedValue([]);
+  });
+
+  it("falls back to engine order when the judgement throws", async () => {
+    vi.mocked(executeJudgement).mockRejectedValueOnce(new Error("boom"));
+    const { caller } = makeCaller({
+      exceptions: bothHalves("2026-10-08"),
+      availability: [{ dayOfWeek: 6, daypart: "AM", state: "PREFERRED" }],
+    });
+    const options = await caller.getReplacementOptions({ weekIndex: 1 });
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    expect(options.every((o) => !o.judged)).toBe(true);
+  });
+
+  it("offers nothing for a completed session on a blocked day", async () => {
+    const { caller } = makeCaller({
+      week1: [sessionRow("s1", "wk-1", 0, "Upper A", 3, "COMPLETED"), sessionRow("s2", "wk-1", 1, "Upper B", 5)],
+      exceptions: bothHalves("2026-10-08"),
+    });
+    await expect(caller.getReplacementOptions({ weekIndex: 1 })).resolves.toEqual([]);
+  });
+});
+
+describe("getSuggestions while stranded", () => {
+  it("stays quiet so the replacement panel is the only voice", async () => {
+    const { caller } = makeCaller({ exceptions: bothHalves("2026-10-08") });
+    await expect(caller.getSuggestions({ weekIndex: 1 })).resolves.toEqual([]);
+  });
+});
+
+describe("applyLayout with a replacement", () => {
+  it("applies an accepted option and logs its origin", async () => {
+    const { caller, db } = makeCaller({ exceptions: bothHalves("2026-10-08") });
+    const [option] = await caller.getReplacementOptions({ weekIndex: 1 });
+    await caller.applyLayout({ weekIndex: 1, placements: option!.placements, expected: SAVED, origin: "replacement" });
+    const log = (db.decisionLog.create.mock.calls.at(-1)![0] as { data: unknown }).data;
+    expect(log).toMatchObject({ type: "SCHEDULE", status: "APPLIED", reasoning: "replacement", summary: "Week re-arranged around blocked time" });
   });
 });
