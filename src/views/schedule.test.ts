@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { DecisionFact } from "~/engine";
+import { makeInput, sess, withSaved } from "~/engine/_fixtures/schedule";
+import { proposeLayouts } from "~/engine/schedule";
 import {
+  moveLine,
   phraseScheduleFact,
   placementLabel,
   toMoveSuggestionView,
+  toReplacementOptionView,
   toScheduleWeekView,
   toWarnings,
 } from "./schedule";
@@ -166,5 +170,57 @@ describe("toScheduleWeekView", () => {
     expect(view.warnings).toEqual([]);
     // The layout itself is still shown.
     expect(view.layout).toEqual({ a: { day: 0, daypart: null }, b: { day: 1, daypart: null } });
+  });
+});
+
+describe("replacement option views", () => {
+  const day = (d: number) => ({ day: d, daypart: null });
+  const name = (id: string) => ({ a: "Push", b: "Pull", c: "Legs", d: "Upper", e: "Lower", f: "Arms" })[id] ?? "Session";
+  const blockDay = (d: number) => [
+    { day: d, daypart: "AM" as const, state: "BLOCKED" as const, oneOff: true },
+    { day: d, daypart: "PM" as const, state: "BLOCKED" as const, oneOff: true },
+  ];
+
+  it("phrases a move", () => {
+    expect(moveLine({ sessionId: "c", from: day(3), to: { day: 5, daypart: "AM" } }, name)).toBe("Legs: Thu → Sat AM");
+    expect(moveLine({ sessionId: "c", from: null, to: day(5) }, name)).toBe("Legs: not placed → Sat");
+  });
+
+  it("phrases the does-not-fit fact", () => {
+    expect(phraseScheduleFact({ kind: "session_does_not_fit", sessionId: "f", sessions: 6, freeDays: 5 }, name)).toBe(
+      "6 sessions are left this week and only 5 days are open.",
+    );
+    expect(phraseScheduleFact({ kind: "session_does_not_fit", sessionId: "f", sessions: 2, freeDays: 1 }, name)).toBe(
+      "2 sessions are left this week and only 1 day is open.",
+    );
+  });
+
+  it("titles lens options and lists only changed placements", () => {
+    const input = withSaved(
+      makeInput({ sessions: [sess("a", 0, { CHEST: 8 }), sess("b", 1, { BACK: 8 }), sess("c", 2, { QUADS: 8 })], availability: blockDay(2) }),
+      { a: day(0), b: day(2), c: day(4) },
+    );
+    const [first] = proposeLayouts(input);
+    const view = toReplacementOptionView(first!, name, { lead: true, judged: false });
+    expect(["Best recovery", "Fewest changes", "Keeps your preferred times"]).toContain(view.title);
+    expect(view.kind).toBe("lens");
+    expect(view.placements.map((p) => p.sessionId).sort()).toEqual(first!.moves.map((m) => m.sessionId).sort());
+    expect(view.moves).toHaveLength(first!.moves.length);
+    expect(view.skipped).toEqual([]);
+    expect(view.lead).toBe(true);
+  });
+
+  it("titles a skip option with the session's label and explains why", () => {
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    const input = withSaved(
+      makeInput({ sessions: ids.map((id, i) => sess(id, i, { CHEST: 2 + i })), availability: [...blockDay(3), ...blockDay(6)] }),
+      Object.fromEntries(ids.map((id, i) => [id, day(i)])),
+    );
+    const view = toReplacementOptionView(proposeLayouts(input)[0]!, name, { lead: true, judged: true });
+    expect(view.kind).toBe("skip");
+    expect(view.title).toBe("Skip Arms this week");
+    expect(view.skipped).toEqual([{ sessionId: "f", label: "Arms" }]);
+    expect(view.reasons[0]).toBe("6 sessions are left this week and only 5 days are open.");
+    expect(view.judged).toBe(true);
   });
 });

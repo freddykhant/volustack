@@ -16,10 +16,12 @@ import {
   applyLayoutToDb,
   availabilityFromRows,
   completedPlacement,
+  exceptionsFromRows,
   firstOpenDay,
   placePlanWeeks,
   scheduleInputFromDb,
   weekDays,
+  withExceptions,
   type ScheduleSettings,
   type WeekForSchedule,
 } from "./schedule-adapters";
@@ -349,5 +351,54 @@ describe("placePlanWeeks", () => {
       sessions: Object.keys(first).map((id, order) => ({ id, order, footprint: {}, locked: false, inert: false, placement: null })),
     };
     expect(checkLayout(input, first)).toEqual([]);
+  });
+});
+
+describe("exceptions overlay", () => {
+  // Block started Mon 5 Oct 2026 (UTC). Week 1 is 5…11 Oct, week 2 is 12…18 Oct.
+  const days = weekDays(new Date("2026-10-05T00:00:00Z"), 1, "UTC");
+
+  it("reads a date-only column as a calendar date", () => {
+    expect(exceptionsFromRows([{ date: new Date("2026-10-08T00:00:00Z"), daypart: "AM" }])).toEqual([
+      { date: "2026-10-08", daypart: "AM" },
+    ]);
+  });
+
+  it("blocks the matching weekday cell and marks it one-off", () => {
+    const out = withExceptions([], days, [{ date: "2026-10-08", daypart: "PM" }]);
+    expect(out).toEqual([{ day: 3, daypart: "PM", state: "BLOCKED", oneOff: true }]);
+  });
+
+  it("ignores an exception in another week", () => {
+    expect(withExceptions([], days, [{ date: "2026-10-15", daypart: "AM" }])).toEqual([]);
+  });
+
+  it("replaces a standing Preferred cell, and leaves a standing Blocked cell as standing", () => {
+    const standing = [
+      { day: 3, daypart: "AM" as const, state: "PREFERRED" as const },
+      { day: 4, daypart: "AM" as const, state: "BLOCKED" as const },
+    ];
+    const out = withExceptions(standing, days, [
+      { date: "2026-10-08", daypart: "AM" },
+      { date: "2026-10-09", daypart: "AM" },
+    ]);
+    expect(out).toContainEqual({ day: 3, daypart: "AM", state: "BLOCKED", oneOff: true });
+    expect(out).toContainEqual({ day: 4, daypart: "AM", state: "BLOCKED" });
+    expect(out).toHaveLength(2);
+  });
+
+  it("does not mutate the standing availability", () => {
+    const standing = [{ day: 3, daypart: "AM" as const, state: "PREFERRED" as const }];
+    withExceptions(standing, days, [{ date: "2026-10-08", daypart: "AM" }]);
+    expect(standing).toEqual([{ day: 3, daypart: "AM", state: "PREFERRED" }]);
+  });
+
+  it("uses the athlete's local week in a non-UTC timezone", () => {
+    // 16:00Z on Sun 4 Oct is already Mon 5 Oct in Perth (UTC+8).
+    const perth = weekDays(new Date("2026-10-04T16:00:00Z"), 1, "Australia/Perth");
+    expect(perth[0]).toEqual({ date: "2026-10-05", weekday: 0 });
+    expect(withExceptions([], perth, [{ date: "2026-10-05", daypart: "AM" }])).toEqual([
+      { day: 0, daypart: "AM", state: "BLOCKED", oneOff: true },
+    ]);
   });
 });
