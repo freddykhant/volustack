@@ -18,6 +18,7 @@
 8. **`nominateOverflow(input, candidates)` returns a ranking** (`string[]`, most skippable first).
 9. **The property "fewest changes never moves more sessions than balanced" is dropped**: both are local searches, so it is not guaranteed. A fixture test covers the intent.
 10. **Ordinary move suggestions are suppressed** while a session is standing on blocked time, so the panel is the only voice.
+11. **A double-up is offered only when every session fits by doubling** (added during the build, after review). It then skips nothing and names a session the athlete can still move. When even doubling cannot fit the week, only skip options are offered; "stack as many as fit and skip the rest" is withdrawn.
 
 ## Problem
 
