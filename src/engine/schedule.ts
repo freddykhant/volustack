@@ -695,6 +695,7 @@ export interface LayoutOption {
   score: LayoutScore;
   /** Why the week is crowded; empty when it is not. */
   fit: DecisionFact[];
+  /** Names the first affected session only; `skipped` is the complete list of what the option leaves out. */
   overflow: OverflowOutcome | null;
   skipped: string[];
 }
@@ -822,17 +823,21 @@ export function proposeLayouts(input: ScheduleInput): LayoutOption[] {
     { kind: "session_does_not_fit", sessionId, sessions: movable.length, freeDays },
   ];
 
-  if (input.mode === "HALF_DAY") {
-    const overCells = Math.max(0, movable.length - freeCellCount(input));
-    const skipped = ranked.slice(0, overCells);
-    const o = buildOption(input, "DOUBLE_UP", "BALANCED", skipped, fitFor(ranked[0]!));
+  // Doubling up keeps every session, so it is only on offer when they all fit in the open cells.
+  if (input.mode === "HALF_DAY" && movable.length <= freeCellCount(input)) {
+    const o = buildOption(input, "DOUBLE_UP", "BALANCED", [], fitFor(ranked[0]!));
     if (o !== null) {
-      const stack = o.score.facts.find((f) => f.kind === "same_day_stack");
-      if (stack?.kind === "same_day_stack") {
-        const mover = stack.sessionIds.find((id) => o.moves.some((m) => m.sessionId === id)) ?? stack.sessionIds[1];
+      const movableIds = new Set(movable.map((s) => s.id));
+      const movedIds = new Set(o.moves.map((m) => m.sessionId));
+      const stacks = o.score.facts.filter(
+        (f): f is Extract<DecisionFact, { kind: "same_day_stack" }> =>
+          f.kind === "same_day_stack" && f.sessionIds.some((id) => movableIds.has(id)),
+      );
+      const stack = stacks.find((f) => f.sessionIds.some((id) => movedIds.has(id))) ?? stacks[0];
+      if (stack !== undefined) {
+        const mover =
+          stack.sessionIds.find((id) => movedIds.has(id)) ?? stack.sessionIds.find((id) => movableIds.has(id))!;
         push({ ...o, overflow: { kind: "double_up", sessionId: mover, day: stack.day } });
-      } else if (skipped.length > 0) {
-        push(o);
       }
     }
   }

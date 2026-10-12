@@ -89,7 +89,7 @@ describe("proposeLayouts, roomy week", () => {
     expect(proposeLayouts(input)).toEqual(options);
   });
 
-  it("returns nothing when the saved layout is already the answer", () => {
+  it("never returns an option that changes nothing", () => {
     expect(proposeLayouts(withSaved(three, saved3)).every((o) => o.moves.length > 0)).toBe(true);
   });
 });
@@ -168,5 +168,62 @@ describe("nominateOverflow contract", () => {
     const ranked = nominateOverflow(input, input.sessions);
     expect([...ranked].sort()).toEqual(["a", "b", "c", "d", "e", "f"]);
     expect(nominateOverflow(input, input.sessions)).toEqual(ranked);
+  });
+});
+
+describe("proposeLayouts, crowded AM/PM edge weeks", () => {
+  const cell = (d: number, daypart: "AM" | "PM") => ({ day: d, daypart });
+  const movable3 = [sess("m1", 2, { CHEST: 4 }), sess("m2", 3, { BACK: 4 }), sess("m3", 4, { QUADS: 4 })];
+  const halfWeek = (over: Partial<ScheduleInput>) => makeInput({ mode: "HALF_DAY", ...over });
+  const blockDays = (days: number[]) => days.flatMap(blockDay);
+  const blockCellsExcept = (open: string[]): AvailabilityCellInput[] =>
+    [0, 1, 2, 3, 4, 5, 6]
+      .flatMap((d) => (["AM", "PM"] as const).map((daypart) => ({ day: d, daypart })))
+      .filter((c) => !open.includes(`${c.day}:${c.daypart}`))
+      .map((c) => ({ ...c, state: "BLOCKED" as const, oneOff: true }));
+
+  it("names a movable session and a day two kept movable sessions share, never a completed one", () => {
+    const input = halfWeek({
+      firstOpenDay: 1,
+      availability: blockDays([3, 4, 5, 6]),
+      sessions: [
+        sess("done1", 0, { CHEST: 4 }, cell(0, "AM"), true),
+        sess("done2", 1, { BACK: 4 }, cell(0, "PM"), true),
+        ...movable3,
+      ],
+    });
+    const dbl = proposeLayouts(input).find((o) => o.id === "DOUBLE_UP");
+    expect(dbl).toBeDefined();
+    expect(dbl!.skipped).toEqual([]);
+    expect(dbl!.overflow?.kind).toBe("double_up");
+    if (dbl!.overflow?.kind !== "double_up") return;
+    const { sessionId, day: stackDay } = dbl!.overflow;
+    expect(["m1", "m2", "m3"]).toContain(sessionId);
+    const onDay = ["m1", "m2", "m3"].filter((id) => dbl!.layout[id]?.day === stackDay);
+    expect(onDay.length).toBeGreaterThanOrEqual(2);
+    expect(onDay).toContain(sessionId);
+  });
+
+  it("offers no double-up when sessions outnumber open cells", () => {
+    const input = halfWeek({ availability: blockCellsExcept(["1:AM", "3:PM"]), sessions: movable3 });
+    const options = proposeLayouts(input);
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    expect(options.some((o) => o.id === "DOUBLE_UP")).toBe(false);
+    for (const o of options) expect(o.overflow?.kind).toBe("skip");
+    expect(options[0]!.id).toBe("SKIP_1");
+  });
+
+  it("offers to skip every movable session when every cell is blocked", () => {
+    const input = halfWeek({ availability: blockDays([0, 1, 2, 3, 4, 5, 6]), sessions: movable3 });
+    const options = proposeLayouts(input);
+    expect(options.map((o) => o.id)).toEqual(["SKIP_1"]);
+    expect([...options[0]!.skipped].sort()).toEqual(["m1", "m2", "m3"]);
+  });
+
+  it("offers no double-up when one open day cannot hold three sessions", () => {
+    const input = halfWeek({ availability: blockDays([0, 1, 2, 3, 4, 6]), sessions: movable3 });
+    const ids = proposeLayouts(input).map((o) => o.id);
+    expect(ids).not.toContain("DOUBLE_UP");
+    expect(ids).toContain("SKIP_1");
   });
 });

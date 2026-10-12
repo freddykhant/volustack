@@ -7,6 +7,7 @@ import {
   cellKey,
   cellState,
   checkLayout,
+  LENS_ORDER,
   openCells,
   placeWeek,
   proposeLayouts,
@@ -62,6 +63,37 @@ function arbInput(): fc.Arbitrary<ScheduleInput> {
         }),
       })),
     );
+}
+
+/**
+ * Like `arbInput()`, but some unlocked sessions also carry a saved placement on any day
+ * of the week (blocked cells, past days and cells shared with another session included),
+ * and extra cells are blocked so crowded weeks come up often.
+ */
+function arbPlacedInput(): fc.Arbitrary<ScheduleInput> {
+  const arbCell = fc.record({ day: fc.integer({ min: 0, max: 6 }), daypart: fc.constantFrom<Daypart>("AM", "PM") });
+  return arbInput().chain((base) =>
+    fc
+      .tuple(
+        fc.uniqueArray(arbCell, { selector: (c) => `${c.day}:${c.daypart}`, maxLength: 14 }),
+        fc.array(fc.option(arbCell, { nil: null }), { minLength: 5, maxLength: 5 }),
+      )
+      .map(([extra, places]) => {
+        const have = new Set(base.availability.map((c) => `${c.day}:${c.daypart}`));
+        const blocked = extra
+          .filter((c) => !have.has(`${c.day}:${c.daypart}`))
+          .map((c) => ({ ...c, state: "BLOCKED" as const }));
+        return {
+          ...base,
+          availability: [...base.availability, ...blocked],
+          sessions: base.sessions.map((s, i) => {
+            const p = places[i];
+            if (s.locked || !p) return s;
+            return { ...s, placement: { day: p.day, daypart: base.mode === "DAY" ? null : p.daypart } };
+          }),
+        };
+      }),
+  );
 }
 
 /**
@@ -273,6 +305,79 @@ describe("proposeLayouts properties", () => {
         }
         expect(proposeLayouts(input)).toEqual(options);
       }),
+    );
+  });
+});
+
+describe("proposeLayouts option invariants", () => {
+  it("every option is internally consistent with its id, moves and skips", () => {
+    fc.assert(
+      fc.property(fc.oneof(arbInput(), arbPlacedInput()), (input) => {
+        const movable = new Set(input.sessions.filter((s) => !s.locked && !s.inert).map((s) => s.id));
+        const byId = new Map(input.sessions.map((s) => [s.id, s]));
+        const options = proposeLayouts(input);
+        expect(options.length).toBeLessThanOrEqual(3);
+        expect(new Set(options.map((o) => o.id)).size).toBe(options.length);
+        for (const o of options) {
+          const kept = { ...input, sessions: input.sessions.filter((s) => !o.skipped.includes(s.id)) };
+          expect(checkLayout(kept, o.layout)).toEqual([]);
+
+          expect(new Set(o.skipped).size).toBe(o.skipped.length);
+          for (const id of o.skipped) {
+            expect(movable.has(id)).toBe(true);
+            expect(o.layout[id]).toBeUndefined();
+          }
+          for (const s of input.sessions) {
+            if (s.locked || s.inert) {
+              if (s.placement) expect(o.layout[s.id]).toEqual(s.placement);
+            } else {
+              expect(o.layout[s.id] !== undefined || o.skipped.includes(s.id)).toBe(true);
+            }
+          }
+
+          const moved = new Set(o.moves.map((m) => m.sessionId));
+          for (const m of o.moves) {
+            expect(movable.has(m.sessionId)).toBe(true);
+            expect(o.skipped).not.toContain(m.sessionId);
+            expect(m.from).toEqual(byId.get(m.sessionId)!.placement);
+            expect(m.to).toEqual(o.layout[m.sessionId]);
+            expect(cellState(input.availability, input.mode, m.to)).not.toBe("BLOCKED");
+          }
+
+          const sharing = (day: number) =>
+            input.sessions.filter((s) => !s.inert && o.layout[s.id]?.day === day).length;
+          if (o.id === "DOUBLE_UP") {
+            expect(o.overflow?.kind).toBe("double_up");
+            expect(o.skipped).toEqual([]);
+            if (o.overflow?.kind === "double_up") {
+              expect(movable.has(o.overflow.sessionId)).toBe(true);
+              expect(sharing(o.overflow.day)).toBeGreaterThanOrEqual(2);
+            }
+          } else if (o.id.startsWith("SKIP_")) {
+            expect(o.overflow?.kind).toBe("skip");
+            if (o.overflow?.kind === "skip") expect(o.overflow.sessionId).toBe(o.skipped[0]);
+          } else {
+            expect(LENS_ORDER as readonly string[]).toContain(o.id);
+            expect(o.overflow).toBeNull();
+            expect(o.skipped).toEqual([]);
+            expect(o.moves.length).toBeGreaterThan(0);
+          }
+
+          if (input.mode === "DAY") {
+            const live = input.sessions.filter((s) => !s.inert && o.layout[s.id] !== undefined);
+            for (let i = 0; i < live.length; i++) {
+              for (let j = i + 1; j < live.length; j++) {
+                const a = live[i]!;
+                const b = live[j]!;
+                if (o.layout[a.id]!.day !== o.layout[b.id]!.day) continue;
+                expect(moved.has(a.id) || moved.has(b.id)).toBe(false);
+              }
+            }
+          }
+        }
+        expect(proposeLayouts(input)).toEqual(options);
+      }),
+      { numRuns: 500 },
     );
   });
 });
