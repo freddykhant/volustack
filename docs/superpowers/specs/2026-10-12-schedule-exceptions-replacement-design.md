@@ -92,6 +92,7 @@ export interface LayoutOption {
   moves: { sessionId: string; from: Placement | null; to: Placement }[];
   score: LayoutScore;
   overflow: OverflowOutcome | null;
+  skipped: string[];       // every session this option leaves out; empty when none
 }
 ```
 
@@ -111,7 +112,7 @@ export interface LayoutOption {
   - `skip`: the nominated session is removed and the rest placed under `BALANCED`.
   - `double_up` (AM/PM mode only): every session is kept. This is the ordinary `BALANCED` placement when both dayparts of some day are open; it is labelled `double_up` when it yields a `same_day_stack` fact.
   - A second `skip` variant for the runner-up nomination, when one exists, so the athlete has a real choice in one-a-day mode.
-- If more than one session overflows, each option handles all of them the same way (skip all nominated, or stack as many as fit and skip the rest). `overflow` then lists the first; the full set is in `moves` and in a `skipped: string[]` field on the option.
+- If more than one session overflows, each option handles all of them the same way (skip all nominated, or stack as many as fit and skip the rest). `overflow` then describes the first, and `skipped` lists every session left out.
 - If no session can be placed at all (every remaining cell blocked), the single option is "skip all remaining".
 
 **New constants** (`src/engine/constants.ts`, "Schedule scoring" block; starting values, the product owner's to tune): `W_DISPLACEMENT = 50`, `PREFERENCE_LENS_FACTOR = 5`, `MAX_LAYOUT_OPTIONS = 3`.
