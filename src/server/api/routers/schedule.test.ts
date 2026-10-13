@@ -1,7 +1,15 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import type * as EngineModule from "~/engine";
 import { createCallerFactory } from "~/server/api/trpc";
 import type * as ExecuteModule from "~/server/judgement/execute";
 import { scheduleRouter } from "./schedule";
+
+// The real engine, with `checkLayout` wrapped so one test can make it report a violation.
+vi.mock("~/engine", async (importOriginal) => {
+  const actual = await importOriginal<typeof EngineModule>();
+  return { ...actual, checkLayout: vi.fn(actual.checkLayout) };
+});
+import { checkLayout } from "~/engine";
 
 vi.mock("~/server/judgement/execute", async (importOriginal) => {
   const actual = await importOriginal<typeof ExecuteModule>();
@@ -23,6 +31,13 @@ beforeAll(() => {
 });
 afterAll(() => {
   vi.useRealTimers();
+});
+// A verdict or violation set by one test must never reach the next, even when that test
+// fails half-way.
+afterEach(() => {
+  vi.mocked(executeJudgement).mockReset();
+  vi.mocked(executeJudgement).mockResolvedValue([]);
+  vi.mocked(checkLayout).mockReset();
 });
 
 type Status = "SCHEDULED" | "COMPLETED" | "MISSED";
@@ -122,6 +137,12 @@ const SAVED = expectedOf([
   { sessionId: "s1", day: 3 },
   { sessionId: "s2", day: 5 },
 ]);
+
+const D = (iso: string) => new Date(`${iso}T00:00:00Z`);
+const bothHalves = (iso: string) => [
+  { date: D(iso), daypart: "AM" as const },
+  { date: D(iso), daypart: "PM" as const },
+];
 
 describe("getWeekSchedule", () => {
   it("returns the saved layout, dates and engine input, scoped to the signed-in athlete", async () => {
@@ -348,6 +369,18 @@ describe("applyLayout", () => {
     const written = db.trainingSession.updateMany.mock.calls.map((c) => (c[0] as { where: { id: string } }).where.id);
     expect(written).not.toContain("b2");
   });
+
+  it("does not carry a layout forward onto time blocked by an exception in the later week", async () => {
+    // Sun 18 Oct is week 2's Sunday; week 1's Sunday (11 Oct) is free.
+    const laterWeeks = [weekRow(2, [sessionRow("a1", "wk-2", 0, "Upper A", 3), sessionRow("a2", "wk-2", 1, "Upper B", 5)])];
+    const { caller, db } = makeCaller({ laterWeeks, exceptions: bothHalves("2026-10-18") });
+    const res = await caller.applyLayout({ ...move(6), carryForward: true });
+    expect(res.applied).toEqual([]);
+    expect(res.skipped).toEqual([{ weekIndex: 2, reason: "not_allowed" }]);
+    const written = db.trainingSession.updateMany.mock.calls.map((c) => (c[0] as { where: { id: string } }).where.id);
+    expect(written).toEqual(["s2"]);
+    expect(db.decisionLog.create).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("getSuggestions / dismissSuggestion", () => {
@@ -381,12 +414,6 @@ describe("getSuggestions / dismissSuggestion", () => {
     expect(log.payload).toEqual({ layoutKey: "s1:3:-|s2:4:-" });
   });
 });
-
-const D = (iso: string) => new Date(`${iso}T00:00:00Z`);
-const bothHalves = (iso: string) => [
-  { date: D(iso), daypart: "AM" as const },
-  { date: D(iso), daypart: "PM" as const },
-];
 
 describe("setException", () => {
   it("writes both halves for a whole day under the block lock and moves nothing this week", async () => {
@@ -457,6 +484,73 @@ describe("setException", () => {
     expect(res).toEqual({ weekIndex: 2, moved: [], needsChoice: true });
     expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
   });
+
+  // Week 2 is Mon 12…Sun 18 Oct, with a session on Thu 15 and one on Sat 17.
+  const futureWeek = () => weekRow(2, [sessionRow("s3", "wk-2", 0, "Upper A", 3), sessionRow("s4", "wk-2", 1, "Upper B", 5)]);
+
+  it("takes the block lock before any read or write", async () => {
+    const { caller, db } = makeCaller({ weeks: [weekRow(1, []), futureWeek()], exceptions: bothHalves("2026-10-15") });
+    await caller.setException({ date: "2026-10-15", daypart: null });
+    const lock = db.$queryRaw.mock.invocationCallOrder[0]!;
+    expect(lock).toBeLessThan(db.mesocycle.findFirst.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.availabilityException.createMany.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.trainingSession.updateMany.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.decisionLog.create.mock.invocationCallOrder[0]!);
+  });
+
+  it("writes one row for a half-day and two for a whole day in AM/PM mode", async () => {
+    const half = makeCaller({ scheduleMode: "HALF_DAY" });
+    await half.caller.setException({ date: "2026-10-08", daypart: "PM" });
+    expect(half.db.availabilityException.createMany).toHaveBeenCalledWith({
+      data: [{ athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "PM" }],
+      skipDuplicates: true,
+    });
+    const whole = makeCaller({ scheduleMode: "HALF_DAY" });
+    await whole.caller.setException({ date: "2026-10-08", daypart: null });
+    expect(whole.db.availabilityException.createMany).toHaveBeenCalledWith({
+      data: [
+        { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "AM" },
+        { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "PM" },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("refuses a date before a block that has not started yet", async () => {
+    // The block starts Mon 12 Oct; Fri 9 Oct is still to come but is not in it.
+    const { caller, db } = makeCaller({ startDate: new Date("2026-10-12T00:00:00Z") });
+    await expect(caller.setException({ date: "2026-10-09", daypart: null })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("outside your current block") as unknown,
+    });
+    expect(db.availabilityException.createMany).not.toHaveBeenCalled();
+  });
+
+  it("is CONFLICT, and logs nothing, when the quiet re-placement writes fewer rows than it moved", async () => {
+    const { caller, db } = makeCaller({ weeks: [weekRow(1, []), futureWeek()], exceptions: bothHalves("2026-10-15"), writeCount: 0 });
+    await expect(caller.setException({ date: "2026-10-15", daypart: null })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(db.trainingSession.updateMany).toHaveBeenCalled();
+    expect(db.decisionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("leaves a future week alone when no session stands on the blocked time", async () => {
+    // Fri 16 Oct holds no session.
+    const { caller, db } = makeCaller({ weeks: [weekRow(1, []), futureWeek()], exceptions: bothHalves("2026-10-16") });
+    const res = await caller.setException({ date: "2026-10-16", daypart: null });
+    expect(res).toEqual({ weekIndex: 2, moved: [], needsChoice: false });
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+    expect(db.decisionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing and asks for a choice when the re-placed week would break a hard rule", async () => {
+    // The engine's own layouts always pass, so the check is made to report a violation.
+    vi.mocked(checkLayout).mockReturnValueOnce([{ kind: "day_limit", sessionId: "s3" }]);
+    const { caller, db } = makeCaller({ weeks: [weekRow(1, []), futureWeek()], exceptions: bothHalves("2026-10-15") });
+    const res = await caller.setException({ date: "2026-10-15", daypart: null });
+    expect(res).toEqual({ weekIndex: 2, moved: [], needsChoice: true });
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+    expect(db.decisionLog.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("clearException", () => {
@@ -473,6 +567,31 @@ describe("clearException", () => {
     const { caller, db } = makeCaller();
     db.availabilityException.deleteMany.mockResolvedValue({ count: 0 });
     await expect(caller.clearException({ date: "2026-10-08", daypart: null })).resolves.toEqual({ ok: true });
+    expect(db.availabilityException.deleteMany).toHaveBeenCalledTimes(1);
+    expect(db.availabilityException.deleteMany).toHaveBeenCalledWith({
+      where: { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: { in: ["AM", "PM"] } },
+    });
+  });
+
+  it("takes the block lock before any read or write", async () => {
+    const { caller, db } = makeCaller();
+    await caller.clearException({ date: "2026-10-08", daypart: null });
+    const lock = db.$queryRaw.mock.invocationCallOrder[0]!;
+    expect(lock).toBeLessThan(db.mesocycle.findFirst.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.availabilityException.deleteMany.mock.invocationCallOrder[0]!);
+  });
+
+  it("deletes only the named half in AM/PM mode, and both for a whole day", async () => {
+    const half = makeCaller({ scheduleMode: "HALF_DAY" });
+    await half.caller.clearException({ date: "2026-10-08", daypart: "AM" });
+    expect(half.db.availabilityException.deleteMany).toHaveBeenCalledWith({
+      where: { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: { in: ["AM"] } },
+    });
+    const whole = makeCaller({ scheduleMode: "HALF_DAY" });
+    await whole.caller.clearException({ date: "2026-10-08", daypart: null });
+    expect(whole.db.availabilityException.deleteMany).toHaveBeenCalledWith({
+      where: { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: { in: ["AM", "PM"] } },
+    });
   });
 });
 
@@ -520,13 +639,17 @@ describe("getReplacementOptions", () => {
   });
 
   it("falls back to engine order when the judgement throws", async () => {
-    vi.mocked(executeJudgement).mockRejectedValueOnce(new Error("boom"));
     const { caller } = makeCaller({
       exceptions: bothHalves("2026-10-08"),
       availability: [{ dayOfWeek: 6, daypart: "AM", state: "PREFERRED" }],
     });
+    const plain = await caller.getReplacementOptions({ weekIndex: 1 });
+    expect(plain.length).toBeGreaterThanOrEqual(2);
+    vi.mocked(executeJudgement).mockClear();
+    vi.mocked(executeJudgement).mockRejectedValueOnce(new Error("boom"));
     const options = await caller.getReplacementOptions({ weekIndex: 1 });
-    expect(options.length).toBeGreaterThanOrEqual(1);
+    expect(executeJudgement).toHaveBeenCalledTimes(1);
+    expect(options.map((o) => o.id)).toEqual(plain.map((o) => o.id));
     expect(options.every((o) => !o.judged)).toBe(true);
   });
 
@@ -553,5 +676,24 @@ describe("applyLayout with a replacement", () => {
     await caller.applyLayout({ weekIndex: 1, placements: option!.placements, expected: SAVED, origin: "replacement" });
     const log = (db.decisionLog.create.mock.calls.at(-1)![0] as { data: unknown }).data;
     expect(log).toMatchObject({ type: "SCHEDULE", status: "APPLIED", reasoning: "replacement", summary: "Week re-arranged around blocked time" });
+  });
+
+  it("logs which option was accepted, and no option id when none was sent", async () => {
+    const payloadOf = (db: ReturnType<typeof makeCaller>["db"]) =>
+      (db.decisionLog.create.mock.calls.at(-1)![0] as { data: { payload: Record<string, unknown> } }).data.payload;
+    const accepted = makeCaller({ exceptions: bothHalves("2026-10-08") });
+    const [option] = await accepted.caller.getReplacementOptions({ weekIndex: 1 });
+    await accepted.caller.applyLayout({
+      weekIndex: 1,
+      placements: option!.placements,
+      expected: SAVED,
+      origin: "replacement",
+      optionId: option!.id,
+    });
+    expect(payloadOf(accepted.db)).toMatchObject({ origin: "replacement", optionId: option!.id });
+
+    const dragged = makeCaller();
+    await dragged.caller.applyLayout({ weekIndex: 1, placements: [{ sessionId: "s2", day: 6, daypart: null }], expected: SAVED, origin: "athlete" });
+    expect(payloadOf(dragged.db)).not.toHaveProperty("optionId");
   });
 });

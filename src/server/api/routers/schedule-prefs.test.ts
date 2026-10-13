@@ -240,6 +240,30 @@ describe("updatePrefs with exceptions", () => {
     await caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
     expect(db.availabilityException.createMany).not.toHaveBeenCalled();
   });
+
+  it("widens exceptions on a switch to one-a-day even when there is no active block", async () => {
+    const { caller, db } = makeCaller({ mode: "HALF_DAY", noBlock: true, exceptions: [{ date: day("2026-10-09"), daypart: "PM" }] });
+    await caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
+    expect(db.availabilityException.createMany).toHaveBeenCalledTimes(1);
+    expect(db.availabilityException.createMany).toHaveBeenCalledWith({
+      data: [
+        { athleteProfileId: "ap-1", date: day("2026-10-09"), daypart: "AM" },
+        { athleteProfileId: "ap-1", date: day("2026-10-09"), daypart: "PM" },
+      ],
+      skipDuplicates: true,
+    });
+    expect(db.trainingSession.findMany).not.toHaveBeenCalled();
+  });
+
+  it("leaves exceptions alone without an active block unless the mode changes to one-a-day", async () => {
+    const exceptions = [{ date: day("2026-10-08"), daypart: "AM" as const }];
+    const same = makeCaller({ mode: "DAY", noBlock: true, exceptions });
+    await same.caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
+    expect(same.db.availabilityException.createMany).not.toHaveBeenCalled();
+    const toHalf = makeCaller({ mode: "DAY", noBlock: true, exceptions });
+    await toHalf.caller.updatePrefs({ scheduleMode: "HALF_DAY", availability: [] });
+    expect(toHalf.db.availabilityException.createMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("setTimezone", () => {

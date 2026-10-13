@@ -53,5 +53,7 @@ export const ApplyLayoutInputSchema = z.object({
   expected: z.array(z.object({ sessionId: z.string(), placement: PlacementSchema.nullable() })).max(14),
   carryForward: z.boolean().default(false),
   origin: z.enum(["athlete", "suggestion", "replacement"]),
+  /** The re-placement option the athlete accepted, recorded with the decision. */
+  optionId: z.string().max(32).optional(),
 });
 export type ApplyLayoutInput = z.infer<typeof ApplyLayoutInputSchema>;

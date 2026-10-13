@@ -72,4 +72,12 @@ describe("ApplyLayoutInputSchema replacement origin", () => {
     const parsed = ApplyLayoutInputSchema.safeParse({ weekIndex: 1, placements: [], expected: [], origin: "replacement" });
     expect(parsed.success).toBe(true);
   });
+
+  it("carries an optional option id of at most 32 characters", () => {
+    const base = { weekIndex: 1, placements: [], expected: [], origin: "replacement" };
+    expect(ApplyLayoutInputSchema.parse(base).optionId).toBeUndefined();
+    expect(ApplyLayoutInputSchema.parse({ ...base, optionId: "FEWEST_CHANGES" }).optionId).toBe("FEWEST_CHANGES");
+    expect(ApplyLayoutInputSchema.safeParse({ ...base, optionId: "x".repeat(33) }).success).toBe(false);
+    expect(ApplyLayoutInputSchema.safeParse({ ...base, optionId: 3 }).success).toBe(false);
+  });
 });

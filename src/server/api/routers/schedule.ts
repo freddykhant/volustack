@@ -176,8 +176,9 @@ export const scheduleRouter = createTRPCRouter({
     return suggestMoves(c.input, layout).map((s) => toMoveSuggestionView(s, c.label));
   }),
 
-  // The only placement write. An athlete's own move is recorded, not gated; a
-  // suggestion only arrives here because the athlete pressed Accept.
+  // The placement write for everything the athlete chooses (the one other placement write
+  // is the quiet re-placement of a later week in `setException`). An athlete's own move is
+  // recorded, not gated; a suggestion only arrives here because the athlete pressed Accept.
   applyLayout: protectedProcedure.input(ApplyLayoutInputSchema).mutation(
     async ({ ctx, input }): Promise<{ weekIndex: number; applied: number[]; skipped: { weekIndex: number; reason: SkipReason }[] }> => {
       const userId = ctx.session.user.id;
@@ -257,7 +258,13 @@ export const scheduleRouter = createTRPCRouter({
                     ? "Week re-arranged around blocked time"
                     : "Sessions moved",
               reasoning: input.origin,
-              payload: asJson({ origin: input.origin, before: saved, after: proposed, facts: scoreLayout(c.input, proposed).facts }),
+              payload: asJson({
+                origin: input.origin,
+                ...(input.optionId !== undefined ? { optionId: input.optionId } : {}),
+                before: saved,
+                after: proposed,
+                facts: scoreLayout(c.input, proposed).facts,
+              }),
             },
           });
 
@@ -354,6 +361,8 @@ export const scheduleRouter = createTRPCRouter({
           if (isCrowded(c.input)) return { weekIndex, moved: [], needsChoice: true };
           const res = placeWithLens(c.input, "FEWEST_CHANGES");
           if (res.kind !== "placed") return { weekIndex, moved: [], needsChoice: true };
+          // Nothing is written unless the layout passes every hard rule.
+          if (checkLayout(c.input, res.layout).length > 0) return { weekIndex, moved: [], needsChoice: true };
 
           const before = savedLayout(c.input);
           const changed = Object.fromEntries(
@@ -413,7 +422,8 @@ export const scheduleRouter = createTRPCRouter({
   }),
 
   // Read: ways to re-arrange a week in which a session is standing on blocked time.
-  // Mutates nothing. The engine's order stands unless a confident verdict says otherwise;
+  // Changes no schedule state (a judgement cache row may be written). The engine's order
+  // stands unless a confident verdict says otherwise;
   // the judgement is best-effort, so any failure degrades to the engine's order.
   getReplacementOptions: protectedProcedure
     .input(WeekInput)
@@ -508,21 +518,6 @@ export const scheduleRouter = createTRPCRouter({
                 });
               }
               await tx.trainingSession.updateMany({ where: scheduled, data: { daypart: null } });
-
-              // One-a-day has no half-days, so a half-day exception becomes the whole day.
-              const partial = await tx.availabilityException.findMany({
-                where: { athleteProfileId: profile.id },
-                select: { date: true },
-              });
-              const dates = [...new Map(partial.map((e) => [e.date.toISOString(), e.date])).values()];
-              if (dates.length > 0) {
-                await tx.availabilityException.createMany({
-                  data: dates.flatMap((date) =>
-                    (["AM", "PM"] as const).map((daypart) => ({ athleteProfileId: profile.id, date, daypart })),
-                  ),
-                  skipDuplicates: true,
-                });
-              }
             } else {
               for (const s of sessions) {
                 await tx.trainingSession.update({
@@ -530,6 +525,24 @@ export const scheduleRouter = createTRPCRouter({
                   data: { daypart: daypartForDay(input.availability, s.dayOfWeek ?? 0) },
                 });
               }
+            }
+          }
+
+          // One-a-day has no half-days, so a half-day exception becomes the whole day.
+          // Exceptions belong to the profile, so this runs with or without an ACTIVE block.
+          if (profile.scheduleMode !== input.scheduleMode && input.scheduleMode === "DAY") {
+            const exceptionRows = await tx.availabilityException.findMany({
+              where: { athleteProfileId: profile.id },
+              select: { date: true },
+            });
+            const dates = [...new Map(exceptionRows.map((e) => [e.date.toISOString(), e.date])).values()];
+            if (dates.length > 0) {
+              await tx.availabilityException.createMany({
+                data: dates.flatMap((date) =>
+                  (["AM", "PM"] as const).map((daypart) => ({ athleteProfileId: profile.id, date, daypart })),
+                ),
+                skipDuplicates: true,
+              });
             }
           }
 

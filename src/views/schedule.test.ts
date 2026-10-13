@@ -193,6 +193,9 @@ describe("replacement option views", () => {
     expect(phraseScheduleFact({ kind: "session_does_not_fit", sessionId: "f", sessions: 2, freeDays: 1 }, name)).toBe(
       "2 sessions are left this week and only 1 day is open.",
     );
+    expect(phraseScheduleFact({ kind: "session_does_not_fit", sessionId: "f", sessions: 1, freeDays: 0 }, name)).toBe(
+      "1 session is left this week and only 0 days are open.",
+    );
   });
 
   it("titles lens options and lists only changed placements", () => {
@@ -222,5 +225,63 @@ describe("replacement option views", () => {
     expect(view.skipped).toEqual([{ sessionId: "f", label: "Arms" }]);
     expect(view.reasons[0]).toBe("6 sessions are left this week and only 5 days are open.");
     expect(view.judged).toBe(true);
+  });
+
+  it("gives a skip option nothing to apply", () => {
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    // Friday and Sunday blocked: skipping the last session still leaves one to move.
+    const input = withSaved(
+      makeInput({ sessions: ids.map((id, i) => sess(id, i, { CHEST: 2 + i })), availability: [...blockDay(4), ...blockDay(6)] }),
+      Object.fromEntries(ids.map((id, i) => [id, day(i)])),
+    );
+    const skip = proposeLayouts(input)[0]!;
+    expect(skip.moves.length).toBeGreaterThan(0);
+    const view = toReplacementOptionView(skip, name, { lead: true, judged: false });
+    expect(view.kind).toBe("skip");
+    expect(view.moves).toEqual([]);
+    expect(view.placements).toEqual([]);
+    expect(view.layout).toEqual(skip.layout);
+  });
+
+  it("titles a double-up option with the day it trains twice on", () => {
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    const input = withSaved(
+      makeInput({
+        mode: "HALF_DAY",
+        sessions: ids.map((id, i) => sess(id, i, { CHEST: 2 + i })),
+        availability: [...blockDay(3), ...blockDay(6)],
+      }),
+      Object.fromEntries(ids.map((id, i) => [id, { day: i, daypart: "AM" as const }])),
+    );
+    const dbl = proposeLayouts(input).find((o) => o.id === "DOUBLE_UP")!;
+    if (dbl.overflow?.kind !== "double_up") throw new Error("expected a double-up");
+    const view = toReplacementOptionView(dbl, name, { lead: true, judged: false });
+    expect(view.kind).toBe("double_up");
+    expect(view.title).toBe(`Keep every session, train twice on ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dbl.overflow.day]}`);
+    expect(view.skipped).toEqual([]);
+    expect(view.placements.map((p) => p.sessionId).sort()).toEqual(dbl.moves.map((m) => m.sessionId).sort());
+  });
+
+  it("marks only the lead option as judged", () => {
+    const input = withSaved(
+      makeInput({ sessions: [sess("a", 0, { CHEST: 8 }), sess("b", 1, { BACK: 8 }), sess("c", 2, { QUADS: 8 })], availability: blockDay(2) }),
+      { a: day(0), b: day(2), c: day(4) },
+    );
+    const [first] = proposeLayouts(input);
+    expect(toReplacementOptionView(first!, name, { lead: false, judged: true }).judged).toBe(false);
+    expect(toReplacementOptionView(first!, name, { lead: true, judged: true }).judged).toBe(true);
+  });
+
+  it("lists every skipped session in the title", () => {
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    const input = withSaved(
+      makeInput({ sessions: ids.map((id, i) => sess(id, i, { CHEST: 2 + i })), availability: [...blockDay(3), ...blockDay(6)] }),
+      Object.fromEntries(ids.map((id, i) => [id, day(i)])),
+    );
+    const skip = proposeLayouts(input)[0]!;
+    const title = (skipped: string[]) => toReplacementOptionView({ ...skip, skipped }, name, { lead: true, judged: false }).title;
+    expect(title(["f"])).toBe("Skip Arms this week");
+    expect(title(["f", "e"])).toBe("Skip Arms and Lower this week");
+    expect(title(["f", "e", "d"])).toBe("Skip Arms, Lower and Upper this week");
   });
 });

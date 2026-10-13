@@ -81,7 +81,7 @@ export function phraseScheduleFact(fact: DecisionFact, label: (id: string) => st
     case "on_blocked_cell":
       return `${label(fact.sessionId)} is on ${placementLabel({ day: fact.day, daypart: fact.daypart })}, which you've blocked.`;
     case "session_does_not_fit":
-      return `${fact.sessions} sessions are left this week and only ${fact.freeDays} ${fact.freeDays === 1 ? "day is" : "days are"} open.`;
+      return `${fact.sessions} ${fact.sessions === 1 ? "session is" : "sessions are"} left this week and only ${fact.freeDays} ${fact.freeDays === 1 ? "day is" : "days are"} open.`;
     default:
       return null;
   }
@@ -131,7 +131,11 @@ export interface ReplacementOptionView {
   moves: string[];
   /** Why the week is crowded, then the warnings this layout leaves. */
   reasons: string[];
-  /** Every placement the option changes, ready for applyLayout. */
+  /**
+   * Every placement the option changes, ready for applyLayout. Empty for a skip option, as
+   * is `moves`: its layout only holds once the skipped session is out of the week, and
+   * applying it while that session still stands can break a hard rule.
+   */
   placements: { sessionId: string; day: number; daypart: "AM" | "PM" | null }[];
   layout: Layout;
   skipped: { sessionId: string; label: string }[];
@@ -145,6 +149,12 @@ const LENS_TITLE = {
   FEWEST_CHANGES: "Fewest changes",
   KEEPS_PREFERENCES: "Keeps your preferred times",
 } as const;
+
+/** "A", "A and B", "A, B and C". */
+function listText(items: string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]!}`;
+}
 
 export function moveLine(m: LayoutMove, label: (id: string) => string): string {
   return `${label(m.sessionId)}: ${m.from ? placementLabel(m.from) : "not placed"} → ${placementLabel(m.to)}`;
@@ -162,15 +172,16 @@ export function toReplacementOptionView(
     o.overflow?.kind === "double_up"
       ? `Keep every session, train twice on ${DAY_NAMES[o.overflow.day] ?? "?"}`
       : o.skipped.length > 0
-        ? `Skip ${o.skipped.map(label).join(" and ")} this week`
+        ? `Skip ${listText(o.skipped.map(label))} this week`
         : LENS_TITLE[o.lens];
+  const applicable = kind === "skip" ? [] : o.moves;
   return {
     id: o.id,
     kind,
     title,
-    moves: o.moves.map((m) => moveLine(m, label)),
+    moves: applicable.map((m) => moveLine(m, label)),
     reasons: toWarnings([...o.fit, ...o.score.facts], label),
-    placements: o.moves.map((m) => ({ sessionId: m.sessionId, day: m.to.day, daypart: m.to.daypart })),
+    placements: applicable.map((m) => ({ sessionId: m.sessionId, day: m.to.day, daypart: m.to.daypart })),
     layout: o.layout,
     skipped: o.skipped.map((sessionId) => ({ sessionId, label: label(sessionId) })),
     lead: flags.lead,
