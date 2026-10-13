@@ -7,6 +7,7 @@ import {
   changedIds,
   dropTargets,
   isDraftStale,
+  optionStillValid,
   parseCellId,
   suggestionStillValid,
 } from "./draft";
@@ -281,5 +282,32 @@ describe("suggestionStillValid", () => {
     expect(suggestionStillValid(saved, swap)).toBe(true);
     expect(suggestionStillValid({ a: day(0), b: day(3) }, swap)).toBe(false);
     expect(suggestionStillValid({ a: day(0) }, swap)).toBe(false);
+  });
+});
+
+describe("optionStillValid", () => {
+  const saved: Layout = { a: day(0), b: day(2) };
+  const option = {
+    layout: { a: day(0), b: day(4) } as Layout,
+    placements: [{ sessionId: "b" }],
+  };
+
+  it("holds while the sessions it leaves alone have not moved", () => {
+    expect(optionStillValid(saved, option, ["a", "b"])).toBe(true);
+    // The session it moves may be anywhere now.
+    expect(optionStillValid({ a: day(0), b: day(5) }, option, ["a", "b"])).toBe(
+      true,
+    );
+  });
+
+  it("fails when a session it leaves alone has moved or been unplaced", () => {
+    expect(optionStillValid({ a: day(1), b: day(2) }, option, ["a", "b"])).toBe(
+      false,
+    );
+    expect(optionStillValid({ b: day(2) }, option, ["a", "b"])).toBe(false);
+  });
+
+  it("fails when a session it moves no longer exists", () => {
+    expect(optionStillValid(saved, option, ["a"])).toBe(false);
   });
 });

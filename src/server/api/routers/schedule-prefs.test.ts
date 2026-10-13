@@ -24,6 +24,8 @@ interface Opts {
   startDate?: Date;
   timezone?: string;
   scheduled?: { id: string; weekId: string; dayOfWeek: number; week: { index: number } }[];
+  /** One-off blocked time already on the profile. */
+  exceptions?: { date: Date; daypart: "AM" | "PM" }[];
 }
 
 function makeCaller(opts: Opts = {}) {
@@ -35,6 +37,10 @@ function makeCaller(opts: Opts = {}) {
       findUnique: vi.fn().mockResolvedValue(profile),
       update: vi.fn().mockResolvedValue({}),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    availabilityException: {
+      findMany: vi.fn().mockResolvedValue(opts.exceptions ?? []),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     availabilityCell: { deleteMany: vi.fn().mockResolvedValue({}), createMany: vi.fn().mockResolvedValue({}) },
     trainingSession: {
@@ -201,6 +207,62 @@ describe("updatePrefs", () => {
       message: expect.stringContaining("Fri in week 1") as unknown,
     });
     expect(db.athleteProfile.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("updatePrefs with exceptions", () => {
+  const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
+
+  it("widens a half-day exception to the whole day when switching to one-a-day, once per date", async () => {
+    const { caller, db } = makeCaller({
+      mode: "HALF_DAY",
+      exceptions: [
+        { date: day("2026-10-08"), daypart: "AM" },
+        { date: day("2026-10-08"), daypart: "PM" },
+        { date: day("2026-10-09"), daypart: "PM" },
+      ],
+    });
+    await caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
+    expect(db.availabilityException.createMany).toHaveBeenCalledTimes(1);
+    expect(db.availabilityException.createMany).toHaveBeenCalledWith({
+      data: [
+        { athleteProfileId: "ap-1", date: day("2026-10-08"), daypart: "AM" },
+        { athleteProfileId: "ap-1", date: day("2026-10-08"), daypart: "PM" },
+        { athleteProfileId: "ap-1", date: day("2026-10-09"), daypart: "AM" },
+        { athleteProfileId: "ap-1", date: day("2026-10-09"), daypart: "PM" },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("leaves exceptions alone when the mode does not change to one-a-day", async () => {
+    const { caller, db } = makeCaller({ mode: "DAY", exceptions: [{ date: day("2026-10-08"), daypart: "AM" }] });
+    await caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
+    expect(db.availabilityException.createMany).not.toHaveBeenCalled();
+  });
+
+  it("widens exceptions on a switch to one-a-day even when there is no active block", async () => {
+    const { caller, db } = makeCaller({ mode: "HALF_DAY", noBlock: true, exceptions: [{ date: day("2026-10-09"), daypart: "PM" }] });
+    await caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
+    expect(db.availabilityException.createMany).toHaveBeenCalledTimes(1);
+    expect(db.availabilityException.createMany).toHaveBeenCalledWith({
+      data: [
+        { athleteProfileId: "ap-1", date: day("2026-10-09"), daypart: "AM" },
+        { athleteProfileId: "ap-1", date: day("2026-10-09"), daypart: "PM" },
+      ],
+      skipDuplicates: true,
+    });
+    expect(db.trainingSession.findMany).not.toHaveBeenCalled();
+  });
+
+  it("leaves exceptions alone without an active block unless the mode changes to one-a-day", async () => {
+    const exceptions = [{ date: day("2026-10-08"), daypart: "AM" as const }];
+    const same = makeCaller({ mode: "DAY", noBlock: true, exceptions });
+    await same.caller.updatePrefs({ scheduleMode: "DAY", availability: [] });
+    expect(same.db.availabilityException.createMany).not.toHaveBeenCalled();
+    const toHalf = makeCaller({ mode: "DAY", noBlock: true, exceptions });
+    await toHalf.caller.updatePrefs({ scheduleMode: "HALF_DAY", availability: [] });
+    expect(toHalf.db.availabilityException.createMany).not.toHaveBeenCalled();
   });
 });
 

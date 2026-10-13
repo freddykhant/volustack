@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isoDateOfDayNumber, localDayNumber, localHour, weekdayOfDayNumber } from "./local-day";
+import { dayNumberOfIsoDate, isoDateOfDayNumber, localDayNumber, localHour, weekdayOfDayNumber } from "./local-day";
 
 describe("local-day", () => {
   // 2026-10-06 23:30 UTC is 10:30 on Wednesday 7 October in Sydney (UTC+11).
@@ -22,5 +22,15 @@ describe("local-day", () => {
   it("reads the local hour", () => {
     expect(localHour(instant, "Australia/Sydney")).toBe(10);
     expect(localHour(instant, "UTC")).toBe(23);
+  });
+});
+
+describe("dayNumberOfIsoDate", () => {
+  it("round-trips with isoDateOfDayNumber", () => {
+    expect(isoDateOfDayNumber(dayNumberOfIsoDate("2026-10-08"))).toBe("2026-10-08");
+  });
+  it("gives the right weekday", () => {
+    // 8 Oct 2026 is a Thursday (3).
+    expect(weekdayOfDayNumber(dayNumberOfIsoDate("2026-10-08"))).toBe(3);
   });
 });

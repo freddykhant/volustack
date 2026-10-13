@@ -53,6 +53,41 @@ export function availabilityFromRows(
   return rows.map((r) => ({ day: r.dayOfWeek, daypart: r.daypart, state: r.state }));
 }
 
+/** One-off blocked time, as a local calendar date. */
+export interface ExceptionCell {
+  date: string; // "YYYY-MM-DD"
+  daypart: Daypart;
+}
+
+/** A `@db.Date` column comes back as midnight UTC of that calendar date. */
+export function exceptionsFromRows(rows: { date: Date; daypart: Daypart }[]): ExceptionCell[] {
+  return rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), daypart: r.daypart }));
+}
+
+/**
+ * The week's availability with its exceptions laid over the standing grid. The engine
+ * never sees dates: an exception simply becomes a Blocked cell for this week, flagged
+ * `oneOff` so the board can tell it from a standing block. A cell the standing grid
+ * already blocks stays a standing block.
+ */
+export function withExceptions(
+  availability: AvailabilityCellInput[],
+  days: WeekDay[],
+  exceptions: ExceptionCell[],
+): AvailabilityCellInput[] {
+  const out = availability.map((c) => ({ ...c }));
+  for (const e of exceptions) {
+    const weekday = days.find((d) => d.date === e.date)?.weekday;
+    if (weekday === undefined) continue;
+    const at = out.findIndex((c) => c.day === weekday && c.daypart === e.daypart);
+    if (at >= 0 && out[at]!.state === "BLOCKED") continue;
+    const cell: AvailabilityCellInput = { day: weekday, daypart: e.daypart, state: "BLOCKED", oneOff: true };
+    if (at >= 0) out[at] = cell;
+    else out.push(cell);
+  }
+  return out;
+}
+
 function placementOf(s: { dayOfWeek: number | null; daypart: Daypart | null }): Placement | null {
   return s.dayOfWeek === null ? null : { day: s.dayOfWeek, daypart: s.daypart };
 }
@@ -75,9 +110,11 @@ export function scheduleInputFromDb(args: {
   settings: ScheduleSettings;
   startDate: Date;
   now: Date;
+  exceptions?: ExceptionCell[];
 }): ScheduleInput {
-  const { week, prevWeek, settings, startDate, now } = args;
-  const weekStartDay = weekDays(startDate, week.index, settings.timezone)[0]!.weekday;
+  const { week, prevWeek, settings, startDate, now, exceptions } = args;
+  const days = weekDays(startDate, week.index, settings.timezone);
+  const weekStartDay = days[0]!.weekday;
 
   const carryIn: CarryIn[] = [];
   for (const s of prevWeek?.sessions ?? []) {
@@ -93,7 +130,7 @@ export function scheduleInputFromDb(args: {
   return {
     mode: settings.mode,
     weekStartDay,
-    availability: settings.availability,
+    availability: withExceptions(settings.availability, days, exceptions ?? []),
     carryIn,
     firstOpenDay: firstOpenDay(startDate, week.index, settings.timezone, now),
     sessions: [...week.sessions]

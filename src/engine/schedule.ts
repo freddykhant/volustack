@@ -2,13 +2,16 @@
 import type { ExerciseDef } from "~/domain/exercise-library";
 import type { Daypart, MuscleGroup, ScheduleMode } from "~/schema";
 import {
+  MAX_LAYOUT_OPTIONS,
   MAX_STREAK_DAYS,
   MAX_SUGGESTIONS,
   OVERLAP_MIN_SETS,
+  PREFERENCE_LENS_FACTOR,
   REST_TARGET_HALF_DAYS,
   SCHEDULE_EPS,
   SPREAD_FACT_MIN_DAYS,
   SUGGESTION_MIN_GAIN,
+  W_DISPLACEMENT,
   W_LOAD_STREAK,
   W_OFF_PREFERENCE,
   W_ON_BLOCKED_CELL,
@@ -50,6 +53,8 @@ export interface AvailabilityCellInput {
   day: number;
   daypart: Daypart;
   state: "PREFERRED" | "BLOCKED";
+  /** Set when the cell is blocked for this week only (an exception), not by the standing grid. */
+  oneOff?: boolean;
 }
 
 /** A session from the end of the previous week, for rest across the week boundary. */
@@ -500,19 +505,64 @@ function neighbours(input: ScheduleInput, layout: Layout): Neighbour[] {
 /** Guard against a runaway loop; each step strictly lowers cost, so this is never reached in practice. */
 const LOCAL_SEARCH_MAX_STEPS = 200;
 
+/** The weighting a layout was searched under. */
+export type Lens = "BALANCED" | "FEWEST_CHANGES" | "KEEPS_PREFERENCES";
+
+export const LENS_ORDER: readonly Lens[] = ["BALANCED", "FEWEST_CHANGES", "KEEPS_PREFERENCES"];
+
 /**
- * Auto-place a week. Locked and inert sessions stay put; every other session is (re)placed.
- * Greedy construction in session order (each takes the open cell that costs least,
- * earliest on ties), then local search over `neighbours` until no single move or swap
- * lowers the cost. Deterministic. Because it stops at a local optimum of the same
- * neighbourhood `suggestMoves` searches, a freshly placed week has no suggestion.
+ * A layout's cost as one lens sees it. Every lens starts from `scoreLayout`, so the hard
+ * preferences (blocked cells, rest) still count; a lens only adds weight to one concern.
  */
-export function placeWeek(input: ScheduleInput): PlaceResult {
-  let layout: Layout = {};
-  for (const s of input.sessions) {
-    if (isFixed(s) && s.placement) layout[s.id] = s.placement;
+export function lensCost(input: ScheduleInput, layout: Layout, lens: Lens): number {
+  const score = scoreLayout(input, layout);
+  if (lens === "FEWEST_CHANGES") {
+    const moved = input.sessions.filter(
+      (s) => !isFixed(s) && s.placement !== null && layout[s.id] !== undefined && !samePlacement(s.placement, layout[s.id]),
+    ).length;
+    return score.cost + W_DISPLACEMENT * moved;
   }
-  const toPlace = [...input.sessions].sort((a, b) => a.order - b.order).filter((s) => !isFixed(s));
+  if (lens === "KEEPS_PREFERENCES") {
+    const off = score.facts.filter((f) => f.kind === "off_preference").length;
+    return score.cost + (PREFERENCE_LENS_FACTOR - 1) * W_OFF_PREFERENCE * off;
+  }
+  return score.cost;
+}
+
+/**
+ * Where a search starts. Fixed sessions always keep their placement. With `keepStanding`,
+ * so does every other session whose saved cell is still open and not already taken, so the
+ * search only has to find homes for the sessions that were displaced.
+ */
+function seedLayout(input: ScheduleInput, keepStanding: boolean): Layout {
+  const seed: Layout = {};
+  for (const s of input.sessions) {
+    if (isFixed(s) && s.placement) seed[s.id] = s.placement;
+  }
+  if (!keepStanding) return seed;
+  const held = heldCells(input, seed);
+  for (const s of [...input.sessions].sort((a, b) => a.order - b.order)) {
+    if (isFixed(s) || !s.placement || !isOpenTarget(input, s.placement)) continue;
+    // A day-only placement in AM/PM mode (or the reverse) has to be re-placed.
+    if ((s.placement.daypart !== null) !== (input.mode === "HALF_DAY")) continue;
+    const key = cellKey(s.placement, input.mode);
+    if (held.has(key)) continue;
+    seed[s.id] = s.placement;
+    held.add(key);
+  }
+  return seed;
+}
+
+/**
+ * Greedy construction in session order (each unseeded session takes the open cell that
+ * costs least, earliest on ties), then local search over `neighbours` until no single
+ * move or swap lowers the cost. Deterministic.
+ */
+function searchLayout(input: ScheduleInput, costOf: (layout: Layout) => number, seed: Layout): PlaceResult {
+  let layout: Layout = { ...seed };
+  const toPlace = [...input.sessions]
+    .sort((a, b) => a.order - b.order)
+    .filter((s) => !isFixed(s) && layout[s.id] === undefined);
   const cells = openCells(input);
 
   for (const s of toPlace) {
@@ -521,7 +571,7 @@ export function placeWeek(input: ScheduleInput): PlaceResult {
     let bestCost = Infinity;
     for (const c of cells) {
       if (occupied.has(cellKey(c, input.mode))) continue;
-      const cost = scoreLayout(input, { ...layout, [s.id]: c }).cost;
+      const cost = costOf({ ...layout, [s.id]: c });
       if (cost < bestCost - SCHEDULE_EPS) {
         best = c;
         bestCost = cost;
@@ -532,19 +582,20 @@ export function placeWeek(input: ScheduleInput): PlaceResult {
         input.sessions.filter((x) => x.locked && !x.inert && x.placement).map((x) => cellKey(x.placement!, input.mode)),
       );
       const open = cells.filter((c) => !taken.has(cellKey(c, input.mode))).length;
+      const needed = input.sessions.filter((x) => !isFixed(x)).length;
       return {
         kind: "infeasible",
-        facts: [{ kind: "infeasible", constraint: "schedule_cells", detail: { needed: toPlace.length, open } }],
+        facts: [{ kind: "infeasible", constraint: "schedule_cells", detail: { needed, open } }],
       };
     }
     layout = { ...layout, [s.id]: best };
   }
 
   for (let step = 0; step < LOCAL_SEARCH_MAX_STEPS; step++) {
-    let bestCost = scoreLayout(input, layout).cost;
+    let bestCost = costOf(layout);
     let bestLayout: Layout | null = null;
     for (const n of neighbours(input, layout)) {
-      const cost = scoreLayout(input, n.layout).cost;
+      const cost = costOf(n.layout);
       if (cost < bestCost - SCHEDULE_EPS) {
         bestCost = cost;
         bestLayout = n.layout;
@@ -555,6 +606,26 @@ export function placeWeek(input: ScheduleInput): PlaceResult {
   }
 
   return { kind: "placed", layout };
+}
+
+/**
+ * Auto-place a week. Locked and inert sessions stay put; every other session is (re)placed.
+ * Greedy construction in session order (each takes the open cell that costs least,
+ * earliest on ties), then local search over `neighbours` until no single move or swap
+ * lowers the cost. Deterministic. Because it stops at a local optimum of the same
+ * neighbourhood `suggestMoves` searches, a freshly placed week has no suggestion.
+ */
+export function placeWeek(input: ScheduleInput): PlaceResult {
+  return searchLayout(input, (layout) => scoreLayout(input, layout).cost, seedLayout(input, false));
+}
+
+/**
+ * Place a week as one lens would. BALANCED is `placeWeek`. FEWEST_CHANGES starts from the
+ * saved layout and pays for every session it moves. KEEPS_PREFERENCES re-places everything
+ * with preferred times weighted up.
+ */
+export function placeWithLens(input: ScheduleInput, lens: Lens): PlaceResult {
+  return searchLayout(input, (layout) => lensCost(input, layout, lens), seedLayout(input, lens === "FEWEST_CHANGES"));
 }
 
 /**
@@ -601,4 +672,200 @@ export function suggestMoves(input: ScheduleInput, layout: Layout): MoveSuggesti
         eases,
       };
     });
+}
+
+export interface LayoutMove {
+  sessionId: string;
+  from: Placement | null;
+  to: Placement;
+}
+
+export type OverflowOutcome =
+  | { kind: "skip"; sessionId: string }
+  | { kind: "double_up"; sessionId: string; day: number };
+
+/** One way to arrange the week, with what it changes and what it leaves the athlete with. */
+export interface LayoutOption {
+  /** Unique within one result: a lens name, "DOUBLE_UP", "SKIP_1" or "SKIP_2". */
+  id: string;
+  lens: Lens;
+  /** Placements of every session the option keeps. Skipped sessions are absent. */
+  layout: Layout;
+  moves: LayoutMove[];
+  score: LayoutScore;
+  /** Why the week is crowded; empty when it is not. */
+  fit: DecisionFact[];
+  /** Names the first affected session only; `skipped` is the complete list of what the option leaves out. */
+  overflow: OverflowOutcome | null;
+  skipped: string[];
+}
+
+/** Live fixed sessions: they happened (or will, where they are), so they hold their day. */
+function liveFixed(input: ScheduleInput): ScheduleSession[] {
+  return input.sessions.filter((s) => s.locked && !s.inert && s.placement !== null);
+}
+
+/** Days that still have an open cell and no completed session on them. */
+export function freeDayCount(input: ScheduleInput): number {
+  const heldDays = new Set(liveFixed(input).map((s) => s.placement!.day));
+  return new Set(openCells(input).map((c) => c.day).filter((d) => !heldDays.has(d))).size;
+}
+
+function freeCellCount(input: ScheduleInput): number {
+  const held = new Set(liveFixed(input).map((s) => cellKey(s.placement!, input.mode)));
+  return openCells(input).filter((c) => !held.has(cellKey(c, input.mode))).length;
+}
+
+/** A session the athlete could still train is standing on time they have blocked. */
+export function isStranded(input: ScheduleInput): boolean {
+  return scoreLayout(input, savedLayout(input)).facts.some((f) => f.kind === "on_blocked_cell");
+}
+
+/**
+ * The same week with every overdue session held where it is. A session is overdue when it
+ * could still be moved but its saved day has passed and was not blocked: the athlete may
+ * have trained it without logging, so re-placement neither moves it nor counts it. A session
+ * left on a past day that was blocked could not have been trained there and stays movable.
+ */
+function holdOverdue(input: ScheduleInput): ScheduleInput {
+  const overdue = (s: ScheduleSession) =>
+    !isFixed(s) &&
+    s.placement !== null &&
+    dayIndex(s.placement.day, input.weekStartDay) < input.firstOpenDay &&
+    cellState(input.availability, input.mode, s.placement) !== "BLOCKED";
+  if (!input.sessions.some(overdue)) return input;
+  return { ...input, sessions: input.sessions.map((s) => (overdue(s) ? { ...s, locked: true } : s)) };
+}
+
+/** More sessions left to train than days left to train them on. Overdue sessions are not counted. */
+export function isCrowded(input: ScheduleInput): boolean {
+  const held = holdOverdue(input);
+  return held.sessions.filter((s) => !isFixed(s)).length > freeDayCount(held);
+}
+
+/**
+ * When a week is crowded, which sessions should be offered for skipping first?
+ * Returns the candidates' ids, most skippable first. Must return each candidate exactly
+ * once, be deterministic and never throw; `proposeLayouts` repairs a wrong list of ids but
+ * does not catch an exception.
+ *
+ * TODO(product owner): this is a coaching call. The placeholder skips the last session
+ * of the week first. Alternatives: the smallest footprint, the session whose muscles are
+ * trained again soonest, or the session standing on the blocked time.
+ */
+export function nominateOverflow(input: ScheduleInput, candidates: ScheduleSession[]): string[] {
+  return [...candidates].sort((a, b) => b.order - a.order).map((s) => s.id);
+}
+
+/** The same week with some sessions treated as not happening. */
+function withoutSessions(input: ScheduleInput, ids: string[]): ScheduleInput {
+  const gone = new Set(ids);
+  return { ...input, sessions: input.sessions.map((s) => (gone.has(s.id) ? { ...s, inert: true } : s)) };
+}
+
+function buildOption(
+  input: ScheduleInput,
+  id: string,
+  lens: Lens,
+  skipped: string[],
+  fit: DecisionFact[],
+): LayoutOption | null {
+  const reduced = withoutSessions(input, skipped);
+  const res = placeWithLens(reduced, lens);
+  if (res.kind !== "placed") return null;
+  const gone = new Set(skipped);
+  const layout: Layout = {};
+  for (const [sid, p] of Object.entries(res.layout)) {
+    if (!gone.has(sid)) layout[sid] = p;
+  }
+  const moves: LayoutMove[] = [...input.sessions]
+    .sort((a, b) => a.order - b.order)
+    .filter((s) => !isFixed(s) && !gone.has(s.id) && layout[s.id] !== undefined && !samePlacement(s.placement, layout[s.id]))
+    .map((s) => ({ sessionId: s.id, from: s.placement, to: layout[s.id]! }));
+  return {
+    id,
+    lens,
+    layout,
+    moves,
+    score: scoreLayout(reduced, res.layout),
+    fit,
+    overflow: skipped.length > 0 ? { kind: "skip", sessionId: skipped[0]! } : null,
+    skipped,
+  };
+}
+
+/** Identity of an option's outcome: what it skips and where everything else goes. */
+function optionKey(o: LayoutOption): string {
+  return `${[...o.skipped].sort().join(",")}#${layoutKey(o.layout)}`;
+}
+
+/**
+ * Up to MAX_LAYOUT_OPTIONS distinct ways to arrange the week, in the engine's order of
+ * preference. In a roomy week each option is the same search under a different lens.
+ * In a crowded week the options are the athlete's real choices: keep everything by
+ * doubling up (AM/PM mode only), or skip a session. Never changes a prescription, and
+ * never returns an option `checkLayout` would refuse. An overdue session (see `holdOverdue`)
+ * keeps its placement in every option and is never moved or skipped. Deterministic.
+ */
+export function proposeLayouts(week: ScheduleInput): LayoutOption[] {
+  const input = holdOverdue(week);
+  const movable = input.sessions.filter((s) => !isFixed(s));
+  if (movable.length === 0) return [];
+  const out: LayoutOption[] = [];
+  const seen = new Set<string>();
+  const push = (o: LayoutOption | null) => {
+    if (o === null) return;
+    const key = optionKey(o);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(o);
+  };
+
+  const freeDays = freeDayCount(input);
+  const overDays = movable.length - freeDays;
+
+  if (overDays <= 0) {
+    for (const lens of LENS_ORDER) push(buildOption(input, lens, lens, [], []));
+    const balanced = (o: LayoutOption) => lensCost(input, o.layout, "BALANCED");
+    return out
+      .filter((o) => o.moves.length > 0)
+      .map((o, index) => ({ o, index, cost: balanced(o) }))
+      .sort((a, b) => a.cost - b.cost || a.index - b.index)
+      .map((x) => x.o)
+      .slice(0, MAX_LAYOUT_OPTIONS);
+  }
+
+  // Crowded. Repair the ranking so a faulty nomination can never lose or invent a session.
+  const ids = movable.map((s) => s.id);
+  const nominated = nominateOverflow(input, movable).filter((id, i, all) => ids.includes(id) && all.indexOf(id) === i);
+  const ranked = [...nominated, ...ids.filter((id) => !nominated.includes(id))];
+  const fitFor = (sessionId: string): DecisionFact[] => [
+    { kind: "session_does_not_fit", sessionId, sessions: movable.length, freeDays },
+  ];
+
+  // Doubling up keeps every session, so it is only on offer when they all fit in the open cells.
+  if (input.mode === "HALF_DAY" && movable.length <= freeCellCount(input)) {
+    const o = buildOption(input, "DOUBLE_UP", "BALANCED", [], fitFor(ranked[0]!));
+    if (o !== null) {
+      const movableIds = new Set(movable.map((s) => s.id));
+      const movedIds = new Set(o.moves.map((m) => m.sessionId));
+      const stacks = o.score.facts.filter(
+        (f): f is Extract<DecisionFact, { kind: "same_day_stack" }> =>
+          f.kind === "same_day_stack" && f.sessionIds.some((id) => movableIds.has(id)),
+      );
+      const stack = stacks.find((f) => f.sessionIds.some((id) => movedIds.has(id))) ?? stacks[0];
+      if (stack !== undefined) {
+        const mover =
+          stack.sessionIds.find((id) => movedIds.has(id)) ?? stack.sessionIds.find((id) => movableIds.has(id))!;
+        push({ ...o, overflow: { kind: "double_up", sessionId: mover, day: stack.day } });
+      }
+    }
+  }
+
+  const primary = ranked.slice(0, overDays);
+  push(buildOption(input, "SKIP_1", "BALANCED", primary, fitFor(primary[0]!)));
+  if (overDays === 1 && ranked.length >= 2) {
+    push(buildOption(input, "SKIP_2", "BALANCED", [ranked[1]!], fitFor(ranked[1]!)));
+  }
+  return out.slice(0, MAX_LAYOUT_OPTIONS);
 }

@@ -242,6 +242,7 @@ model AthleteProfile {
   mesocycles Mesocycle[]
   checkIns   CheckIn[]
   availability AvailabilityCell[]
+  availabilityExceptions AvailabilityException[]
 
   @@map("athlete_profile")
 }
@@ -271,6 +272,20 @@ model AvailabilityCell {
 
   @@unique([athleteProfileId, dayOfWeek, daypart])
   @@map("availability_cell")
+}
+
+/// One-off blocked time on a specific date. Never edits the standing grid. Stored at
+/// AM/PM resolution like AvailabilityCell: a whole day is two rows.
+model AvailabilityException {
+  id               String         @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  date             DateTime       @db.Date // the athlete's local calendar date
+  daypart          Daypart
+  createdAt        DateTime       @default(now())
+
+  @@unique([athleteProfileId, date, daypart])
+  @@map("availability_exception")
 }
 
 model Exercise {
@@ -494,7 +509,7 @@ model Judgement {
   id            String    @id @default(cuid())
   mesocycleId   String
   mesocycle     Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
-  subject       String // "reschedule" | "progression"
+  subject       String // "reschedule" | "progression" | "replacement"
   stateHash     String // sha256 of the canonical JSON state projection
   questionsHash String // sha256 of the canonical question set — question meaning is part of the key
   model         String // the pinned version that actually answered, e.g. "jev-1.13.0"

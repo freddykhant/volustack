@@ -32,4 +32,5 @@ export type DecisionFact =
   | { kind: "same_day_stack"; day: number; sessionIds: [string, string]; sharedSets: number }
   | { kind: "off_preference"; sessionId: string }
   | { kind: "uneven_spread"; longestGapDays: number; shortestGapDays: number }
-  | { kind: "on_blocked_cell"; sessionId: string; day: number; daypart: "AM" | "PM" | null };
+  | { kind: "on_blocked_cell"; sessionId: string; day: number; daypart: "AM" | "PM" | null }
+  | { kind: "session_does_not_fit"; sessionId: string; sessions: number; freeDays: number };

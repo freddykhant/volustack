@@ -18,12 +18,15 @@ export function SessionChip({
   changed,
   moveOptions,
   onMove,
+  onCantMake,
 }: {
   session: ScheduleSessionView;
   editable: boolean;
   changed: boolean;
   moveOptions: MoveOption[];
   onMove: (target: Placement) => void;
+  /** Block this session's day or half-day for this week. Absent when not offered. */
+  onCantMake?: () => void;
 }) {
   const draggable = editable && !session.locked;
   const { listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -82,6 +85,16 @@ export function SessionChip({
             </option>
           ))}
         </select>
+      ) : null}
+      {draggable && onCantMake ? (
+        <button
+          type="button"
+          aria-label={`Can’t make ${session.label}`}
+          onClick={onCantMake}
+          className="text-fg-muted hover:text-fg mt-1 text-[12px] transition-colors"
+        >
+          Can&rsquo;t make this
+        </button>
       ) : null}
     </div>
   );
