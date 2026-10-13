@@ -7,6 +7,7 @@ import {
   cellKey,
   cellState,
   checkLayout,
+  dayIndex,
   LENS_ORDER,
   openCells,
   placeWeek,
@@ -315,6 +316,14 @@ describe("proposeLayouts option invariants", () => {
       fc.property(fc.oneof(arbInput(), arbPlacedInput()), (input) => {
         const movable = new Set(input.sessions.filter((s) => !s.locked && !s.inert).map((s) => s.id));
         const byId = new Map(input.sessions.map((s) => [s.id, s]));
+        // Still movable, but left on a day that has passed and was not blocked.
+        const overdue = input.sessions.filter(
+          (s) =>
+            movable.has(s.id) &&
+            s.placement !== null &&
+            dayIndex(s.placement.day, input.weekStartDay) < input.firstOpenDay &&
+            cellState(input.availability, input.mode, s.placement) !== "BLOCKED",
+        );
         const options = proposeLayouts(input);
         expect(options.length).toBeLessThanOrEqual(3);
         expect(new Set(options.map((o) => o.id)).size).toBe(options.length);
@@ -336,6 +345,11 @@ describe("proposeLayouts option invariants", () => {
           }
 
           const moved = new Set(o.moves.map((m) => m.sessionId));
+          for (const s of overdue) {
+            expect(o.layout[s.id]).toEqual(s.placement);
+            expect(moved.has(s.id)).toBe(false);
+            expect(o.skipped).not.toContain(s.id);
+          }
           for (const m of o.moves) {
             expect(movable.has(m.sessionId)).toBe(true);
             expect(o.skipped).not.toContain(m.sessionId);
@@ -355,6 +369,7 @@ describe("proposeLayouts option invariants", () => {
             }
           } else if (o.id.startsWith("SKIP_")) {
             expect(o.overflow?.kind).toBe("skip");
+            expect(o.skipped.length).toBeGreaterThan(0);
             if (o.overflow?.kind === "skip") expect(o.overflow.sessionId).toBe(o.skipped[0]);
           } else {
             expect(LENS_ORDER as readonly string[]).toContain(o.id);

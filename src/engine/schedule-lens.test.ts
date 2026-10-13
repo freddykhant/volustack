@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeInput, sess, withSaved } from "./_fixtures/schedule";
+import { PREFERENCE_LENS_FACTOR, W_DISPLACEMENT, W_OFF_PREFERENCE } from "./constants";
 import { checkLayout, lensCost, placeWeek, placeWithLens, scoreLayout, type Layout } from "./schedule";
 
 const day = (d: number) => ({ day: d, daypart: null });
@@ -20,7 +21,7 @@ describe("lensCost", () => {
     const input = withSaved(base, saved);
     const moved: Layout = { ...saved, legs: day(5) };
     const plain = scoreLayout(input, moved).cost;
-    expect(lensCost(input, moved, "FEWEST_CHANGES")).toBe(plain + 50);
+    expect(lensCost(input, moved, "FEWEST_CHANGES")).toBe(plain + W_DISPLACEMENT);
     expect(lensCost(input, saved, "FEWEST_CHANGES")).toBe(scoreLayout(input, saved).cost);
   });
 
@@ -31,7 +32,9 @@ describe("lensCost", () => {
     );
     const offFacts = scoreLayout(input, saved).facts.filter((f) => f.kind === "off_preference").length;
     expect(offFacts).toBeGreaterThan(0);
-    expect(lensCost(input, saved, "KEEPS_PREFERENCES")).toBe(scoreLayout(input, saved).cost + 4 * 2 * offFacts);
+    expect(lensCost(input, saved, "KEEPS_PREFERENCES")).toBe(
+      scoreLayout(input, saved).cost + (PREFERENCE_LENS_FACTOR - 1) * W_OFF_PREFERENCE * offFacts,
+    );
   });
 });
 
@@ -58,6 +61,37 @@ describe("placeWithLens", () => {
     expect(res.layout.push).toEqual(day(0));
     expect(res.layout.legs).toEqual(day(4));
     expect(res.layout.pull!.day).not.toBe(2);
+    expect(checkLayout(input, res.layout)).toEqual([]);
+  });
+
+  it("KEEPS_PREFERENCES takes a preferred day that BALANCED gives up for recovery", () => {
+    // Only Mon and Tue are preferred, and the two sessions share chest work: using both
+    // preferred days puts them a day apart.
+    const input = makeInput({
+      sessions: [sess("a", 0, { CHEST: 2 }), sess("b", 1, { CHEST: 2 })],
+      availability: [
+        { day: 0, daypart: "AM", state: "PREFERRED" },
+        { day: 1, daypart: "AM", state: "PREFERRED" },
+      ],
+    });
+    const balanced = placeWithLens(input, "BALANCED");
+    const keeps = placeWithLens(input, "KEEPS_PREFERENCES");
+    expect(balanced.kind).toBe("placed");
+    expect(keeps.kind).toBe("placed");
+    if (balanced.kind !== "placed" || keeps.kind !== "placed") return;
+    const offPreference = (layout: Layout) => scoreLayout(input, layout).facts.filter((f) => f.kind === "off_preference").length;
+    expect(keeps.layout).not.toEqual(balanced.layout);
+    expect(Object.values(keeps.layout).map((p) => p.day).sort()).toEqual([0, 1]);
+    expect(offPreference(keeps.layout)).toBe(0);
+    expect(offPreference(balanced.layout)).toBeGreaterThan(0);
+  });
+
+  it("FEWEST_CHANGES re-places a day-only placement in AM/PM mode", () => {
+    const input = withSaved({ ...base, mode: "HALF_DAY" }, saved);
+    const res = placeWithLens(input, "FEWEST_CHANGES");
+    expect(res.kind).toBe("placed");
+    if (res.kind !== "placed") return;
+    for (const id of ["push", "pull", "legs"]) expect(res.layout[id]!.daypart).not.toBeNull();
     expect(checkLayout(input, res.layout)).toEqual([]);
   });
 

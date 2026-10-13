@@ -227,3 +227,73 @@ describe("proposeLayouts, crowded AM/PM edge weeks", () => {
     expect(ids).toContain("SKIP_1");
   });
 });
+
+describe("proposeLayouts, a session left on a day that has passed", () => {
+  // Monday trained, Tuesday never logged, Thursday and Saturday still to come.
+  const sessions = [
+    sess("mon", 0, { CHEST: 8 }, null, true),
+    sess("tue", 1, { BACK: 8 }),
+    sess("thu", 2, { QUADS: 8 }),
+    sess("sat", 3, { SIDE_DELTS: 8 }),
+  ];
+  const saved4: Layout = { mon: day(0), tue: day(1), thu: day(3), sat: day(5) };
+  const week = (over: Partial<ScheduleInput>, layout: Layout = saved4) => withSaved(makeInput({ sessions, ...over }), layout);
+  const touched = (o: { moves: { sessionId: string }[]; skipped: string[] }) => [...o.moves.map((m) => m.sessionId), ...o.skipped];
+
+  it("leaves it where it is and moves only the session whose day was blocked", () => {
+    const input = week({ firstOpenDay: 2, availability: blockDay(3) });
+    const options = proposeLayouts(input);
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    for (const o of options) {
+      expect(o.layout.tue).toEqual(day(1));
+      expect(touched(o)).not.toContain("tue");
+      assertLegal(input, o.layout);
+    }
+    expect(options.some((o) => o.moves.length === 1 && o.moves[0]!.sessionId === "thu")).toBe(true);
+  });
+
+  it("does not count it toward a crowded week", () => {
+    const input = week({ firstOpenDay: 5, availability: blockDay(3) });
+    expect(isCrowded(input)).toBe(false);
+    const options = proposeLayouts(input);
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    for (const o of options) {
+      expect(o.skipped).toEqual([]);
+      expect(o.overflow).toBeNull();
+      expect(o.layout.tue).toEqual(day(1));
+      expect([5, 6]).toContain(o.layout.thu!.day);
+      expect(o.moves.map((m) => m.sessionId)).toContain("thu");
+      expect([5, 6]).toContain(o.layout.sat!.day);
+    }
+  });
+
+  it("is not moved onto a day that is still open", () => {
+    const input = withSaved(
+      makeInput({
+        sessions: [...sessions, sess("sun", 4, { HAMSTRINGS: 8 })],
+        firstOpenDay: 5,
+        availability: blockDay(6),
+      }),
+      { ...saved4, sun: day(6) },
+    );
+    const options = proposeLayouts(input);
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    for (const o of options) {
+      expect(o.layout.tue).toEqual(day(1));
+      expect(o.layout.thu).toEqual(day(3));
+      expect(touched(o)).not.toContain("tue");
+      expect(touched(o)).not.toContain("thu");
+    }
+  });
+
+  it("is still moved when the day it was left on is blocked", () => {
+    const input = week({ firstOpenDay: 2, availability: blockDay(1) });
+    expect(isStranded(input)).toBe(true);
+    const options = proposeLayouts(input);
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    for (const o of options) {
+      expect(o.moves.map((m) => m.sessionId)).toContain("tue");
+      expect(o.layout.tue!.day).toBeGreaterThanOrEqual(2);
+    }
+  });
+});

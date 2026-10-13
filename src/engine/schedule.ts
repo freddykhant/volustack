@@ -721,15 +721,33 @@ export function isStranded(input: ScheduleInput): boolean {
   return scoreLayout(input, savedLayout(input)).facts.some((f) => f.kind === "on_blocked_cell");
 }
 
-/** More sessions left to train than days left to train them on. */
+/**
+ * The same week with every overdue session held where it is. A session is overdue when it
+ * could still be moved but its saved day has passed and was not blocked: the athlete may
+ * have trained it without logging, so re-placement neither moves it nor counts it. A session
+ * left on a past day that was blocked could not have been trained there and stays movable.
+ */
+function holdOverdue(input: ScheduleInput): ScheduleInput {
+  const overdue = (s: ScheduleSession) =>
+    !isFixed(s) &&
+    s.placement !== null &&
+    dayIndex(s.placement.day, input.weekStartDay) < input.firstOpenDay &&
+    cellState(input.availability, input.mode, s.placement) !== "BLOCKED";
+  if (!input.sessions.some(overdue)) return input;
+  return { ...input, sessions: input.sessions.map((s) => (overdue(s) ? { ...s, locked: true } : s)) };
+}
+
+/** More sessions left to train than days left to train them on. Overdue sessions are not counted. */
 export function isCrowded(input: ScheduleInput): boolean {
-  return input.sessions.filter((s) => !isFixed(s)).length > freeDayCount(input);
+  const held = holdOverdue(input);
+  return held.sessions.filter((s) => !isFixed(s)).length > freeDayCount(held);
 }
 
 /**
  * When a week is crowded, which sessions should be offered for skipping first?
  * Returns the candidates' ids, most skippable first. Must return each candidate exactly
- * once and be deterministic; `proposeLayouts` repairs anything else.
+ * once, be deterministic and never throw; `proposeLayouts` repairs a wrong list of ids but
+ * does not catch an exception.
  *
  * TODO(product owner): this is a coaching call. The placeholder skips the last session
  * of the week first. Alternatives: the smallest footprint, the session whose muscles are
@@ -786,9 +804,11 @@ function optionKey(o: LayoutOption): string {
  * preference. In a roomy week each option is the same search under a different lens.
  * In a crowded week the options are the athlete's real choices: keep everything by
  * doubling up (AM/PM mode only), or skip a session. Never changes a prescription, and
- * never returns an option `checkLayout` would refuse. Deterministic.
+ * never returns an option `checkLayout` would refuse. An overdue session (see `holdOverdue`)
+ * keeps its placement in every option and is never moved or skipped. Deterministic.
  */
-export function proposeLayouts(input: ScheduleInput): LayoutOption[] {
+export function proposeLayouts(week: ScheduleInput): LayoutOption[] {
+  const input = holdOverdue(week);
   const movable = input.sessions.filter((s) => !isFixed(s));
   if (movable.length === 0) return [];
   const out: LayoutOption[] = [];

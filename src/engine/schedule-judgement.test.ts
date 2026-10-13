@@ -23,8 +23,9 @@ const pick = (choice: string, confidence: number): Verdict[] => [
   { id: REPLACEMENT_PICK_ID, kind: "choice", choice, confidence, probabilities: { [choice]: confidence } },
 ];
 
+const request = replacementQuestions(options, input, label);
+
 describe("replacementQuestions", () => {
-  const request = replacementQuestions(options, input, label);
 
   it("asks one advisory choice over exactly the offered options", () => {
     expect(request.subject).toBe("replacement");
@@ -41,6 +42,56 @@ describe("replacementQuestions", () => {
     expect(json).not.toMatch(/"cost"/);
     expect(json).not.toMatch(/"sessionId"/);
     expect(json).not.toMatch(/"layout"/);
+  });
+});
+
+describe("replacementQuestions, state", () => {
+  // The same six sessions in AM/PM mode, the first already trained: a double-up is on offer.
+  const halfInput = withSaved(
+    {
+      ...input,
+      mode: "HALF_DAY",
+      firstOpenDay: 1,
+      sessions: input.sessions.map((s, i) => (i === 0 ? { ...s, locked: true } : s)),
+    },
+    Object.fromEntries(["a", "b", "c", "d", "e", "f"].map((id, i) => [id, { day: i, daypart: "AM" as const }])),
+  );
+  const halfOptions = proposeLayouts(halfInput);
+  const halfRequest = replacementQuestions(halfOptions, halfInput, label);
+  const state = (r: typeof request) =>
+    r.state as {
+      scheduleMode: string;
+      sessionsLeftThisWeek: number;
+      options: { option: string; warningsLeft: Record<string, number> }[];
+    };
+
+  it("describes a double-up as training twice on one day", () => {
+    expect(halfOptions.map((o) => o.id)).toContain("DOUBLE_UP");
+    const q = halfRequest.questions[0]!;
+    if (q.kind !== "choice") throw new Error("expected a choice question");
+    expect(q.options.DOUBLE_UP).toBe("Keep every session by training twice on one day.");
+  });
+
+  it("counts each option's remaining warnings by kind", () => {
+    for (const [opts, req] of [[options, request], [halfOptions, halfRequest]] as const) {
+      expect(state(req).options.map((o) => o.option)).toEqual(opts.map((o) => o.id));
+      for (const o of opts) {
+        const expected: Record<string, number> = {};
+        for (const f of o.score.facts) expected[f.kind] = (expected[f.kind] ?? 0) + 1;
+        expect(state(req).options.find((x) => x.option === o.id)!.warningsLeft).toEqual(expected);
+      }
+    }
+    expect(halfOptions.some((o) => o.score.facts.length > 0)).toBe(true);
+  });
+
+  it("says which schedule mode the athlete trains in", () => {
+    expect(state(request).scheduleMode).toBe("one session a day");
+    expect(state(halfRequest).scheduleMode).toBe("morning or afternoon sessions");
+  });
+
+  it("counts only the sessions that can still be trained", () => {
+    expect(state(request).sessionsLeftThisWeek).toBe(6);
+    expect(state(halfRequest).sessionsLeftThisWeek).toBe(5);
   });
 });
 
