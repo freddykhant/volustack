@@ -6,11 +6,13 @@ import { api } from "~/trpc/react";
 import type { ReplacementOptionView } from "~/views/schedule";
 
 /** Ways to re-arrange a week in which a session is standing on blocked time. Renders
- * nothing when the engine has no options. Every change is the athlete's tap: an option
+ * nothing when the engine has no options, and one line while the first ones for a
+ * stranded week are on their way. Every change is the athlete's tap: an option
  * is applied on Accept, and a skip goes through the missed-session dialog first. */
 export function ReplacementPanel({
   weekIndex,
   disabled,
+  stranded,
   dismissed,
   onDismiss,
   onAccept,
@@ -19,6 +21,8 @@ export function ReplacementPanel({
   weekIndex: number;
   /** A drag draft is open, or a save is in flight. */
   disabled: boolean;
+  /** The saved week has a session standing on blocked time, so options are due. */
+  stranded: boolean;
   /** Signature of the options the athlete chose to arrange themselves; kept by the board. */
   dismissed: string | null;
   onDismiss: (signature: string) => void;
@@ -35,6 +39,13 @@ export function ReplacementPanel({
   const signature = JSON.stringify(
     options.map((o) => [o.id, o.placements, o.skipped.map((s) => s.sessionId)]),
   );
+  if (options.length === 0 && stranded && query.isFetching) {
+    return (
+      <p className="text-nav text-fg-subtle" role="status">
+        Working out how the week could go…
+      </p>
+    );
+  }
   if (options.length === 0 || dismissed === signature) return null;
 
   return (
@@ -128,6 +139,7 @@ export function ReplacementPanel({
         <RescheduleDialog
           sessionId={skipping}
           open
+          title="Skip this session?"
           onClose={() => {
             setSkipping(null);
             // The session may now be missed: the week and its options are different.

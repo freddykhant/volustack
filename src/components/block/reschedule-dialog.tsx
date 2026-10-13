@@ -8,10 +8,13 @@ export function RescheduleDialog({
   sessionId,
   open,
   onClose,
+  title,
 }: {
   sessionId: string;
   open: boolean;
   onClose: () => void;
+  /** Replaces the heading when the dialog is opened for a session not yet missed. */
+  title?: string;
 }) {
   const router = useRouter();
   const options = api.session.getRescheduleOptions.useQuery({ sessionId }, { enabled: open });
@@ -81,7 +84,7 @@ export function RescheduleDialog({
       >
         <div className="flex items-baseline justify-between">
           <h2 id="reschedule-title" className="text-card-title text-fg">
-            Missed it? Let’s adjust.
+            {title ?? "Missed it? Let’s adjust."}
           </h2>
           <button type="button" onClick={onClose} className="text-nav text-fg-subtle hover:text-fg">
             Close

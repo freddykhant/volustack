@@ -17,6 +17,7 @@ import {
   applySuggestion,
   cellKey,
   cellState,
+  isStranded,
   placeWeek,
   scoreLayout,
   type Layout,
@@ -188,8 +189,12 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
       if (err.data?.code === "CONFLICT") refresh();
     },
   });
+  // Only the week itself is awaited: the options query may wait on the coach's verdict,
+  // and the board should not stay locked for that.
   const onExceptionChange = async () => {
-    await utils.schedule.invalidate();
+    await utils.schedule.getWeekSchedule.invalidate();
+    void utils.schedule.getReplacementOptions.invalidate();
+    void utils.schedule.getSuggestions.invalidate();
     router.refresh();
   };
   const setException = api.schedule.setException.useMutation({
@@ -344,6 +349,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   function confirm(
     next: Layout,
     origin: "athlete" | "suggestion" | "replacement",
+    optionId?: string,
   ) {
     apply.mutate({
       weekIndex,
@@ -358,6 +364,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
       })),
       carryForward: origin === "athlete" && carryForward,
       origin,
+      optionId,
     });
   }
 
@@ -394,7 +401,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   }
 
   function acceptOption(o: ReplacementOptionView) {
-    if (optionFits(o)) confirm(optionLayout(o), "replacement");
+    if (optionFits(o)) confirm(optionLayout(o), "replacement", o.id);
   }
 
   function showOption(o: ReplacementOptionView) {
@@ -567,6 +574,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
             <ReplacementPanel
               weekIndex={weekIndex}
               disabled={!editable}
+              stranded={isStranded(data.input)}
               dismissed={dismissedOptions}
               onDismiss={setDismissedOptions}
               onAccept={acceptOption}
