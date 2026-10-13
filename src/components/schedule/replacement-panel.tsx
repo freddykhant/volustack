@@ -37,7 +37,11 @@ export function ReplacementPanel({
   // Dismissal matches these exact options, so it outlasts a refetch that returns the same
   // ones and lapses when blocked time changes them.
   const signature = JSON.stringify(
-    options.map((o) => [o.id, o.placements, o.skipped.map((s) => s.sessionId)]),
+    options.map((o) => [
+      o.id,
+      Object.entries(o.layout).sort(([a], [b]) => a.localeCompare(b)),
+      o.skipped.map((s) => s.sessionId),
+    ]),
   );
   if (options.length === 0 && stranded && query.isFetching) {
     return (
