@@ -19,6 +19,8 @@
 9. **The property "fewest changes never moves more sessions than balanced" is dropped**: both are local searches, so it is not guaranteed. A fixture test covers the intent.
 10. **Ordinary move suggestions are suppressed** while a session is standing on blocked time, so the panel is the only voice.
 11. **A double-up is offered only when every session fits by doubling** (added during the build, after review). It then skips nothing and names a session the athlete can still move. When even doubling cannot fit the week, only skip options are offered; "stack as many as fit and skip the rest" is withdrawn.
+12. **Overdue sessions are held during re-placement** (added after the whole-branch review). A session still scheduled on a day that has already passed, and not on blocked time, is not moved by any option and does not count toward the week being crowded. Auto-placement ("Place for me") is unchanged.
+13. **The accepted option's id is logged** with the `SCHEDULE` decision (`optionId`), and a skip option's view carries no moves or placements.
 
 ## Problem
 
