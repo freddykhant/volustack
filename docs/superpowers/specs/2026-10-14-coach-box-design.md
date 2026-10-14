@@ -1,11 +1,22 @@
 # Dynamic Scheduling ④ — The Coach Box (Design)
 
-**Status:** Design approved in conversation 2026-10-14. Awaiting review of this document.
+**Status:** Approved 2026-10-14. Amended the same day during planning; see "Amendments" directly below. Where the body of this document disagrees with the amendments, the amendments win.
 **Scope:** A single text input on the week board. The athlete types what has changed or what they want to know; a language model turns the message into a strict form; pure server code validates the form against the real week; the reply is built from engine facts. Covers scheduling requests and four read-only questions.
 **Branch target:** merges into `freddy/experimental` (standing rule). Feature branch `freddy/feat/coach-box`.
 **Builds on:** Dynamic Scheduling ① to ③ (placements, standing availability, one-off exceptions, `proposeLayouts`, the replacement panel, `schedule.setException` / `clearException`), the missed-session flow (`RescheduleDialog`), the readiness model (`readiness.getReadiness`, `toReadinessView`), and `nextSession`.
 **Part of:** Dynamic Scheduling — ① + ② + ③ (merged) → **④ the coach box (this)** → ⑤ situational coach cues.
 **Supersedes:** the paper contract for "seam 3" in `docs/superpowers/specs/2026-10-01-jev-judgement-foundation-design.md` §8. That contract proposed Jev for intent and a Jev guardrail over tool calls. This design uses neither.
+
+## Amendments (2026-10-14, during planning)
+
+1. **The coach box is rendered by `ScheduleBoard`, at its top,** not by the week page, so it knows when a drag draft is open and can hand results to the board's notice.
+2. **A ninth reply kind, `note`,** carries a plain engine-built line when there is nothing to confirm (for example, everything asked for is already blocked). `confirm_unblock` carries `notes` for standing blocks it cannot open, and `skip` carries the session's `label`.
+3. **`COACH_DAILY_LIMIT` lives in `src/schema/coach.ts`,** not in the engine's constants.
+4. **The resolver receives the week as plain data plus an `explain` function,** so it does not depend on the engine's input shape. It lives in `src/domain/coach/resolve.ts`; a small adapter, `src/server/coach/week.ts`, builds its input.
+5. **"Re-arrange" does not scroll the page.** Its lines point to the options below the box.
+6. **`PlacementExplanation` gains `better: Placement | null`,** the cell the engine would choose instead. `isBest` is `better === null`.
+7. **`loadWeekContext` and `lockActiveBlock` move** to `src/server/schedule/week-context.ts`, unchanged, so the coach router can use them.
+8. **The daily cap is checked before the model call and a capped message is not logged.** A finished week is refused before the cap is checked.
 
 ## Problem
 
