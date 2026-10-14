@@ -1,4 +1,5 @@
 import { dayNumberOfIsoDate, weekdayOfDayNumber } from "~/domain/local-day";
+import { SUGGESTION_MIN_GAIN } from "~/engine/constants";
 import type { Placement, PlacementAlternative, PlacementExplanation } from "~/engine/schedule";
 import type { ExceptionInput } from "~/schema";
 import { DAY_NAMES, toWarnings } from "~/views/schedule";
@@ -76,14 +77,19 @@ const ABOUT_THE_SAME = 0.5;
 
 function phraseAlternative(a: PlacementAlternative, label: (id: string) => string): string {
   const place = placeName(a.to);
-  const problems = toWarnings([...a.adds, ...a.changes], label);
+  const problems = toWarnings([...a.adds, ...a.worsens], label);
   if (a.delta > ABOUT_THE_SAME) {
     return problems.length > 0
       ? `If it moved to ${place}: ${problems.join(" ")}`
-      : `${place} would space the week a little less evenly.`;
+      : `${place} would score slightly worse.`;
   }
-  if (a.delta < -ABOUT_THE_SAME) return `${place} would be better.`;
-  return `${place} would be about the same.`;
+  const verdict =
+    a.delta < -SUGGESTION_MIN_GAIN
+      ? "would be better"
+      : a.delta < -ABOUT_THE_SAME
+        ? "would be slightly better"
+        : "would be about the same";
+  return problems.length > 0 ? `${place} ${verdict} overall, but: ${problems.join(" ")}` : `${place} ${verdict}.`;
 }
 
 /** Why a session is where it is. Every clause comes from the explanation's own facts. */
@@ -106,9 +112,13 @@ export function phraseExplanation(ex: PlacementExplanation, label: (id: string) 
 export function phraseNextSession(next: NextSessionInfo | null): string[] {
   if (next === null) return ["Every session this week is done or missed."];
   if (next.placement === null) return [`Next up is ${next.label}. It isn't placed on a day yet.`];
-  const lines = [`Next up is ${next.label} on ${placeName(next.placement)}, about ${next.minutes} minutes.`];
+  const minutes = Math.round(next.minutes);
+  const length = minutes <= 0 ? "" : `, about ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+  const lines = [`Next up is ${next.label} on ${placeName(next.placement)}${length}.`];
   if (next.first) {
-    lines.push(`It starts with ${next.first.exerciseName}, ${next.first.sets} sets of ${next.first.repLow} to ${next.first.repHigh}.`);
+    const { exerciseName, sets, repLow, repHigh } = next.first;
+    const reps = repLow === repHigh ? `${repLow}` : `${repLow} to ${repHigh}`;
+    lines.push(`It starts with ${exerciseName}, ${sets} ${sets === 1 ? "set" : "sets"} of ${reps}.`);
   }
   return lines;
 }

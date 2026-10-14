@@ -69,7 +69,7 @@ describe("explainPlacement", () => {
     expect(ex.current).not.toBe(saved.legsB);
   });
 
-  it("reports a rest gap that shrinks across the week boundary as a changed fact", () => {
+  it("reports a rest gap that shrinks across the week boundary as a worsened fact", () => {
     const carried = withSaved(
       makeInput({
         sessions: [sess("tue", 0, { QUADS: 8 })],
@@ -81,13 +81,31 @@ describe("explainPlacement", () => {
     const monday = ex.alternatives.find((a) => a.to.day === 0)!;
     expect(monday.delta).toBeGreaterThan(0);
     expect(monday.adds).toEqual([]);
-    expect(monday.changes).toHaveLength(1);
-    const fact = monday.changes[0]!;
+    expect(monday.worsens).toHaveLength(1);
+    const fact = monday.worsens[0]!;
     expect(fact.kind).toBe("short_rest");
     // Monday sits one half-day after the carried-in session.
     expect(fact.kind === "short_rest" && fact.gapHalfDays).toBe(1);
     const wednesday = ex.alternatives.find((a) => a.to.day === 2)!;
     expect(wednesday.resolves.some((f) => f.kind === "short_rest")).toBe(true);
+  });
+
+  it("does not call a rest gap that lengthens but stays short a worsened, new or resolved problem", () => {
+    const carried = withSaved(
+      makeInput({
+        sessions: [sess("mon", 0, { QUADS: 8 })],
+        carryIn: [{ footprint: { QUADS: 8 }, halfDaysBeforeWeekStart: 1 }],
+      }),
+      { mon: day(0) },
+    );
+    const ex = explainPlacement(carried, { mon: day(0) }, "mon")!;
+    expect(ex.currentFacts.some((f) => f.kind === "short_rest" && f.gapHalfDays === 1)).toBe(true);
+    const tuesday = ex.alternatives.find((a) => a.to.day === 1)!;
+    expect(tuesday.delta).toBeLessThan(0);
+    expect(scoreLayout(carried, { mon: day(1) }).facts.some((f) => f.kind === "short_rest" && f.gapHalfDays === 3)).toBe(true);
+    expect(tuesday.worsens).toEqual([]);
+    expect(tuesday.adds).toEqual([]);
+    expect(tuesday.resolves).toEqual([]);
   });
 
   it("offers nothing as better when the gain is within the suggestion bar", () => {
@@ -104,7 +122,7 @@ describe("explainPlacement", () => {
     const thursday = ex.alternatives.find((a) => a.to.day === 3)!;
     expect(thursday.delta).toBeLessThan(0);
     expect(thursday.adds).toEqual([]);
-    expect(thursday.changes).toEqual([]);
+    expect(thursday.worsens).toEqual([]);
     // The 5-day and 2-day gaps are far enough apart to be a fact; Thursday's 3 and 4 are not.
     expect(thursday.resolves.map((f) => f.kind)).toEqual(["uneven_spread"]);
   });
@@ -157,7 +175,7 @@ describe("explainPlacement", () => {
     const saturday = ex.alternatives.find((x) => x.to.day === 5)!;
     expect(saturday).toBeDefined();
     expect(saturday.resolves.some((f) => f.kind === "off_preference" && f.sessionId === "a")).toBe(true);
-    for (const f of [...saturday.adds, ...saturday.changes, ...saturday.resolves]) {
+    for (const f of [...saturday.adds, ...saturday.worsens, ...saturday.resolves]) {
       expect(JSON.stringify(f).includes('"a"') || f.kind === "load_streak" || f.kind === "uneven_spread").toBe(true);
     }
     expect(ex.currentFacts.every((f) => f.kind === "off_preference" && f.sessionId === "a")).toBe(true);

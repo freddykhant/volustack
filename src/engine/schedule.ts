@@ -874,14 +874,14 @@ export interface PlacementAlternative {
   to: Placement;
   /**
    * Cost change if the session moved there: positive is worse. It can be non-zero with
-   * `adds`, `changes` and `resolves` all empty, when the only difference is the week's
+   * `adds`, `worsens` and `resolves` all empty, when the only difference is the week's
    * spread cost, which is below the threshold for a fact.
    */
   delta: number;
   /** Problems naming this session, or the whole week, that the move would create and the current layout does not have. */
   adds: DecisionFact[];
-  /** Problems that remain after the move but in a different size, as they would be after it. */
-  changes: DecisionFact[];
+  /** Problems naming this session, or the whole week, that remain after the move and would be worse, as they would be after it. */
+  worsens: DecisionFact[];
   /** Problems naming this session, or the whole week, in the current layout that the move would remove. */
   resolves: DecisionFact[];
 }
@@ -899,6 +899,22 @@ export interface PlacementExplanation {
   isBest: boolean;
   /** A current board suggestion (a move or a swap) involves this session. */
   inSuggestion: boolean;
+}
+
+/** How bad a fact is, higher meaning worse, for comparing two facts of one identity. Null when the kind has no size. */
+function factSeverity(f: DecisionFact): number | null {
+  switch (f.kind) {
+    case "short_rest":
+      return -f.gapHalfDays;
+    case "load_streak":
+      return f.days;
+    case "same_day_stack":
+      return f.sharedSets;
+    case "uneven_spread":
+      return f.longestGapDays - f.shortestGapDays;
+    default:
+      return null;
+  }
 }
 
 /** The sessions a schedule fact is about. Week-wide facts name none. */
@@ -927,17 +943,15 @@ export function explainPlacement(input: ScheduleInput, layout: Layout, sessionId
   if (!session || current === undefined || isFixed(session)) return null;
 
   const base = scoreLayout(input, layout);
-  const contentsByIdentity = (facts: DecisionFact[]) => {
-    const out = new Map<string, Set<string>>();
+  const byIdentity = (facts: DecisionFact[]) => {
+    const out = new Map<string, DecisionFact[]>();
     for (const f of facts) {
       const id = factIdentity(f);
-      const contents = out.get(id) ?? new Set<string>();
-      contents.add(factContent(f));
-      out.set(id, contents);
+      out.set(id, [...(out.get(id) ?? []), f]);
     }
     return out;
   };
-  const baseFacts = contentsByIdentity(base.facts);
+  const baseFacts = byIdentity(base.facts);
   const here = placementPosition(current, input.weekStartDay);
   const held = heldCells(input, layout);
   const free = openCells(input).filter((c) => !held.has(cellKey(c, input.mode)));
@@ -948,14 +962,16 @@ export function explainPlacement(input: ScheduleInput, layout: Layout, sessionId
   };
 
   const compare = (to: Placement, after: LayoutScore): PlacementAlternative => {
-    const afterFacts = contentsByIdentity(after.facts);
+    const afterFacts = byIdentity(after.facts);
     return {
       to,
       delta: Math.round((after.cost - base.cost) * 1e6) / 1e6,
       adds: after.facts.filter((f) => mine(f) && !baseFacts.has(factIdentity(f))),
-      changes: after.facts.filter((f) => {
-        const same = baseFacts.get(factIdentity(f));
-        return mine(f) && same !== undefined && !same.has(factContent(f));
+      worsens: after.facts.filter((f) => {
+        const severity = factSeverity(f);
+        const was = (baseFacts.get(factIdentity(f)) ?? []).map(factSeverity);
+        // Worse than every current fact of its identity, so a size that only moved sideways is not a cost.
+        return mine(f) && severity !== null && was.length > 0 && was.every((w) => w !== null && severity > w);
       }),
       resolves: base.facts.filter((f) => mine(f) && !afterFacts.has(factIdentity(f))),
     };

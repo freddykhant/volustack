@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SUGGESTION_MIN_GAIN } from "~/engine/constants";
 import type { PlacementExplanation } from "~/engine/schedule";
 import {
   blockSummary,
@@ -69,8 +70,8 @@ describe("phraseExplanation", () => {
     current: { day: 4, daypart: null },
     currentFacts: [],
     alternatives: [
-      { to: { day: 3, daypart: null }, delta: 16, adds: [shortRest], changes: [], resolves: [] },
-      { to: { day: 5, daypart: null }, delta: 0, adds: [], changes: [], resolves: [] },
+      { to: { day: 3, daypart: null }, delta: 16, adds: [shortRest], worsens: [], resolves: [] },
+      { to: { day: 5, daypart: null }, delta: 0, adds: [], worsens: [], resolves: [] },
     ],
     better: null,
     isBest: true,
@@ -88,14 +89,14 @@ describe("phraseExplanation", () => {
 
   it("phrases a problem that would get worse, not only one that would appear", () => {
     const lines = phraseExplanation(
-      { ...ex, alternatives: [{ to: { day: 0, daypart: null }, delta: 16, adds: [], changes: [shortRest], resolves: [] }] },
+      { ...ex, alternatives: [{ to: { day: 0, daypart: null }, delta: 16, adds: [], worsens: [shortRest], resolves: [] }] },
       label,
     );
     expect(lines[1]).toBe("If it moved to Monday: Legs B is only 1 day after Legs A, and both train quads.");
   });
 
   it("names the better spot when there is one, and the current problems", () => {
-    const friday = { to: { day: 4, daypart: null }, delta: -16, adds: [], changes: [], resolves: [shortRest] };
+    const friday = { to: { day: 4, daypart: null }, delta: -16, adds: [], worsens: [], resolves: [shortRest] };
     const lines = phraseExplanation(
       { ...ex, current: { day: 3, daypart: null }, currentFacts: [shortRest], alternatives: [friday], better: friday, isBest: false },
       label,
@@ -115,18 +116,29 @@ describe("phraseExplanation", () => {
 
   it("describes a worse neighbour that has no named problem", () => {
     const lines = phraseExplanation(
-      { ...ex, alternatives: [{ to: { day: 6, daypart: null }, delta: 2, adds: [], changes: [], resolves: [] }] },
+      { ...ex, alternatives: [{ to: { day: 6, daypart: null }, delta: 2, adds: [], worsens: [], resolves: [] }] },
       label,
     );
-    expect(lines[1]).toBe("Sunday would space the week a little less evenly.");
+    expect(lines[1]).toBe("Sunday would score slightly worse.");
   });
 
-  it("does not call a slightly cheaper neighbour better unless it clears the threshold", () => {
-    const lines = phraseExplanation(
-      { ...ex, alternatives: [{ to: { day: 5, daypart: null }, delta: -0.3, adds: [], changes: [], resolves: [] }] },
-      label,
+  it("grades a cheaper neighbour against the suggestion bar", () => {
+    const at = (delta: number, adds: (typeof shortRest)[] = []) =>
+      phraseExplanation(
+        { ...ex, alternatives: [{ to: { day: 5, daypart: null }, delta, adds, worsens: [], resolves: [] }] },
+        label,
+      )[1];
+    expect(at(0)).toBe("Saturday would be about the same.");
+    expect(at(-0.3)).toBe("Saturday would be about the same.");
+    expect(at(-1)).toBe("Saturday would be slightly better.");
+    expect(at(-SUGGESTION_MIN_GAIN)).toBe("Saturday would be slightly better.");
+    expect(at(-16)).toBe("Saturday would be better.");
+    expect(at(-1, [shortRest])).toBe(
+      "Saturday would be slightly better overall, but: Legs B is only 1 day after Legs A, and both train quads.",
     );
-    expect(lines[1]).toBe("Saturday would be about the same.");
+    expect(at(0.2, [shortRest])).toBe(
+      "Saturday would be about the same overall, but: Legs B is only 1 day after Legs A, and both train quads.",
+    );
   });
 
   it("says so when there is nowhere else to go", () => {
@@ -147,6 +159,17 @@ describe("answers", () => {
         first: { exerciseName: "Barbell Bench Press", sets: 4, repLow: 6, repHigh: 10 },
       }),
     ).toEqual(["Next up is Upper A on Thursday morning, about 60 minutes.", "It starts with Barbell Bench Press, 4 sets of 6 to 10."]);
+    const bench = { exerciseName: "Barbell Bench Press", sets: 4, repLow: 6, repHigh: 10 };
+    const upper = { label: "Upper A", placement: { day: 3, daypart: "AM" as const }, minutes: 60, first: null };
+    expect(phraseNextSession({ ...upper, minutes: 0 })).toEqual(["Next up is Upper A on Thursday morning."]);
+    expect(phraseNextSession({ ...upper, minutes: 0, first: bench })).toEqual([
+      "Next up is Upper A on Thursday morning.",
+      "It starts with Barbell Bench Press, 4 sets of 6 to 10.",
+    ]);
+    expect(phraseNextSession({ ...upper, minutes: 1 })).toEqual(["Next up is Upper A on Thursday morning, about 1 minute."]);
+    expect(phraseNextSession({ ...upper, first: { ...bench, sets: 1, repLow: 8, repHigh: 8 } })[1]).toBe(
+      "It starts with Barbell Bench Press, 1 set of 8.",
+    );
     expect(phraseNextSession({ label: "Upper A", placement: null, minutes: 0, first: null })).toEqual([
       "Next up is Upper A. It isn't placed on a day yet.",
     ]);
