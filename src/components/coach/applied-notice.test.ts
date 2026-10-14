@@ -41,6 +41,21 @@ describe("coachAppliedNotice", () => {
     });
   });
 
+  it("says both things once for a later week that moved and needs a choice", () => {
+    expect(coachAppliedNotice([week(2), week(3, ["Legs"], true)], 2)).toEqual({
+      text: "Week 3: Legs. Week 3 needs a choice when you open it.",
+      weekLinks: [3],
+    });
+  });
+
+  it("says nothing about the viewed week needing a choice, since the panel covers it", () => {
+    expect(coachAppliedNotice([week(2, [], true)], 2)).toBeNull();
+    expect(coachAppliedNotice([week(2, ["Push"], true)], 2)).toEqual({
+      text: "Re-arranged: Push.",
+      weekLinks: [],
+    });
+  });
+
   it("is null when nothing moved or needs a choice", () => {
     expect(coachAppliedNotice([week(2), week(3)], 2)).toBeNull();
     expect(coachAppliedNotice([], 2)).toBeNull();

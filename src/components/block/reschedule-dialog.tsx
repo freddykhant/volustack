@@ -8,11 +8,14 @@ export function RescheduleDialog({
   sessionId,
   open,
   onClose,
+  onApplied,
   title,
 }: {
   sessionId: string;
   open: boolean;
   onClose: () => void;
+  /** Called when the reschedule was applied, just before `onClose`. */
+  onApplied?: () => void;
   /** Replaces the heading when the dialog is opened for a session not yet missed. */
   title?: string;
 }) {
@@ -20,6 +23,7 @@ export function RescheduleDialog({
   const options = api.session.getRescheduleOptions.useQuery({ sessionId }, { enabled: open });
   const apply = api.session.applyReschedule.useMutation({
     onSuccess: () => {
+      onApplied?.();
       onClose();
       router.refresh();
     },

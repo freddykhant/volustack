@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/core";
 import { coachAppliedNotice } from "~/components/coach/applied-notice";
 import { CoachBox, type AppliedWeek } from "~/components/coach/coach-box";
+import { blockedReason } from "~/components/coach/messages";
 import {
   applySuggestion,
   cellKey,
@@ -162,6 +163,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [carryForward, setCarryForward] = useState(false);
+  const [coachBusy, setCoachBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [dismissedOptions, setDismissedOptions] = useState<string | null>(null);
   const tzSynced = useRef(false);
@@ -228,7 +230,9 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     const applied = coachAppliedNotice(weeks, weekIndex);
     setNotice(applied ? { ...applied, availabilityLink: false } : null);
   }
-  const blockPending = setException.isPending || clearException.isPending;
+  const togglePending = setException.isPending || clearException.isPending;
+  // The coach box saves blocked time too; the board waits for it like for its own.
+  const blockPending = togglePending || coachBusy;
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
@@ -450,10 +454,12 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
       {coach.data?.enabled && !data.readOnly ? (
         <CoachBox
           weekIndex={weekIndex}
-          blocked={
-            draft !== null ? "Finish or discard your changes first." : null
-          }
+          blocked={blockedReason({
+            draftOpen: draft !== null,
+            boardSaving: togglePending,
+          })}
           onApplied={onCoachApplied}
+          onBusyChange={setCoachBusy}
         />
       ) : null}
       <DndContext

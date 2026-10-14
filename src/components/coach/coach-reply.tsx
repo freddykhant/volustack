@@ -47,7 +47,7 @@ export function CoachReplyCard({
   onDismiss: () => void;
 }) {
   return (
-    <div className={CARD} role="status" aria-live="polite">
+    <div className={CARD}>
       {reply.kind === "confirm_block" || reply.kind === "confirm_unblock" ? (
         <>
           <p className="text-card-title text-fg">{reply.summary}</p>
@@ -103,9 +103,9 @@ export function CoachReplyCard({
         <>
           <p className="text-card-title text-fg">{reply.question}</p>
           <div className="flex flex-wrap gap-2">
-            {reply.choices.map((c) => (
+            {reply.choices.map((c, i) => (
               <button
-                key={c.label}
+                key={i}
                 type="button"
                 className="rounded-control border-border text-nav text-fg-soft hover:text-fg border px-3 py-1.5 transition-colors"
                 onClick={() => onChoose(c.reply)}
