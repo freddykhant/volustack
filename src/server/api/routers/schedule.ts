@@ -209,8 +209,9 @@ export const scheduleRouter = createTRPCRouter({
   }),
 
   // The placement write for everything the athlete chooses (the one other placement write
-  // is the quiet re-placement of a later week in `setException`). An athlete's own move is
-  // recorded, not gated; a suggestion only arrives here because the athlete pressed Accept.
+  // is the quiet re-placement of a later week in `rearrangeLaterWeek`, reached from both
+  // `setException` and `setExceptions`). An athlete's own move is recorded, not gated; a
+  // suggestion only arrives here because the athlete pressed Accept.
   applyLayout: protectedProcedure.input(ApplyLayoutInputSchema).mutation(
     async ({ ctx, input }): Promise<{ weekIndex: number; applied: number[]; skipped: { weekIndex: number; reason: SkipReason }[] }> => {
       const userId = ctx.session.user.id;

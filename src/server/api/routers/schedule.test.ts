@@ -757,7 +757,25 @@ describe("setExceptions", () => {
     const { caller } = makeCaller();
     await expect(caller.setExceptions({ cells: [{ date: "2026-10-08", daypart: "AM" }] })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const many = Array.from({ length: 15 }, () => ({ date: "2026-10-08", daypart: null }));
-    await expect(caller.setExceptions({ cells: many })).rejects.toBeDefined();
+    await expect(caller.setExceptions({ cells: many })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("writes the two halves once when one-a-day mode names the same whole day twice", async () => {
+    const { caller, db } = makeCaller();
+    await caller.setExceptions({
+      cells: [
+        { date: "2026-10-08", daypart: null },
+        { date: "2026-10-08", daypart: null },
+      ],
+    });
+    expect(db.availabilityException.createMany).toHaveBeenCalledTimes(1);
+    expect(db.availabilityException.createMany).toHaveBeenCalledWith({
+      data: [
+        { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "AM" },
+        { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "PM" },
+      ],
+      skipDuplicates: true,
+    });
   });
 
   it("is CONFLICT when the re-arrangement of any later week is short, so the whole request fails", async () => {
@@ -813,5 +831,22 @@ describe("clearExceptions", () => {
     expect(db.$transaction).toHaveBeenCalledTimes(1);
     expect(db.availabilityException.deleteMany).toHaveBeenCalledTimes(2);
     expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("takes the block lock before any read or delete", async () => {
+    const { caller, db } = makeCaller();
+    await caller.clearExceptions({ cells: [{ date: "2026-10-08", daypart: null }] });
+    const lock = db.$queryRaw.mock.invocationCallOrder[0]!;
+    expect(lock).toBeLessThan(db.mesocycle.findFirst.mock.invocationCallOrder[0]!);
+    expect(lock).toBeLessThan(db.availabilityException.deleteMany.mock.invocationCallOrder[0]!);
+  });
+
+  it("clears both halves of each day in one-a-day mode, whatever half was named", async () => {
+    const { caller, db } = makeCaller();
+    await caller.clearExceptions({ cells: [{ date: "2026-10-08", daypart: "AM" }, { date: "2026-10-09", daypart: null }] });
+    expect(db.availabilityException.deleteMany.mock.calls).toEqual([
+      [{ where: { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: { in: ["AM", "PM"] } } }],
+      [{ where: { athleteProfileId: "profile-1", date: D("2026-10-09"), daypart: { in: ["AM", "PM"] } } }],
+    ]);
   });
 });

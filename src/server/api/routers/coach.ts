@@ -29,10 +29,24 @@ export const coachRouter = createTRPCRouter({
     if (weekDates(c, now).length === 0) return { kind: "unsupported", lines: BLOCK_OVER_LINES };
     if (!coachEnabled()) return { kind: "unavailable", lines: UNAVAILABLE_LINES };
 
+    // The message's row is written before the day's rows are counted. Of two requests
+    // racing for the last place, the later count sees both rows, so the cap holds without
+    // a lock: at worst both are refused.
+    const message = await ctx.db.coachMessage.create({
+      data: { athleteProfileId: c.athleteProfileId, weekIndex: input.weekIndex, text: input.text, outcome: "pending" },
+      select: { id: true },
+    });
     const sent = await ctx.db.coachMessage.count({
       where: { athleteProfileId: c.athleteProfileId, createdAt: { gte: new Date(now.getTime() - DAY_MS) } },
     });
-    if (sent >= COACH_DAILY_LIMIT) return { kind: "unavailable", lines: LIMIT_LINES };
+    if (sent > COACH_DAILY_LIMIT) {
+      try {
+        await ctx.db.coachMessage.delete({ where: { id: message.id } });
+      } catch {
+        // A row left behind only counts against an athlete who is already over the limit.
+      }
+      return { kind: "unavailable", lines: LIMIT_LINES };
+    }
 
     // The board hides a suggestion the athlete dismissed for this layout; the coach must too.
     const dismissed = await suggestionDismissed(ctx.db, c);
@@ -66,11 +80,9 @@ export const coachRouter = createTRPCRouter({
 
     // The log is for the product, not the athlete: a failed write must not turn a good reply into an error.
     try {
-      await ctx.db.coachMessage.create({
+      await ctx.db.coachMessage.update({
+        where: { id: message.id },
         data: {
-          athleteProfileId: c.athleteProfileId,
-          weekIndex: input.weekIndex,
-          text: input.text,
           form: result.ok ? asJson(result.form) : Prisma.DbNull,
           outcome: result.ok ? reply.kind : result.reason,
           model: result.ok ? result.model : null,

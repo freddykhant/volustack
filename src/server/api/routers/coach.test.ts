@@ -139,9 +139,12 @@ function makeCaller(opts: Opts = {}) {
         return Promise.resolve(opts.readinessBlock ?? EMPTY_BLOCK);
       }),
     },
+    // The count runs after this message's own row is written, so it includes that row.
     coachMessage: {
-      count: vi.fn().mockResolvedValue(opts.messagesToday ?? 0),
-      create: vi.fn<(args: { data: Record<string, unknown> }) => Promise<unknown>>().mockResolvedValue({}),
+      create: vi.fn<(args: { data: Record<string, unknown> }) => Promise<unknown>>().mockResolvedValue({ id: "msg-1" }),
+      count: vi.fn().mockResolvedValue((opts.messagesToday ?? 0) + 1),
+      update: vi.fn<(args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>>().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
     },
     decisionLog: { findMany: vi.fn().mockResolvedValue(opts.dismissed ?? []) },
     trainingSession: { update: vi.fn(), updateMany: vi.fn() },
@@ -207,15 +210,19 @@ describe("coach.interpret", () => {
     });
   });
 
-  it("logs the message, the form, the outcome and the token counts", async () => {
+  it("writes the message's row first, then fills in the form, the outcome and the token counts", async () => {
     understood({ intent: "ask_recovery" });
     const { caller, db } = makeCaller();
     await caller.interpret({ weekIndex: 1, text: "how's my recovery?" });
     expect(db.coachMessage.create).toHaveBeenCalledWith({
+      data: { athleteProfileId: "profile-1", weekIndex: 1, text: "how's my recovery?", outcome: "pending" },
+      select: { id: true },
+    });
+    expect(db.coachMessage.create.mock.invocationCallOrder[0]).toBeLessThan(db.coachMessage.count.mock.invocationCallOrder[0]!);
+    expect(db.coachMessage.create.mock.invocationCallOrder[0]).toBeLessThan(interpret.mock.invocationCallOrder[0]!);
+    expect(db.coachMessage.update).toHaveBeenCalledWith({
+      where: { id: "msg-1" },
       data: {
-        athleteProfileId: "profile-1",
-        weekIndex: 1,
-        text: "how's my recovery?",
         form: { intent: "ask_recovery", dates: [], sessionKey: null },
         outcome: "answer",
         model: "claude-haiku-4-5-20251001",
@@ -223,6 +230,8 @@ describe("coach.interpret", () => {
         outputTokens: 40,
       },
     });
+    expect(db.coachMessage.create).toHaveBeenCalledTimes(1);
+    expect(db.coachMessage.delete).not.toHaveBeenCalled();
   });
 
   it("answers with the fixed line and still logs when the model fails", async () => {
@@ -232,7 +241,7 @@ describe("coach.interpret", () => {
       kind: "unavailable",
       lines: ["I couldn't work that out just now. You can still block time from the board."],
     });
-    const { data } = db.coachMessage.create.mock.calls[0]![0] as { data: { form: unknown } };
+    const { data } = db.coachMessage.update.mock.calls[0]![0];
     expect(data).toMatchObject({ outcome: "timeout", model: null });
     expect(data.form).toBe(Prisma.DbNull);
   });
@@ -241,34 +250,39 @@ describe("coach.interpret", () => {
     interpret.mockRejectedValue(new Error("boom"));
     const { caller, db } = makeCaller();
     await expect(caller.interpret({ weekIndex: 1, text: "hello" })).resolves.toMatchObject({ kind: "unavailable" });
-    expect(db.coachMessage.create.mock.calls[0]![0].data).toMatchObject({ outcome: "api_error", model: null });
+    expect(db.coachMessage.update.mock.calls[0]![0].data).toMatchObject({ outcome: "api_error", model: null });
   });
 
-  it("still returns the reply when the log write fails", async () => {
+  it("still returns the reply when the log update fails", async () => {
     understood({ intent: "ask_recovery" });
     const { caller, db } = makeCaller();
-    db.coachMessage.create.mockRejectedValue(new Error("db down"));
+    db.coachMessage.update.mockRejectedValue(new Error("db down"));
     await expect(caller.interpret({ weekIndex: 1, text: "recovery?" })).resolves.toMatchObject({ kind: "answer", topic: "recovery" });
-    expect(db.coachMessage.create).toHaveBeenCalledTimes(1);
+    expect(db.coachMessage.update).toHaveBeenCalledTimes(1);
   });
 
-  it("makes no model call and logs nothing at the daily limit", async () => {
+  it("refuses at the daily limit, removes its own row and makes no model call", async () => {
     const { caller, db } = makeCaller({ messagesToday: 50 });
     await expect(caller.interpret({ weekIndex: 1, text: "can't make Thursday" })).resolves.toEqual({
       kind: "unavailable",
       lines: ["You've reached today's limit for the coach. The board still works."],
     });
     expect(interpret).not.toHaveBeenCalled();
-    expect(db.coachMessage.create).not.toHaveBeenCalled();
+    expect(db.coachMessage.create).toHaveBeenCalledTimes(1);
+    expect(db.coachMessage.delete).toHaveBeenCalledWith({ where: { id: "msg-1" } });
+    expect(db.coachMessage.update).not.toHaveBeenCalled();
     expect(db.coachMessage.count.mock.calls[0]![0]).toMatchObject({
       where: { athleteProfileId: "profile-1", createdAt: { gte: new Date(NOW.getTime() - 24 * 60 * 60 * 1000) } },
     });
   });
 
-  it("allows the fiftieth message", async () => {
+  it("allows the fiftieth message and fills in its row", async () => {
     understood({ intent: "ask_recovery" });
-    const { caller } = makeCaller({ messagesToday: 49 });
+    const { caller, db } = makeCaller({ messagesToday: 49 });
     await expect(caller.interpret({ weekIndex: 1, text: "recovery?" })).resolves.toMatchObject({ kind: "answer" });
+    expect(interpret).toHaveBeenCalledTimes(1);
+    expect(db.coachMessage.delete).not.toHaveBeenCalled();
+    expect(db.coachMessage.update.mock.calls[0]![0]).toMatchObject({ where: { id: "msg-1" }, data: { outcome: "answer" } });
   });
 
   it("is unavailable without a key, with no model call and no log", async () => {

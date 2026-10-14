@@ -1,3 +1,4 @@
+import "server-only";
 import { TRPCError } from "@trpc/server";
 import type { Prisma } from "../../../generated/prisma";
 import { layoutKey, savedLayout } from "~/engine";
