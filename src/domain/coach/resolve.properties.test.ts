@@ -25,6 +25,7 @@ const arbWeek: fc.Arbitrary<CoachWeek> = fc
       { maxLength: 6 },
     ),
     stranded: fc.boolean(),
+    hasOptions: fc.boolean(),
     suggestion: fc.option(
       fc.record({ headline: fc.constant("Move Session 1 to another day."), reasons: fc.array(fc.constant("A reason."), { maxLength: 2 }) }),
       { nil: null },
@@ -32,7 +33,7 @@ const arbWeek: fc.Arbitrary<CoachWeek> = fc
     warnings: fc.array(fc.constant("A warning."), { maxLength: 2 }),
     explains: fc.boolean(),
   })
-  .map(({ mode, start, length, blocks, sessions, stranded, weekIndex, suggestion, warnings, explains }) => {
+  .map(({ mode, start, length, blocks, sessions, stranded, hasOptions, weekIndex, suggestion, warnings, explains }) => {
     const dates: CoachDate[] = Array.from({ length }, (_, i) => ({
       date: iso(start + i),
       weekday: (start + i + 3) % 7,
@@ -52,6 +53,7 @@ const arbWeek: fc.Arbitrary<CoachWeek> = fc
         placement: s.day === null ? null : { day: s.day, daypart: mode === "DAY" ? null : s.half },
       })),
       stranded,
+      hasOptions: stranded && hasOptions,
       warnings,
       suggestion,
       next: null,

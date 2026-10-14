@@ -176,7 +176,7 @@ describe("coach.interpret", () => {
       kind: "confirm_block",
       cells: [{ date: "2026-10-08", daypart: null }],
       summary: "Block Thu 8 Oct?",
-      alreadyBlocked: [],
+      alreadyBlockedLine: null,
     });
     expect(db.availabilityException.createMany).not.toHaveBeenCalled();
     expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
@@ -346,13 +346,23 @@ describe("coach.interpret", () => {
     });
   });
 
-  it("still answers when the readiness read fails", async () => {
+  it("says recovery is not available, not that nothing is logged, when the readiness read fails", async () => {
     understood({ intent: "ask_recovery" });
     const { caller } = makeCaller({ readinessBlock: "reject" });
     await expect(caller.interpret({ weekIndex: 1, text: "recovery?" })).resolves.toEqual({
       kind: "answer",
       topic: "recovery",
-      lines: ["There isn't enough logged training yet to read your recovery."],
+      lines: ["Recovery isn't available right now."],
+    });
+  });
+
+  it("answers the other questions as usual when the readiness read fails", async () => {
+    understood({ intent: "ask_next_session" });
+    const { caller } = makeCaller({ readinessBlock: "reject" });
+    await expect(caller.interpret({ weekIndex: 1, text: "what's next?" })).resolves.toMatchObject({
+      kind: "answer",
+      topic: "next_session",
+      lines: ["Next up is Upper A on Thursday, about 60 minutes.", "It starts with Barbell Bench Press, 4 sets of 6 to 10."],
     });
   });
 });

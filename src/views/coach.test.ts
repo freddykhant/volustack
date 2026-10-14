@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import { SUGGESTION_MIN_GAIN } from "~/engine/constants";
 import type { PlacementExplanation } from "~/engine/schedule";
 import {
+  alreadyBlockedLine,
   blockSummary,
   cellLabel,
   dateLabel,
   joinList,
   phraseExplanation,
   phraseNextSession,
+  phraseOverdueSession,
   phraseRecovery,
   phraseWeekIssues,
   placeName,
@@ -49,6 +51,13 @@ describe("confirm summaries", () => {
   });
   it("asks to unblock", () => {
     expect(unblockSummary([cells[0]!])).toBe("Unblock Thu 15 Oct?");
+  });
+  it("names what is already blocked in one sentence, or nothing", () => {
+    expect(alreadyBlockedLine([])).toBeNull();
+    expect(alreadyBlockedLine(["Fri 16 Oct"])).toBe("Already blocked: Fri 16 Oct.");
+    expect(alreadyBlockedLine(["Fri 16 Oct", "Sat 17 Oct (afternoon)", "Sun 18 Oct"])).toBe(
+      "Already blocked: Fri 16 Oct, Sat 17 Oct (afternoon) and Sun 18 Oct.",
+    );
   });
   it("asks to skip a session, with its day when it has one", () => {
     expect(skipSummary("Legs B", { day: 4, daypart: null })).toBe("Skip Legs B on Friday this week?");
@@ -114,6 +123,15 @@ describe("phraseExplanation", () => {
     expect(lines.at(-1)).toBe("The board has a suggested change that involves it.");
   });
 
+  it("says nothing about a move when the engine's suggestion for it is not on the board", () => {
+    const lines = phraseExplanation({ ...ex, inSuggestion: false, suggestionHidden: true }, label);
+    expect(lines).toEqual([
+      "Legs B is on Friday.",
+      "If it moved to Thursday: Legs B is only 1 day after Legs A, and both train quads.",
+      "Saturday would be about the same.",
+    ]);
+  });
+
   it("describes a worse neighbour that has no named problem", () => {
     const lines = phraseExplanation(
       { ...ex, alternatives: [{ to: { day: 6, daypart: null }, delta: 2, adds: [], worsens: [], resolves: [] }] },
@@ -176,12 +194,23 @@ describe("answers", () => {
     expect(phraseNextSession(null)).toEqual(["Every session this week is done or missed."]);
   });
 
+  it("phrases a session left on a day that has passed as still to do", () => {
+    const legs = { label: "Legs", placement: { day: 0, daypart: null }, minutes: 60, first: null, overdue: true };
+    expect(phraseOverdueSession(legs)).toEqual(["Still to do from earlier: Legs on Monday."]);
+    expect(phraseNextSession(legs)).toEqual(["Still to do from earlier: Legs on Monday."]);
+    expect(phraseNextSession({ ...legs, first: { exerciseName: "Back Squat", sets: 3, repLow: 5, repHigh: 5 } })).toEqual([
+      "Still to do from earlier: Legs on Monday.",
+      "It starts with Back Squat, 3 sets of 5.",
+    ]);
+  });
+
   it("phrases recovery from the readiness numbers and label only", () => {
     expect(phraseRecovery({ fitness: 12.34, fatigue: 14.1, form: -1.76, label: "Productive" })).toEqual([
       "Your form reads Productive.",
       "Fitness 12.3, fatigue 14.1, form -1.8.",
     ]);
     expect(phraseRecovery(null)).toEqual(["There isn't enough logged training yet to read your recovery."]);
+    expect(phraseRecovery("unavailable")).toEqual(["Recovery isn't available right now."]);
   });
 
   it("phrases the week's issues, or their absence", () => {

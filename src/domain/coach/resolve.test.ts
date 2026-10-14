@@ -26,6 +26,7 @@ const week = (over: Partial<CoachWeek> = {}): CoachWeek => ({
     { key: "S3", id: "id-arms", label: "Arms", status: "SCHEDULED", placement: { day: 5, daypart: null } },
   ],
   stranded: false,
+  hasOptions: false,
   warnings: [],
   suggestion: null,
   next: null,
@@ -44,7 +45,7 @@ describe("block_time", () => {
       kind: "confirm_block",
       cells: [whole("2026-10-15"), whole("2026-10-17")],
       summary: "Block Thu 15 Oct and Sat 17 Oct?",
-      alreadyBlocked: [],
+      alreadyBlockedLine: null,
     });
   });
 
@@ -57,8 +58,19 @@ describe("block_time", () => {
     expect(reply).toMatchObject({
       kind: "confirm_block",
       cells: [whole("2026-10-15"), whole("2026-10-17")],
-      alreadyBlocked: ["Fri 16 Oct"],
+      alreadyBlockedLine: "Already blocked: Fri 16 Oct.",
     });
+  });
+
+  it("names every already blocked day in one sentence", () => {
+    const dates = DATES.map((d) =>
+      d.date === "2026-10-16" || d.date === "2026-10-18" ? { ...d, am: "one_off" as const, pm: "one_off" as const } : d,
+    );
+    const reply = resolveCoachForm(
+      form({ dates: [whole("2026-10-15"), whole("2026-10-16"), whole("2026-10-18")] }),
+      week({ dates }),
+    );
+    expect(reply).toMatchObject({ kind: "confirm_block", alreadyBlockedLine: "Already blocked: Fri 16 Oct and Sun 18 Oct." });
   });
 
   it("says so when everything asked for is already blocked", () => {
@@ -98,7 +110,7 @@ describe("block_time", () => {
     expect(reply).toMatchObject({
       kind: "confirm_block",
       cells: [{ date: "2026-10-15", daypart: "PM" }, whole("2026-10-16"), { date: "2026-10-17", daypart: "AM" }],
-      alreadyBlocked: ["Sat 17 Oct (afternoon)"],
+      alreadyBlockedLine: "Already blocked: Sat 17 Oct (afternoon).",
     });
   });
 
@@ -152,6 +164,18 @@ describe("unblock_time", () => {
     expect(reply).toMatchObject({ kind: "clarify", question: "Which blocked time should I open up?" });
     if (reply.kind === "clarify") expect(reply.choices.map((c) => c.label)).toEqual(["Thu 15 Oct"]);
   });
+
+  it("says nothing is blocked this week only when days of it remain", () => {
+    expect(resolveCoachForm(form({ intent: "unblock_time" }), week())).toEqual({
+      kind: "note",
+      lines: ["Nothing is blocked just for this week."],
+    });
+    const later = DATES.filter((d) => d.weekIndex === 3);
+    expect(resolveCoachForm(form({ intent: "unblock_time" }), week({ dates: later }))).toEqual({
+      kind: "note",
+      lines: ["There are no days left in this week."],
+    });
+  });
 });
 
 describe("skip_session", () => {
@@ -182,6 +206,13 @@ describe("skip_session", () => {
     expect(resolveCoachForm(form({ intent: "skip_session" }), week({ sessions }))).toMatchObject({ kind: "skip", sessionId: "id-legs" });
   });
 
+  it("asks rather than guesses when the key is not in the week, even with one session scheduled", () => {
+    const sessions = week().sessions.map((s) => (s.key === "S3" ? { ...s, status: "MISSED" as const } : s));
+    const reply = resolveCoachForm(form({ intent: "skip_session", sessionKey: "S9" }), week({ sessions }));
+    expect(reply).toMatchObject({ kind: "clarify", question: "Which session do you want to skip?" });
+    if (reply.kind === "clarify") expect(reply.choices.map((c) => c.label)).toEqual(["Legs"]);
+  });
+
   it("says so when nothing is left to skip", () => {
     const sessions = week().sessions.map((s) => ({ ...s, status: "COMPLETED" as const }));
     expect(resolveCoachForm(form({ intent: "skip_session" }), week({ sessions }))).toEqual({
@@ -193,10 +224,19 @@ describe("skip_session", () => {
 
 describe("rearrange_week", () => {
   it("points to the options when a session is on blocked time", () => {
-    expect(resolveCoachForm(form({ intent: "rearrange_week" }), week({ stranded: true }))).toEqual({
+    expect(resolveCoachForm(form({ intent: "rearrange_week" }), week({ stranded: true, hasOptions: true }))).toEqual({
       kind: "rearrange",
       state: "options",
       lines: ["A session is on time you've blocked. Your options are just below."],
+    });
+  });
+  it("does not point to options the engine could not find", () => {
+    expect(resolveCoachForm(form({ intent: "rearrange_week" }), week({ stranded: true, hasOptions: false }))).toEqual({
+      kind: "rearrange",
+      state: "nothing",
+      lines: [
+        "A session is on time you've blocked, and the engine can't find a way to re-arrange the week around it. You can drag it yourself or skip it.",
+      ],
     });
   });
   it("relays the engine's suggestion when it has one", () => {
@@ -261,6 +301,11 @@ describe("questions", () => {
       kind: "answer",
       topic: "recovery",
       lines: ["There isn't enough logged training yet to read your recovery."],
+    });
+    expect(resolveCoachForm(form({ intent: "ask_recovery" }), week({ readiness: "unavailable" }))).toEqual({
+      kind: "answer",
+      topic: "recovery",
+      lines: ["Recovery isn't available right now."],
     });
   });
 });
@@ -419,9 +464,15 @@ describe("fallbacks and edge cases", () => {
       topic: "why_placement",
     });
   });
+  it("asks which session when the key is not in the week, even with one session scheduled", () => {
+    const sessions = week().sessions.map((s) => (s.key === "S3" ? { ...s, status: "MISSED" as const } : s));
+    const reply = resolveCoachForm(form({ intent: "ask_why_placement", sessionKey: "S7" }), week({ sessions }));
+    expect(reply).toMatchObject({ kind: "clarify", question: "Which session do you mean?" });
+    if (reply.kind === "clarify") expect(reply.choices.map((c) => c.label)).toEqual(["Legs"]);
+  });
   it("shows the options, not the suggestion, when the week is stranded", () => {
     const suggestion = { headline: "Move Arms from Sat to Sun.", reasons: [] };
-    expect(resolveCoachForm(form({ intent: "rearrange_week" }), week({ stranded: true, suggestion }))).toMatchObject({
+    expect(resolveCoachForm(form({ intent: "rearrange_week" }), week({ stranded: true, hasOptions: true, suggestion }))).toMatchObject({
       kind: "rearrange",
       state: "options",
     });

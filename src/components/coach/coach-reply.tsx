@@ -51,9 +51,9 @@ export function CoachReplyCard({
       {reply.kind === "confirm_block" || reply.kind === "confirm_unblock" ? (
         <>
           <p className="text-card-title text-fg">{reply.summary}</p>
-          {reply.kind === "confirm_block" && reply.alreadyBlocked.length > 0 ? (
+          {reply.kind === "confirm_block" && reply.alreadyBlockedLine ? (
             <p className="text-fg-muted text-[12px]">
-              Already blocked: {reply.alreadyBlocked.join(", ")}.
+              {reply.alreadyBlockedLine}
             </p>
           ) : null}
           {reply.kind === "confirm_unblock" && reply.notes.length > 0 ? (

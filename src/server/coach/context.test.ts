@@ -69,6 +69,7 @@ describe("toModelContext", () => {
       { key: "S2", id: "ckxyz-secret-2", label: "Legs", status: "SCHEDULED", placement: null },
     ],
     stranded: false,
+    hasOptions: false,
     warnings: ["private warning text"],
     suggestion: null,
     next: null,

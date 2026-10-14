@@ -7,7 +7,7 @@ import type { ReadinessLabel } from "~/views/types";
 
 /** A reply that needs no further question. */
 export type CoachFinalReply =
-  | { kind: "confirm_block"; cells: ExceptionInput[]; summary: string; alreadyBlocked: string[] }
+  | { kind: "confirm_block"; cells: ExceptionInput[]; summary: string; alreadyBlockedLine: string | null }
   | { kind: "confirm_unblock"; cells: ExceptionInput[]; summary: string; notes: string[] }
   | { kind: "skip"; sessionId: string; label: string; summary: string }
   | { kind: "rearrange"; state: "options" | "suggestion" | "nothing"; lines: string[] }
@@ -26,6 +26,8 @@ export interface NextSessionInfo {
   placement: Placement | null;
   minutes: number;
   first: { exerciseName: string; sets: number; repLow: number; repHigh: number } | null;
+  /** Placed on a day of the week that has already passed, and still to train. */
+  overdue?: boolean;
 }
 
 export interface ReadinessInfo {
@@ -34,6 +36,17 @@ export interface ReadinessInfo {
   form: number;
   label: ReadinessLabel;
 }
+
+/** Readiness as read for the coach: the numbers, null when nothing is logged yet, or
+ * "unavailable" when the read itself failed. */
+export type ReadinessAnswer = ReadinessInfo | null | "unavailable";
+
+/**
+ * A placement explanation as the coach tells it. `inSuggestion` is whether the one
+ * suggestion the board shows involves the session; `suggestionHidden` is set when the
+ * engine has a suggestion involving it that the board does not show.
+ */
+export type CoachExplanation = PlacementExplanation & { suggestionHidden?: boolean };
 
 export const DAY_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -72,6 +85,51 @@ export function skipSummary(label: string, placement: Placement | null): string 
   return placement ? `Skip ${label} on ${placeName(placement)} this week?` : `Skip ${label} this week?`;
 }
 
+/** The line under a block card naming what was asked for but is already blocked, or null. */
+export function alreadyBlockedLine(labels: string[]): string | null {
+  return labels.length === 0 ? null : `Already blocked: ${joinList(labels)}.`;
+}
+
+export const isAlreadyBlocked = (label: string) => `${label} is already blocked.`;
+export const isStandingBlock = (label: string) =>
+  `${label} is blocked in your standing availability. Change that in Settings.`;
+export const isNotBlocked = (label: string) => `${label} isn't blocked.`;
+
+export const ASK_WHICH_DAY_TO_BLOCK = "Which day can't you train?";
+export const ASK_WHICH_TIME_TO_UNBLOCK = "Which blocked time should I open up?";
+export const ASK_WHICH_SESSION_TO_SKIP = "Which session do you want to skip?";
+export const ASK_WHICH_SESSION = "Which session do you mean?";
+export const NO_DAYS_TO_BLOCK_LINE = "There are no days left in this week to block.";
+export const NO_DAYS_LEFT_LINE = "There are no days left in this week.";
+export const EVERY_DAY_BLOCKED_LINE = "Every remaining day this week is already blocked.";
+export const NOTHING_TO_UNBLOCK_LINE = "Nothing is blocked just for this week.";
+export const NO_SESSIONS_LINE = "This week has no sessions.";
+export const NOTHING_LEFT_LINE = "Every session this week is done or missed.";
+
+export function skipRefusal(label: string, status: "COMPLETED" | "MISSED"): string {
+  return status === "COMPLETED" ? `${label} is already done.` : `${label} was already missed.`;
+}
+
+/** Why a session the engine does not place is where it is. */
+export function staysLine(label: string, status: "COMPLETED" | "MISSED"): string {
+  return status === "COMPLETED" ? `${label} is already done, so it stays where it was.` : `${label} was missed, so it stays where it was.`;
+}
+export const notPlacedLine = (label: string) => `${label} isn't placed on a day yet.`;
+export const cannotExplainLine = (label: string) => `${label} can't be moved right now.`;
+
+export const REARRANGE_OPTIONS_LINE = "A session is on time you've blocked. Your options are just below.";
+export const REARRANGE_NO_OPTIONS_LINE =
+  "A session is on time you've blocked, and the engine can't find a way to re-arrange the week around it. You can drag it yourself or skip it.";
+export const ACCEPT_ON_BOARD_LINE = "You can accept it on the board below.";
+export const NO_CHANGE_LINE = "The engine has no change to suggest for this week.";
+
+export const UNCLEAR_QUESTION = "I didn't catch that. Did you mean one of these?";
+export const UNCLEAR_CHOICES = {
+  weekIssues: "What's wrong with my week?",
+  next: "What's next?",
+  recovery: "How's my recovery?",
+} as const;
+
 /** A cost change this small is not worth telling the athlete about. */
 const ABOUT_THE_SAME = 0.5;
 
@@ -92,8 +150,9 @@ function phraseAlternative(a: PlacementAlternative, label: (id: string) => strin
   return problems.length > 0 ? `${place} ${verdict} overall, but: ${problems.join(" ")}` : `${place} ${verdict}.`;
 }
 
-/** Why a session is where it is. Every clause comes from the explanation's own facts. */
-export function phraseExplanation(ex: PlacementExplanation, label: (id: string) => string): string[] {
+/** Why a session is where it is. Every clause comes from the explanation's own facts. When
+ * the engine's suggestion for it is not on the board, nothing is said about a move. */
+export function phraseExplanation(ex: CoachExplanation, label: (id: string) => string): string[] {
   const name = label(ex.sessionId);
   const lines = [`${name} is on ${placeName(ex.current)}.`];
   const now = toWarnings(ex.currentFacts, label);
@@ -105,28 +164,36 @@ export function phraseExplanation(ex: PlacementExplanation, label: (id: string) 
   for (const a of ex.alternatives) lines.push(phraseAlternative(a, label));
   if (ex.better) lines.push(`The engine would put it on ${placeName(ex.better.to)}.`);
   else if (ex.inSuggestion) lines.push("The board has a suggested change that involves it.");
-  else lines.push("The engine sees no move worth making for it this week.");
+  else if (!ex.suggestionHidden) lines.push("The engine sees no move worth making for it this week.");
   return lines;
 }
 
+function firstExerciseLine(first: NextSessionInfo["first"]): string[] {
+  if (!first) return [];
+  const { exerciseName, sets, repLow, repHigh } = first;
+  const reps = repLow === repHigh ? `${repLow}` : `${repLow} to ${repHigh}`;
+  return [`It starts with ${exerciseName}, ${sets} ${sets === 1 ? "set" : "sets"} of ${reps}.`];
+}
+
+/** A session still to train on a day that has already passed. */
+export function phraseOverdueSession(next: NextSessionInfo & { placement: Placement }): string[] {
+  return [`Still to do from earlier: ${next.label} on ${placeName(next.placement)}.`, ...firstExerciseLine(next.first)];
+}
+
 export function phraseNextSession(next: NextSessionInfo | null): string[] {
-  if (next === null) return ["Every session this week is done or missed."];
+  if (next === null) return [NOTHING_LEFT_LINE];
   if (next.placement === null) return [`Next up is ${next.label}. It isn't placed on a day yet.`];
+  if (next.overdue) return phraseOverdueSession({ ...next, placement: next.placement });
   const minutes = Math.round(next.minutes);
   const length = minutes <= 0 ? "" : `, about ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
-  const lines = [`Next up is ${next.label} on ${placeName(next.placement)}${length}.`];
-  if (next.first) {
-    const { exerciseName, sets, repLow, repHigh } = next.first;
-    const reps = repLow === repHigh ? `${repLow}` : `${repLow} to ${repHigh}`;
-    lines.push(`It starts with ${exerciseName}, ${sets} ${sets === 1 ? "set" : "sets"} of ${reps}.`);
-  }
-  return lines;
+  return [`Next up is ${next.label} on ${placeName(next.placement)}${length}.`, ...firstExerciseLine(next.first)];
 }
 
 const one = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
 
 /** Readiness as the model computed it. No advice: the label is the engine's own word. */
-export function phraseRecovery(r: ReadinessInfo | null): string[] {
+export function phraseRecovery(r: ReadinessAnswer): string[] {
+  if (r === "unavailable") return ["Recovery isn't available right now."];
   if (r === null) return ["There isn't enough logged training yet to read your recovery."];
   return [`Your form reads ${r.label}.`, `Fitness ${one(r.fitness)}, fatigue ${one(r.fatigue)}, form ${one(r.form)}.`];
 }

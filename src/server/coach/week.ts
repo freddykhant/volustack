@@ -1,7 +1,17 @@
 import type { CoachDate, CoachSession, CoachWeek } from "~/domain/coach/resolve";
-import { explainPlacement, isStranded, placementPosition, savedLayout, scoreLayout, suggestMoves } from "~/engine";
+import {
+  dayIndex,
+  explainPlacement,
+  isStranded,
+  placementPosition,
+  proposeLayouts,
+  savedLayout,
+  scoreLayout,
+  suggestMoves,
+  type Placement,
+} from "~/engine";
 import type { WeekContext } from "~/server/schedule/week-context";
-import type { NextSessionInfo, ReadinessInfo } from "~/views/coach";
+import type { CoachExplanation, NextSessionInfo, ReadinessAnswer } from "~/views/coach";
 import { toMoveSuggestionView, toWarnings } from "~/views/schedule";
 import { coachDates } from "./context";
 
@@ -24,7 +34,7 @@ export function weekDates(c: WeekContext, now: Date): CoachDate[] {
  */
 export function coachWeekFrom(
   c: WeekContext,
-  extras: { now: Date; readiness: ReadinessInfo | null; suggestionDismissed: boolean },
+  extras: { now: Date; readiness: ReadinessAnswer; suggestionDismissed: boolean },
 ): CoachWeek {
   const layout = savedLayout(c.input);
   const ordered = [...c.week.sessions].sort((a, b) => a.order - b.order);
@@ -37,16 +47,20 @@ export function coachWeekFrom(
   }));
 
   const stranded = isStranded(c.input);
-  const top = stranded || extras.suggestionDismissed ? undefined : suggestMoves(c.input, layout)[0];
-  const suggestion = top ? toMoveSuggestionView(top, c.label) : null;
+  // The one suggestion the board shows: none while stranded or once dismissed.
+  const shown = stranded || extras.suggestionDismissed ? undefined : suggestMoves(c.input, layout)[0];
+  const suggestion = shown ? toMoveSuggestionView(shown, c.label) : null;
 
-  // The next session: the first still to train, in the order the week lays them out.
+  // The next session: the first still to train from today on, in the order the week lays
+  // them out; then one left on a day that has passed; then one not placed yet.
+  const rank = (p: Placement | undefined) =>
+    p === undefined ? 2 : dayIndex(p.day, c.input.weekStartDay) < c.input.firstOpenDay ? 1 : 0;
   const upcoming = ordered
     .filter((s) => s.status === "SCHEDULED")
     .sort((a, b) => {
       const pa = layout[a.id];
       const pb = layout[b.id];
-      if (!pa || !pb) return (pa ? 0 : 1) - (pb ? 0 : 1) || a.order - b.order;
+      if (!pa || !pb || rank(pa) !== rank(pb)) return rank(pa) - rank(pb) || a.order - b.order;
       return placementPosition(pa, c.input.weekStartDay) - placementPosition(pb, c.input.weekStartDay) || a.order - b.order;
     })[0];
   const firstPx = upcoming ? [...upcoming.prescriptions].sort((a, b) => a.order - b.order)[0] : undefined;
@@ -58,8 +72,22 @@ export function coachWeekFrom(
       ? { exerciseName: firstPx.exercise.name, sets: firstPx.sets, repLow, repHigh }
       : null;
   const next: NextSessionInfo | null = upcoming
-    ? { label: upcoming.splitSlot, placement: layout[upcoming.id] ?? null, minutes: upcoming.targetDurationMin ?? 0, first }
+    ? {
+        label: upcoming.splitSlot,
+        placement: layout[upcoming.id] ?? null,
+        minutes: upcoming.targetDurationMin ?? 0,
+        first,
+        overdue: rank(layout[upcoming.id]) === 1,
+      }
     : null;
+
+  // What the coach says about a move must match the board: only the shown suggestion counts.
+  const explain = (sessionId: string): CoachExplanation | null => {
+    const ex = explainPlacement(c.input, layout, sessionId);
+    if (ex === null) return null;
+    const inShown = shown !== undefined && (shown.sessionId === sessionId || shown.swapWithSessionId === sessionId);
+    return { ...ex, inSuggestion: inShown, suggestionHidden: ex.inSuggestion && !inShown };
+  };
 
   return {
     mode: c.settings.mode,
@@ -67,10 +95,11 @@ export function coachWeekFrom(
     dates: weekDates(c, extras.now),
     sessions,
     stranded,
+    hasOptions: stranded && proposeLayouts(c.input).length > 0,
     warnings: toWarnings(scoreLayout(c.input, layout).facts, c.label),
     suggestion: suggestion ? { headline: suggestion.headline, reasons: suggestion.reasons } : null,
     next,
     readiness: extras.readiness,
-    explain: (sessionId) => explainPlacement(c.input, layout, sessionId),
+    explain,
   };
 }

@@ -456,10 +456,11 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
           weekIndex={weekIndex}
           blocked={blockedReason({
             draftOpen: draft !== null,
-            boardSaving: togglePending,
+            boardSaving: togglePending || apply.isPending,
           })}
           onApplied={onCoachApplied}
           onBusyChange={setCoachBusy}
+          onShowOptions={() => setDismissedOptions(null)}
         />
       ) : null}
       <DndContext

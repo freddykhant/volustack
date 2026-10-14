@@ -9,7 +9,7 @@ import { toModelContext } from "~/server/coach/context";
 import { coachWeekFrom, weekDates } from "~/server/coach/week";
 import { BLOCK_FOR_READINESS_SELECT, readinessSamplesFrom } from "~/server/mesocycle/readiness-samples";
 import { loadWeekContext, suggestionDismissed } from "~/server/schedule/week-context";
-import { BLOCK_OVER_LINES, FINISHED_WEEK_LINES, LIMIT_LINES, UNAVAILABLE_LINES, type CoachReply, type ReadinessInfo } from "~/views/coach";
+import { BLOCK_OVER_LINES, FINISHED_WEEK_LINES, LIMIT_LINES, UNAVAILABLE_LINES, type CoachReply, type ReadinessAnswer } from "~/views/coach";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const asJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -37,9 +37,9 @@ export const coachRouter = createTRPCRouter({
     // The board hides a suggestion the athlete dismissed for this layout; the coach must too.
     const dismissed = await suggestionDismissed(ctx.db, c);
 
-    // Readiness is one of the four answers. It is best-effort: without it the answer
-    // says there is not enough logged training, which is true of an empty block too.
-    let readiness: ReadinessInfo | null = null;
+    // Readiness is one of the four answers. It is best-effort: a failed read says recovery
+    // is not available, and an empty series says there is not enough logged training.
+    let readiness: ReadinessAnswer = null;
     try {
       const block = await ctx.db.mesocycle.findFirst({
         where: { status: "ACTIVE", athleteProfile: { userId } },
@@ -50,7 +50,7 @@ export const coachRouter = createTRPCRouter({
       const point = samples.filter((s) => s.weekIndex <= c.currentWeek).at(-1);
       if (point) readiness = { fitness: point.fitness, fatigue: point.fatigue, form: point.form, label: readinessState(point) };
     } catch {
-      readiness = null;
+      readiness = "unavailable";
     }
 
     const week = coachWeekFrom(c, { now, readiness, suggestionDismissed: dismissed });

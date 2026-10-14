@@ -18,6 +18,7 @@ export function CoachBox({
   blocked,
   onApplied,
   onBusyChange,
+  onShowOptions,
 }: {
   weekIndex: number;
   /** Why a change cannot be confirmed right now (an open draft), or null. */
@@ -26,6 +27,8 @@ export function CoachBox({
   onApplied: (weeks: AppliedWeek[]) => Promise<void> | void;
   /** True while a confirmed change is being saved, so the board can hold still. */
   onBusyChange?: (busy: boolean) => void;
+  /** A reply points to the week's options: the board shows them again if they were dismissed. */
+  onShowOptions?: () => void;
 }) {
   const utils = api.useUtils();
   const inputId = useId();
@@ -38,6 +41,7 @@ export function CoachBox({
     onSuccess: (r) => {
       setReply(r);
       setText("");
+      if (r.kind === "rearrange" && r.state === "options") onShowOptions?.();
     },
   });
   // The card keeps its error; the board refetches so the athlete sees the current week.
@@ -112,7 +116,7 @@ export function CoachBox({
           value={text}
           maxLength={COACH_MAX_TEXT}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Tell the coach: can’t make Thursday, or ask why a session is where it is"
+          placeholder="Tell the coach what changed, or ask about your week"
           readOnly={interpret.isPending}
           aria-busy={interpret.isPending}
           autoComplete="off"
