@@ -281,3 +281,171 @@ describe("unclear and out of scope", () => {
     expect(reply.kind).toBe("answer");
   });
 });
+
+describe("unblock_time in one-a-day mode", () => {
+  const unblock = (over: Partial<CoachDate>) =>
+    resolveCoachForm(
+      form({ intent: "unblock_time", dates: [whole("2026-10-15")] }),
+      week({ dates: DATES.map((d) => (d.date === "2026-10-15" ? { ...d, ...over } : d)) }),
+    );
+
+  it("says a day with an open half isn't blocked, even if the other half is standing", () => {
+    expect(unblock({ am: "standing", pm: null })).toEqual({ kind: "note", lines: ["Thu 15 Oct isn't blocked."] });
+  });
+  it("offers the whole day when both halves are blocked and one is one-off", () => {
+    expect(unblock({ am: "standing", pm: "one_off" })).toEqual({
+      kind: "confirm_unblock",
+      cells: [whole("2026-10-15")],
+      summary: "Unblock Thu 15 Oct?",
+      notes: [],
+    });
+  });
+  it("points a day that is standing in both halves to Settings", () => {
+    expect(unblock({ am: "standing", pm: "standing" })).toEqual({
+      kind: "note",
+      lines: ["Thu 15 Oct is blocked in your standing availability. Change that in Settings."],
+    });
+  });
+});
+
+describe("unblock_time in AM/PM mode", () => {
+  const halfDay = (over: Record<string, Partial<CoachDate>>) =>
+    week({ mode: "HALF_DAY", dates: DATES.map((d) => ({ ...d, ...(over[d.date] ?? {}) })) });
+
+  it("offers the one-off half and points the standing half to Settings", () => {
+    const reply = resolveCoachForm(
+      form({ intent: "unblock_time", dates: [whole("2026-10-15")] }),
+      halfDay({ "2026-10-15": { am: "one_off", pm: "standing" } }),
+    );
+    expect(reply).toEqual({
+      kind: "confirm_unblock",
+      cells: [{ date: "2026-10-15", daypart: "AM" }],
+      summary: "Unblock Thu 15 Oct (morning)?",
+      notes: ["Thu 15 Oct (afternoon) is blocked in your standing availability. Change that in Settings."],
+    });
+  });
+  it("offers what is blocked and says which named day is not", () => {
+    const reply = resolveCoachForm(
+      form({ intent: "unblock_time", dates: [whole("2026-10-15"), whole("2026-10-16")] }),
+      halfDay({ "2026-10-16": { am: "one_off", pm: "one_off" } }),
+    );
+    expect(reply).toEqual({
+      kind: "confirm_unblock",
+      cells: [whole("2026-10-16")],
+      summary: "Unblock Fri 16 Oct?",
+      notes: ["Thu 15 Oct isn't blocked."],
+    });
+  });
+  it("offers a single one-off half as that half", () => {
+    const reply = resolveCoachForm(
+      form({ intent: "unblock_time", dates: [{ date: "2026-10-15", daypart: "AM" }] }),
+      halfDay({ "2026-10-15": { am: "one_off" } }),
+    );
+    expect(reply).toMatchObject({ kind: "confirm_unblock", cells: [{ date: "2026-10-15", daypart: "AM" }], notes: [] });
+  });
+});
+
+describe("fallbacks and edge cases", () => {
+  it("says the week is over when no day of it is left to block", () => {
+    const later = DATES.filter((d) => d.weekIndex === 3);
+    expect(resolveCoachForm(form({ dates: [] }), week({ dates: later }))).toEqual({
+      kind: "note",
+      lines: ["There are no days left in this week to block."],
+    });
+    expect(resolveCoachForm(form({ dates: [] }), week({ dates: [] }))).toEqual({
+      kind: "note",
+      lines: ["There are no days left in this week to block."],
+    });
+  });
+  it("says so when every remaining day of the week is already blocked", () => {
+    const dates = DATES.map((d) => ({ ...d, am: "one_off" as const, pm: "one_off" as const }));
+    expect(resolveCoachForm(form({ dates: [] }), week({ dates }))).toEqual({
+      kind: "note",
+      lines: ["Every remaining day this week is already blocked."],
+    });
+  });
+  it("says the week has no sessions when it has none", () => {
+    expect(resolveCoachForm(form({ intent: "skip_session" }), week({ sessions: [] }))).toEqual({
+      kind: "note",
+      lines: ["This week has no sessions."],
+    });
+    expect(resolveCoachForm(form({ intent: "ask_why_placement" }), week({ sessions: [] }))).toEqual({
+      kind: "note",
+      lines: ["This week has no sessions."],
+    });
+  });
+  it("refuses to skip a missed session", () => {
+    const sessions = week().sessions.map((s) => (s.key === "S3" ? { ...s, status: "MISSED" as const } : s));
+    expect(resolveCoachForm(form({ intent: "skip_session", sessionKey: "S3" }), week({ sessions }))).toEqual({
+      kind: "note",
+      lines: ["Arms was already missed."],
+    });
+  });
+  it("explains that a missed session stays where it was", () => {
+    const sessions = week().sessions.map((s) => (s.key === "S3" ? { ...s, status: "MISSED" as const } : s));
+    expect(resolveCoachForm(form({ intent: "ask_why_placement", sessionKey: "S3" }), week({ sessions }))).toEqual({
+      kind: "answer",
+      topic: "why_placement",
+      lines: ["Arms was missed, so it stays where it was."],
+    });
+  });
+  it("says a scheduled session without a day isn't placed", () => {
+    const sessions = week().sessions.map((s) => (s.key === "S2" ? { ...s, placement: null } : s));
+    expect(resolveCoachForm(form({ intent: "ask_why_placement", sessionKey: "S2" }), week({ sessions }))).toEqual({
+      kind: "answer",
+      topic: "why_placement",
+      lines: ["Legs isn't placed on a day yet."],
+    });
+  });
+  it("falls back when the engine has no explanation, or throws", () => {
+    const expected = { kind: "answer", topic: "why_placement", lines: ["Legs can't be moved right now."] };
+    const ask = form({ intent: "ask_why_placement", sessionKey: "S2" });
+    expect(resolveCoachForm(ask, week({ explain: () => null }))).toEqual(expected);
+    expect(
+      resolveCoachForm(
+        ask,
+        week({
+          explain: () => {
+            throw new Error("boom");
+          },
+        }),
+      ),
+    ).toEqual(expected);
+  });
+  it("answers for the only scheduled session when none was named", () => {
+    const sessions = week().sessions.map((s) => (s.key === "S3" ? { ...s, status: "MISSED" as const } : s));
+    expect(resolveCoachForm(form({ intent: "ask_why_placement" }), week({ sessions }))).toMatchObject({
+      kind: "answer",
+      topic: "why_placement",
+    });
+  });
+  it("shows the options, not the suggestion, when the week is stranded", () => {
+    const suggestion = { headline: "Move Arms from Sat to Sun.", reasons: [] };
+    expect(resolveCoachForm(form({ intent: "rearrange_week" }), week({ stranded: true, suggestion }))).toMatchObject({
+      kind: "rearrange",
+      state: "options",
+    });
+  });
+  it("answers an intent outside the enum as unsupported rather than throwing", () => {
+    const reply = resolveCoachForm(form({ intent: "launch_rocket" as unknown as CoachIntentForm["intent"] }), week());
+    expect(reply.kind).toBe("unsupported");
+  });
+});
+
+describe("hostile forms", () => {
+  it("offers only the valid date when 14 others are outside the week", () => {
+    const outside = Array.from({ length: 14 }, (_, i) => whole(`2027-02-${String(i + 1).padStart(2, "0")}`));
+    const reply = resolveCoachForm(form({ dates: [...outside, whole("2026-10-16")] }), week());
+    expect(reply).toMatchObject({ kind: "confirm_block", cells: [whole("2026-10-16")] });
+  });
+  it("never lets a string from the form into a reply", () => {
+    const marker = "ZZ-MARKER-ZZ";
+    for (const intent of ["block_time", "unblock_time", "skip_session", "ask_why_placement", "unclear"] as const) {
+      const reply = resolveCoachForm(
+        form({ intent, dates: [{ date: `2026-10-15${marker}`, daypart: null }, whole("2099-01-01")], sessionKey: `S2${marker}` }),
+        week(),
+      );
+      expect(JSON.stringify(reply)).not.toContain(marker);
+    }
+  });
+});

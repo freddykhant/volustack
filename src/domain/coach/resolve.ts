@@ -105,23 +105,28 @@ function blockReply(asked: { day: CoachDate; halves: Half[] }[], week: CoachWeek
 
 function unblockReply(asked: { day: CoachDate; halves: Half[] }[], week: CoachWeek): CoachFinalReply | null {
   const cells: ExceptionInput[] = [];
-  const notes: string[] = [];
+  const settings: string[] = [];
   const open: string[] = [];
+  const inSettings = (label: string) => `${label} is blocked in your standing availability. Change that in Settings.`;
   for (const { day, halves } of asked) {
+    if (week.mode === "DAY") {
+      // A day is blocked only when both halves are; one open half leaves the day unblocked.
+      const label = dateLabel(day.date);
+      if (day.am === null || day.pm === null) open.push(label);
+      else if (day.am === "one_off" || day.pm === "one_off") cells.push(whole(day.date));
+      else settings.push(inSettings(label));
+      continue;
+    }
     const oneOff = halves.filter((h) => sourceOf(day, h) === "one_off");
     const standing = halves.filter((h) => sourceOf(day, h) === "standing");
-    if (oneOff.length > 0) cells.push(week.mode === "DAY" ? whole(day.date) : cellFor(day.date, oneOff));
-    if (standing.length > 0 && oneOff.length === 0) {
-      const label = week.mode === "DAY" ? dateLabel(day.date) : cellLabel(cellFor(day.date, standing));
-      notes.push(`${label} is blocked in your standing availability. Change that in Settings.`);
-    }
-    if (oneOff.length === 0 && standing.length === 0) {
-      open.push(week.mode === "DAY" ? dateLabel(day.date) : cellLabel(cellFor(day.date, halves)));
-    }
+    const free = halves.filter((h) => sourceOf(day, h) === null);
+    if (oneOff.length > 0) cells.push(cellFor(day.date, oneOff));
+    if (standing.length > 0) settings.push(inSettings(cellLabel(cellFor(day.date, standing))));
+    if (free.length > 0) open.push(cellLabel(cellFor(day.date, free)));
   }
+  const notes = [...settings, ...open.map((o) => `${o} isn't blocked.`)];
   if (cells.length > 0) return { kind: "confirm_unblock", cells, summary: unblockSummary(cells), notes };
   if (notes.length > 0) return note(...notes);
-  if (open.length > 0) return note(...open.map((o) => `${o} isn't blocked.`));
   return null;
 }
 
@@ -139,9 +144,14 @@ function whyReply(session: CoachSession, week: CoachWeek): CoachFinalReply {
         : session.placement === null
           ? [`${session.label} isn't placed on a day yet.`]
           : (() => {
-              const ex = week.explain(session.id);
               const label = (id: string) => week.sessions.find((s) => s.id === id)?.label ?? "Session";
-              return ex ? phraseExplanation(ex, label) : [`${session.label} can't be moved right now.`];
+              try {
+                const ex = week.explain(session.id);
+                if (ex) return phraseExplanation(ex, label);
+              } catch {
+                // fall through to the line below
+              }
+              return [`${session.label} can't be moved right now.`];
             })();
   return { kind: "answer", topic: "why_placement", lines };
 }
@@ -167,13 +177,14 @@ export function resolveCoachForm(form: CoachIntentForm, week: CoachWeek): CoachR
   const session = form.sessionKey === null ? undefined : week.sessions.find((s) => s.key === form.sessionKey);
   const scheduled = week.sessions.filter((s) => s.status === "SCHEDULED");
   const thisWeek = week.dates.filter((d) => d.weekIndex === week.weekIndex);
-  const nothingLeft = note("Every session this week is done or missed.");
+  const nothingLeft = week.sessions.length === 0 ? note("This week has no sessions.") : note("Every session this week is done or missed.");
 
   switch (form.intent) {
     case "block_time": {
       const asked = wantedHalves(form, week);
       const reply = blockReply(asked, week);
       if (reply) return reply;
+      if (thisWeek.length === 0) return note("There are no days left in this week to block.");
       const choices = thisWeek
         .map((d) => ({ label: dateLabel(d.date), reply: blockReply([{ day: d, halves: HALVES }], week) }))
         .filter((c): c is { label: string; reply: CoachFinalReply } => c.reply?.kind === "confirm_block");
@@ -214,6 +225,7 @@ export function resolveCoachForm(form: CoachIntentForm, week: CoachWeek): CoachR
       return answer("week_issues", phraseWeekIssues(week.warnings, week.suggestion));
     case "ask_why_placement": {
       if (session) return whyReply(session, week);
+      if (scheduled.length === 1) return whyReply(scheduled[0]!, week);
       return clarify(
         "Which session do you mean?",
         scheduled.map((s) => ({ label: s.label, reply: whyReply(s, week) })),
@@ -236,5 +248,11 @@ export function resolveCoachForm(form: CoachIntentForm, week: CoachWeek): CoachR
       };
     case "out_of_scope":
       return { kind: "unsupported", lines: UNSUPPORTED_LINES };
+    default: {
+      // Adding an intent without a case above is a type error here.
+      const exhaustive: never = form.intent;
+      void exhaustive;
+      return { kind: "unsupported", lines: UNSUPPORTED_LINES };
+    }
   }
 }
