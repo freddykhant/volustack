@@ -25,6 +25,9 @@ export const env = createEnv({
       .string()
       .regex(/^jev-\d+\.\d+\.\d+$/, "JEV_MODEL must be a pinned version, e.g. jev-1.13.0 (not jev-latest/jev-preview)")
       .default("jev-1.13.0"),
+    // Optional: with no key the coach box is not rendered and the board works as before.
+    ANTHROPIC_API_KEY: z.string().optional(),
+    COACH_MODEL: z.string().default("claude-sonnet-5-5"),
   },
 
   /**
@@ -49,6 +52,8 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY,
     JEV_MODEL: process.env.JEV_MODEL,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    COACH_MODEL: process.env.COACH_MODEL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

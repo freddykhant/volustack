@@ -243,6 +243,7 @@ model AthleteProfile {
   checkIns   CheckIn[]
   availability AvailabilityCell[]
   availabilityExceptions AvailabilityException[]
+  coachMessages CoachMessage[]
 
   @@map("athlete_profile")
 }
@@ -286,6 +287,28 @@ model AvailabilityException {
 
   @@unique([athleteProfileId, date, daypart])
   @@map("availability_exception")
+}
+
+/// One message typed into the coach box, with what it was understood as. Kept for the
+/// daily cap, cost visibility and diagnosing phrasings that were not understood. Never
+/// shown back to the athlete and never read into a prompt.
+model CoachMessage {
+  id               String         @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  weekIndex        Int
+  text             String         @db.VarChar(500)
+  /// The parsed intent form, or null when the model failed.
+  form             Json?
+  /// The reply kind shown, or the failure reason.
+  outcome          String
+  model            String?
+  inputTokens      Int?
+  outputTokens     Int?
+
+  @@index([athleteProfileId, createdAt])
+  @@map("coach_message")
 }
 
 model Exercise {
