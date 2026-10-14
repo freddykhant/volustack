@@ -1,6 +1,7 @@
 import { Prisma } from "../../../../generated/prisma";
 import { readinessState } from "~/components/viz/readiness-state";
 import { resolveCoachForm } from "~/domain/coach/resolve";
+import { isoDateOfDayNumber, localDayNumber } from "~/domain/local-day";
 import { COACH_DAILY_LIMIT, CoachMessageInputSchema } from "~/schema";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { anthropicInterpreter, coachEnabled, type InterpretResult } from "~/server/coach/client";
@@ -56,7 +57,8 @@ export const coachRouter = createTRPCRouter({
 
     let result: InterpretResult;
     try {
-      result = await anthropicInterpreter.interpret(input.text, toModelContext(week));
+      const today = isoDateOfDayNumber(localDayNumber(now, c.settings.timezone));
+      result = await anthropicInterpreter.interpret(input.text, toModelContext(week, today));
     } catch {
       result = { ok: false, reason: "api_error" };
     }

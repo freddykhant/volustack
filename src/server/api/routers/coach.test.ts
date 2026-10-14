@@ -35,7 +35,7 @@ const understood = (form: { intent: string; dates?: { date: string; daypart: "AM
   interpret.mockResolvedValue({
     ok: true,
     form: { dates: [], sessionKey: null, ...form } as never,
-    model: "claude-sonnet-5-5",
+    model: "claude-haiku-4-5-20251001",
     inputTokens: 900,
     outputTokens: 40,
   });
@@ -218,7 +218,7 @@ describe("coach.interpret", () => {
         text: "how's my recovery?",
         form: { intent: "ask_recovery", dates: [], sessionKey: null },
         outcome: "answer",
-        model: "claude-sonnet-5-5",
+        model: "claude-haiku-4-5-20251001",
         inputTokens: 900,
         outputTokens: 40,
       },

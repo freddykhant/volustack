@@ -27,7 +27,8 @@ export const env = createEnv({
       .default("jev-1.13.0"),
     // Optional: with no key the coach box is not rendered and the board works as before.
     ANTHROPIC_API_KEY: z.string().optional(),
-    COACH_MODEL: z.string().default("claude-sonnet-5-5"),
+    // A small, fast model: the coach only parses a message into the intent form.
+    COACH_MODEL: z.string().default("claude-haiku-4-5-20251001"),
   },
 
   /**

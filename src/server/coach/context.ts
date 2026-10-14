@@ -1,4 +1,4 @@
-import { isoDateOfDayNumber, localDayNumber, weekdayOfDayNumber } from "~/domain/local-day";
+import { dayNumberOfIsoDate, isoDateOfDayNumber, localDayNumber, weekdayOfDayNumber } from "~/domain/local-day";
 import type { BlockSource, CoachDate, CoachWeek } from "~/domain/coach/resolve";
 import type { AvailabilityCellInput } from "~/engine";
 import type { ExceptionCell } from "~/server/mesocycle/schedule-adapters";
@@ -55,18 +55,25 @@ export interface ModelContext {
 
 const STATUS = { SCHEDULED: "scheduled", COMPLETED: "done", MISSED: "missed" } as const;
 
-export function toModelContext(week: CoachWeek): ModelContext {
-  const first = week.dates[0];
+/** In one-a-day mode a day is blocked only when both halves are, as the engine reads it. */
+function blockedWords(d: CoachDate, mode: CoachWeek["mode"]): ModelContext["dates"][number]["blocked"] {
+  if (d.am !== null && d.pm !== null) return "all day";
+  if (mode === "DAY") return "no";
+  return d.am !== null ? "morning" : d.pm !== null ? "afternoon" : "no";
+}
+
+/** `today` is the athlete's local date, "YYYY-MM-DD"; it can fall before the block's first date. */
+export function toModelContext(week: CoachWeek, today: string): ModelContext {
   return {
-    today: first?.date ?? "",
-    todayWeekday: first ? (DAY_FULL[first.weekday] ?? "") : "",
+    today,
+    todayWeekday: DAY_FULL[weekdayOfDayNumber(dayNumberOfIsoDate(today))] ?? "",
     scheduleMode: week.mode === "HALF_DAY" ? "morning or afternoon sessions" : "one session a day",
     viewedWeek: week.weekIndex,
     dates: week.dates.map((d) => ({
       date: d.date,
       weekday: DAY_FULL[d.weekday] ?? "",
       week: d.weekIndex,
-      blocked: d.am !== null && d.pm !== null ? "all day" : d.am !== null ? "morning" : d.pm !== null ? "afternoon" : "no",
+      blocked: blockedWords(d, week.mode),
     })),
     sessions: week.sessions.map((s) => ({
       key: s.key,

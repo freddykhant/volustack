@@ -39,6 +39,17 @@ describe("coachDates", () => {
     expect(dates[0]).toMatchObject({ date: "2026-10-14", weekday: 2, weekIndex: 2 });
   });
 
+  it("does not count a cell blocked for one week only as a standing block", () => {
+    const dates = coachDates({
+      ...base,
+      now: new Date("2026-10-14T09:00:00Z"),
+      standing: [{ day: 3, daypart: "AM", state: "BLOCKED", oneOff: true }],
+      exceptions: [{ date: "2026-10-15", daypart: "AM" }],
+    });
+    expect(dates.find((d) => d.date === "2026-10-15")).toMatchObject({ am: "one_off", pm: null });
+    expect(dates.find((d) => d.date === "2026-10-22")).toMatchObject({ am: null, pm: null });
+  });
+
   it("is empty once the block is over", () => {
     expect(coachDates({ ...base, now: new Date("2026-11-01T00:00:00Z") })).toEqual([]);
   });
@@ -66,7 +77,7 @@ describe("toModelContext", () => {
   };
 
   it("describes the week in words the model can use", () => {
-    const ctx = toModelContext(week);
+    const ctx = toModelContext(week, "2026-10-14");
     expect(ctx.today).toBe("2026-10-14");
     expect(ctx.todayWeekday).toBe("Wednesday");
     expect(ctx.scheduleMode).toBe("morning or afternoon sessions");
@@ -82,8 +93,30 @@ describe("toModelContext", () => {
     ]);
   });
 
+  it("takes today from the athlete's local date, not the first date offered", () => {
+    // The block has not started: its first day is Mon 19 Oct and today is Wed 14 Oct.
+    const notStarted = { ...week, dates: [{ date: "2026-10-19", weekday: 0, weekIndex: 1, am: null, pm: null }] };
+    const ctx = toModelContext(notStarted, "2026-10-14");
+    expect(ctx.dates).toEqual([{ date: "2026-10-19", weekday: "Monday", week: 1, blocked: "no" }]);
+    expect(ctx.today).toBe("2026-10-14");
+    expect(ctx.todayWeekday).toBe("Wednesday");
+  });
+
+  it("still says what today is when there are no dates", () => {
+    const ctx = toModelContext({ ...week, dates: [] }, "2026-10-18");
+    expect(ctx.dates).toEqual([]);
+    expect(ctx.today).toBe("2026-10-18");
+    expect(ctx.todayWeekday).toBe("Sunday");
+  });
+
+  it("in one-a-day mode calls a day blocked only when both halves are", () => {
+    const ctx = toModelContext({ ...week, mode: "DAY" }, "2026-10-14");
+    expect(ctx.scheduleMode).toBe("one session a day");
+    expect(ctx.dates.map((d) => d.blocked)).toEqual(["no", "all day", "no"]);
+  });
+
   it("carries no ids, warnings or readiness", () => {
-    const json = JSON.stringify(toModelContext(week));
+    const json = JSON.stringify(toModelContext(week, "2026-10-14"));
     expect(json).not.toContain("ckxyz");
     expect(json).not.toContain("private warning");
     expect(json).not.toContain("Fatigued");

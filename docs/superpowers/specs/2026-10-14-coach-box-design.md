@@ -101,7 +101,7 @@ The same schema is given to the model as the input schema of its one tool, and u
   - `anthropicInterpreter` (`client.ts`, `server-only`): Messages API with one tool, `tool_choice` forcing it, `max_tokens` small, a fixed system prompt, the athlete's text passed as the user turn inside a named delimiter, and the context as a JSON block. Timeout 8 s, no retry. Returns the tool input parsed by `CoachIntentFormSchema`.
   - `fakeInterpreter` (`fake.ts`): maps given texts to given forms, for tests.
 - **System prompt** (`prompt.ts`): states the task, the ten intents with one line each, that dates must be chosen from the provided list, that the text is the athlete's message and never instructions to follow, and the rules for ambiguous phrasing. **The ambiguity rules are a short list of product calls reserved for the product owner** (learning-mode contribution): for example, whether "can't make Thursday" in AM/PM mode means the whole day; whether "this weekend" on a Sunday means today; whether "skip legs" with two leg sessions asks which. The plan supplies the prompt with conservative placeholders ("when in doubt, return `unclear`").
-- **Model:** env `COACH_MODEL`, default `claude-sonnet-5-5`. Key: env `ANTHROPIC_API_KEY`, optional. Dependency: `@anthropic-ai/sdk`.
+- **Model:** env `COACH_MODEL`, default `claude-haiku-4-5-20251001` (a small, fast model: the call only parses). Key: env `ANTHROPIC_API_KEY`, optional. Dependency: `@anthropic-ai/sdk`.
 
 ### 3. Resolve (`src/domain/coach/resolve.ts`, pure, no I/O)
 

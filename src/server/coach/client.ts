@@ -37,10 +37,30 @@ export function parseToolResponse(content: unknown): CoachIntentForm | null {
   return null;
 }
 
+/**
+ * One line per failed call: a fixed tag, the reason, the error's class and HTTP status.
+ * Never the error message, the request or the athlete's text, any of which can carry it.
+ */
+function logFailure(reason: CoachFailure, err?: unknown): InterpretResult {
+  const parts = ["coach.interpret", reason];
+  if (err !== undefined) {
+    parts.push(err instanceof Error ? err.constructor.name : typeof err);
+    if (err instanceof Anthropic.APIError && err.status !== undefined) parts.push(`status=${err.status}`);
+  }
+  console.warn(parts.join(" "));
+  return { ok: false, reason };
+}
+
 export const anthropicInterpreter: CoachInterpreter = {
   async interpret(text, context) {
     if (!env.ANTHROPIC_API_KEY) return { ok: false, reason: "no_key" };
-    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: TIMEOUT_MS, maxRetries: 0 });
+    // An explicit log level, so ANTHROPIC_LOG=debug cannot make the SDK log the request.
+    const client = new Anthropic({
+      apiKey: env.ANTHROPIC_API_KEY,
+      timeout: TIMEOUT_MS,
+      maxRetries: 0,
+      logLevel: "warn",
+    });
     try {
       const res = await client.messages.create({
         model: env.COACH_MODEL,
@@ -57,8 +77,9 @@ export const anthropicInterpreter: CoachInterpreter = {
         tool_choice: { type: "tool", name: COACH_TOOL_NAME },
         messages: [{ role: "user", content: userTurn(text, context) }],
       });
+      if (res.stop_reason !== "tool_use") return logFailure("invalid_form");
       const form = parseToolResponse(res.content);
-      if (form === null) return { ok: false, reason: "invalid_form" };
+      if (form === null) return logFailure("invalid_form");
       return {
         ok: true,
         form,
@@ -67,7 +88,7 @@ export const anthropicInterpreter: CoachInterpreter = {
         outputTokens: res.usage?.output_tokens ?? null,
       };
     } catch (err) {
-      return { ok: false, reason: err instanceof Anthropic.APIConnectionTimeoutError ? "timeout" : "api_error" };
+      return logFailure(err instanceof Anthropic.APIConnectionTimeoutError ? "timeout" : "api_error", err);
     }
   },
 };

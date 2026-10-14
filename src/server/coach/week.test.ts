@@ -145,7 +145,7 @@ describe("coachWeekFrom", () => {
 
   it("gives the model no session id", async () => {
     const week = await weekFor([sessionRow("sess-secret-1", 0, "Upper A", 3), sessionRow("sess-secret-2", 1, "Upper B", 5)]);
-    const json = JSON.stringify(toModelContext(week));
+    const json = JSON.stringify(toModelContext(week, "2026-10-07"));
     expect(json).toContain("Upper A");
     expect(json).not.toContain("sess-secret");
   });
