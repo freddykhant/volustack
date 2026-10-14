@@ -265,7 +265,7 @@ Additive; applied with `prisma db push`. It serves the daily cap, cost visibilit
 ## Success criteria
 
 - "Can't make Thursday" and "away Thursday to Saturday" each reach a correct confirm card in one message, and confirming leads to the same options as the toggles.
-- The four questions are answered in sentences that every one of which can be traced to an engine fact.
+- The four questions are answered in sentences, each of which can be traced to an engine fact.
 - No message, however worded, changes the schedule without a tap, shows model-written text, or exposes anything but the athlete's own week to the model.
 - With no API key the app behaves exactly as it does today.
 - The offline test suite covers everything except the wire call; the live contract run passes at least 36 of 40 phrasings, including the injection case.
