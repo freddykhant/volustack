@@ -872,11 +872,17 @@ export function proposeLayouts(week: ScheduleInput): LayoutOption[] {
 
 export interface PlacementAlternative {
   to: Placement;
-  /** Cost change if the session moved there: positive is worse. */
+  /**
+   * Cost change if the session moved there: positive is worse. It can be non-zero with
+   * `adds`, `changes` and `resolves` all empty, when the only difference is the week's
+   * spread cost, which is below the threshold for a fact.
+   */
   delta: number;
-  /** Problems the move would create that the current layout does not have. */
+  /** Problems naming this session, or the whole week, that the move would create and the current layout does not have. */
   adds: DecisionFact[];
-  /** Problems of the current layout the move would remove. */
+  /** Problems that remain after the move but in a different size, as they would be after it. */
+  changes: DecisionFact[];
+  /** Problems naming this session, or the whole week, in the current layout that the move would remove. */
   resolves: DecisionFact[];
 }
 
@@ -887,9 +893,12 @@ export interface PlacementExplanation {
   currentFacts: DecisionFact[];
   /** The nearest free cell before and after the current one, each compared. */
   alternatives: PlacementAlternative[];
-  /** The cell the engine would choose instead, or null when this one is the best. */
-  better: Placement | null;
+  /** The single move of this session the engine would suggest, or null when none clears the suggestion bar. */
+  better: PlacementAlternative | null;
+  /** No single move of this session into a free cell is worth suggesting. */
   isBest: boolean;
+  /** A current board suggestion (a move or a swap) involves this session. */
+  inSuggestion: boolean;
 }
 
 /** The sessions a schedule fact is about. Week-wide facts name none. */
@@ -918,42 +927,62 @@ export function explainPlacement(input: ScheduleInput, layout: Layout, sessionId
   if (!session || current === undefined || isFixed(session)) return null;
 
   const base = scoreLayout(input, layout);
-  const baseIds = new Set(base.facts.map(factIdentity));
+  const contentsByIdentity = (facts: DecisionFact[]) => {
+    const out = new Map<string, Set<string>>();
+    for (const f of facts) {
+      const id = factIdentity(f);
+      const contents = out.get(id) ?? new Set<string>();
+      contents.add(factContent(f));
+      out.set(id, contents);
+    }
+    return out;
+  };
+  const baseFacts = contentsByIdentity(base.facts);
   const here = placementPosition(current, input.weekStartDay);
   const held = heldCells(input, layout);
   const free = openCells(input).filter((c) => !held.has(cellKey(c, input.mode)));
+  // Only problems about this session or the whole week belong to its explanation.
+  const mine = (f: DecisionFact) => {
+    const ids = factSessionIds(f);
+    return ids.length === 0 || ids.includes(sessionId);
+  };
 
-  const compare = (to: Placement): PlacementAlternative => {
-    const after = scoreLayout(input, { ...layout, [sessionId]: to });
-    const afterIds = new Set(after.facts.map(factIdentity));
+  const compare = (to: Placement, after: LayoutScore): PlacementAlternative => {
+    const afterFacts = contentsByIdentity(after.facts);
     return {
       to,
       delta: Math.round((after.cost - base.cost) * 1e6) / 1e6,
-      adds: after.facts.filter((f) => !baseIds.has(factIdentity(f))),
-      resolves: base.facts.filter((f) => !afterIds.has(factIdentity(f))),
+      adds: after.facts.filter((f) => mine(f) && !baseFacts.has(factIdentity(f))),
+      changes: after.facts.filter((f) => {
+        const same = baseFacts.get(factIdentity(f));
+        return mine(f) && same !== undefined && !same.has(factContent(f));
+      }),
+      resolves: base.facts.filter((f) => mine(f) && !afterFacts.has(factIdentity(f))),
     };
   };
 
-  const earlier = free.filter((c) => placementPosition(c, input.weekStartDay) < here).at(-1);
-  const later = free.find((c) => placementPosition(c, input.weekStartDay) > here);
-  const alternatives = [earlier, later].filter((c): c is Placement => c !== undefined).map(compare);
+  const scored = free.map((c) => ({ cell: c, score: scoreLayout(input, { ...layout, [sessionId]: c }) }));
+  const earlier = scored.filter((x) => placementPosition(x.cell, input.weekStartDay) < here).at(-1);
+  const later = scored.find((x) => placementPosition(x.cell, input.weekStartDay) > here);
+  const alternatives = [earlier, later].filter((x) => x !== undefined).map((x) => compare(x.cell, x.score));
 
-  let better: Placement | null = null;
-  let bestCost = base.cost;
-  for (const c of free) {
-    const cost = scoreLayout(input, { ...layout, [sessionId]: c }).cost;
-    if (cost < bestCost - SCHEDULE_EPS) {
-      bestCost = cost;
-      better = c;
-    }
+  // The lowest-cost free cell, the earliest on a tie, offered only when it clears the bar the board uses.
+  let lowest: (typeof scored)[number] | null = null;
+  for (const x of scored) {
+    if (lowest === null || x.score.cost < lowest.score.cost - SCHEDULE_EPS) lowest = x;
   }
+  const better =
+    lowest !== null && base.cost - lowest.score.cost > SUGGESTION_MIN_GAIN ? compare(lowest.cell, lowest.score) : null;
 
   return {
     sessionId,
-    current,
+    current: { ...current },
     currentFacts: base.facts.filter((f) => factSessionIds(f).includes(sessionId)),
     alternatives,
     better,
     isBest: better === null,
+    inSuggestion: suggestMoves(input, layout).some(
+      (m) => m.sessionId === sessionId || m.swapWithSessionId === sessionId,
+    ),
   };
 }
