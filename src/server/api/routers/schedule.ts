@@ -22,21 +22,21 @@ import {
 import { dayNumberOfIsoDate, localDayNumber } from "~/domain/local-day";
 import {
   ApplyLayoutInputSchema,
+  ExceptionCellsInputSchema,
   ExceptionInputSchema,
   SchedulePrefsInputSchema,
   TimezoneSchema,
+  type ExceptionInput,
   type ScheduleMode,
 } from "~/schema";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { executeJudgement } from "~/server/judgement/execute";
+import { loadWeekContext, lockActiveBlock } from "~/server/schedule/week-context";
 import {
   applyLayoutToDb,
   availabilityFromRows,
-  exceptionsFromRows,
   scheduleInputFromDb,
-  weekDays,
   WEEK_FOR_SCHEDULE_INCLUDE,
-  type ScheduleSettings,
 } from "~/server/mesocycle/schedule-adapters";
 import { currentWeekIndex } from "~/server/views/to-mesocycle-view";
 import {
@@ -73,71 +73,111 @@ const VIOLATION_MESSAGE: Record<HardViolationKind, string> = {
   unknown_session: "That session isn't in this week.",
 };
 
-/** Everything about one week of the signed-in athlete's ACTIVE block that scheduling
- * needs. Throws NOT_FOUND when the block or the week isn't theirs. */
-async function loadWeekContext(db: Pick<Tx, "mesocycle">, userId: string, weekIndex: number, now: Date) {
-  const meso = await db.mesocycle.findFirst({
-    where: { status: "ACTIVE", athleteProfile: { userId } },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      startDate: true,
-      lengthWeeks: true,
-      athleteProfile: {
-        select: { id: true, scheduleMode: true, timezone: true, availability: true, availabilityExceptions: true },
-      },
-      weeks: { where: { index: { in: [weekIndex - 1, weekIndex] } }, include: WEEK_FOR_SCHEDULE_INCLUDE },
+type WeekResult = { weekIndex: number; moved: string[]; needsChoice: boolean };
+
+/**
+ * Block one-off time. Every cell is checked before anything is written, so a refused
+ * cell leaves no trace. The current week is only recorded (the board then offers
+ * options); each later week touched is re-arranged once, whatever number of its days
+ * were blocked. Must run inside a transaction that already holds the block lock.
+ */
+async function applyExceptions(tx: Tx, userId: string, cells: ExceptionInput[], now: Date): Promise<WeekResult[]> {
+  // Week 1 always exists; it gives us the block's dates and the athlete's settings.
+  const block = await loadWeekContext(tx, userId, 1, now);
+  const tz = block.settings.timezone;
+  const start = localDayNumber(block.startDate, tz);
+  const today = localDayNumber(now, tz);
+
+  const weeks = new Set<number>();
+  for (const cell of cells) {
+    const day = dayNumberOfIsoDate(cell.date);
+    if (day < start || day >= start + block.lengthWeeks * 7) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "That date is outside your current block." });
+    }
+    if (day < today) throw new TRPCError({ code: "BAD_REQUEST", message: "That day has already passed." });
+    if (block.settings.mode === "DAY" && cell.daypart !== null) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "You're set to one session a day, so block the whole day." });
+    }
+    weeks.add(Math.floor((day - start) / 7) + 1);
+  }
+
+  // A whole day and one of its halves (or a repeated cell) name the same row; write each once.
+  const rows = new Map<string, { athleteProfileId: string; date: Date; daypart: "AM" | "PM" }>();
+  for (const cell of cells) {
+    for (const daypart of daypartsOf(cell.daypart)) {
+      rows.set(`${cell.date}:${daypart}`, { athleteProfileId: block.athleteProfileId, date: dbDate(cell.date), daypart });
+    }
+  }
+  await tx.availabilityException.createMany({ data: [...rows.values()], skipDuplicates: true });
+
+  const results: WeekResult[] = [];
+  for (const weekIndex of [...weeks].sort((a, b) => a - b)) {
+    results.push(
+      weekIndex <= block.currentWeek
+        ? { weekIndex, moved: [], needsChoice: false }
+        : await rearrangeLaterWeek(tx, userId, weekIndex, now),
+    );
+  }
+  return results;
+}
+
+/** A later week that has not started: move the sessions that now stand on blocked time,
+ * changing as little as possible, and log it. Left alone when it cannot hold every session. */
+async function rearrangeLaterWeek(tx: Tx, userId: string, weekIndex: number, now: Date): Promise<WeekResult> {
+  const c = await loadWeekContext(tx, userId, weekIndex, now);
+  if (!isStranded(c.input)) return { weekIndex, moved: [], needsChoice: false };
+  if (isCrowded(c.input)) return { weekIndex, moved: [], needsChoice: true };
+  const res = placeWithLens(c.input, "FEWEST_CHANGES");
+  if (res.kind !== "placed") return { weekIndex, moved: [], needsChoice: true };
+  // Nothing is written unless the layout passes every hard rule.
+  if (checkLayout(c.input, res.layout).length > 0) return { weekIndex, moved: [], needsChoice: true };
+
+  const before = savedLayout(c.input);
+  const changed = Object.fromEntries(
+    Object.entries(res.layout).filter(([id, p]) => !samePlacement(before[id] ?? null, p)),
+  );
+  const written = await applyLayoutToDb(tx, changed, { onlyScheduled: true });
+  if (written !== Object.keys(changed).length) {
+    throw new TRPCError({ code: "CONFLICT", message: "A session changed while we were re-arranging that week. Please try again." });
+  }
+  await tx.decisionLog.create({
+    data: {
+      mesocycleId: c.mesocycleId,
+      weekIndex,
+      type: "SCHEDULE",
+      status: "APPLIED",
+      summary: "Week re-arranged around blocked time",
+      reasoning: "exception",
+      payload: asJson({
+        origin: "exception",
+        lens: "FEWEST_CHANGES",
+        before,
+        after: res.layout,
+        facts: scoreLayout(c.input, res.layout).facts,
+      }),
     },
   });
-  if (!meso) throw new TRPCError({ code: "NOT_FOUND" });
-  const week = meso.weeks.find((w) => w.index === weekIndex);
-  if (!week) throw new TRPCError({ code: "NOT_FOUND" });
-
-  const startDate = meso.startDate ?? now;
-  const settings: ScheduleSettings = {
-    mode: meso.athleteProfile.scheduleMode,
-    availability: availabilityFromRows(meso.athleteProfile.availability),
-    timezone: meso.athleteProfile.timezone,
-  };
-  const exceptions = exceptionsFromRows(meso.athleteProfile.availabilityExceptions);
-  const input = scheduleInputFromDb({
-    week,
-    prevWeek: meso.weeks.find((w) => w.index === weekIndex - 1) ?? null,
-    settings,
-    startDate,
-    exceptions,
-    now,
-  });
   return {
-    mesocycleId: meso.id,
-    athleteProfileId: meso.athleteProfile.id,
-    lengthWeeks: meso.lengthWeeks,
-    currentWeek: currentWeekIndex(meso.startDate, meso.lengthWeeks, now, settings.timezone),
-    week,
-    settings,
-    startDate,
-    exceptions,
-    input,
-    readOnly: weekIndex < currentWeekIndex(meso.startDate, meso.lengthWeeks, now, settings.timezone),
-    days: weekDays(startDate, weekIndex, settings.timezone),
-    label: (id: string) => week.sessions.find((s) => s.id === id)?.splitSlot ?? "Session",
+    weekIndex,
+    moved: Object.entries(changed).map(([sessionId, to]) =>
+      moveLine({ sessionId, from: before[sessionId] ?? null, to }, c.label),
+    ),
+    needsChoice: false,
   };
 }
 
-/** Serialise writes per block. Under Read Committed two concurrent writers could both read
- * the same saved layout (or mode), both pass validation and both commit, leaving two
- * sessions on one day. Locking the block's row first makes the second writer wait, then
- * re-read (and fail its checks against) the first one's result. Returns the locked
- * mesocycle id, or null when the athlete has no ACTIVE block. */
-async function lockActiveBlock(tx: Tx, userId: string): Promise<string | null> {
-  const locked = await tx.$queryRaw<{ id: string }[]>`
-    SELECT m."id" FROM "mesocycle" m
-    JOIN "athlete_profile" p ON p."id" = m."athleteProfileId"
-    WHERE p."userId" = ${userId} AND m."status" = 'ACTIVE'::"BlockStatus"
-    ORDER BY m."createdAt" DESC
-    LIMIT 1
-    FOR UPDATE OF m`;
-  return locked[0]?.id ?? null;
+/** Unblock one-off time. Never moves a session. Must run inside a transaction that already holds the block lock. */
+async function removeExceptions(tx: Tx, userId: string, cells: ExceptionInput[]): Promise<void> {
+  const block = await loadWeekContext(tx, userId, 1, new Date());
+  for (const cell of cells) {
+    await tx.availabilityException.deleteMany({
+      where: {
+        athleteProfileId: block.athleteProfileId,
+        date: dbDate(cell.date),
+        daypart: { in: block.settings.mode === "DAY" ? ["AM", "PM"] : daypartsOf(cell.daypart) },
+      },
+    });
+  }
 }
 
 export const scheduleRouter = createTRPCRouter({
@@ -322,80 +362,29 @@ export const scheduleRouter = createTRPCRouter({
   // then offers options. A later week has not been trained, so it is re-placed quietly.
   setException: protectedProcedure
     .input(ExceptionInputSchema)
-    .mutation(async ({ ctx, input }): Promise<{ weekIndex: number; moved: string[]; needsChoice: boolean }> => {
+    .mutation(async ({ ctx, input }): Promise<WeekResult> => {
       const userId = ctx.session.user.id;
       const now = new Date();
       return ctx.db.$transaction(
         async (tx) => {
           if ((await lockActiveBlock(tx, userId)) === null) throw new TRPCError({ code: "NOT_FOUND" });
+          const [result] = await applyExceptions(tx, userId, [input], now);
+          return result!;
+        },
+        { timeout: 15000 },
+      );
+    }),
 
-          // Week 1 always exists; it gives us the block's dates and the athlete's settings.
-          const block = await loadWeekContext(tx, userId, 1, now);
-          const tz = block.settings.timezone;
-          const day = dayNumberOfIsoDate(input.date);
-          const start = localDayNumber(block.startDate, tz);
-          if (day < start || day >= start + block.lengthWeeks * 7) {
-            throw new TRPCError({ code: "BAD_REQUEST", message: "That date is outside your current block." });
-          }
-          if (day < localDayNumber(now, tz)) {
-            throw new TRPCError({ code: "BAD_REQUEST", message: "That day has already passed." });
-          }
-          if (block.settings.mode === "DAY" && input.daypart !== null) {
-            throw new TRPCError({ code: "BAD_REQUEST", message: "You're set to one session a day, so block the whole day." });
-          }
-
-          await tx.availabilityException.createMany({
-            data: daypartsOf(input.daypart).map((daypart) => ({
-              athleteProfileId: block.athleteProfileId,
-              date: dbDate(input.date),
-              daypart,
-            })),
-            skipDuplicates: true,
-          });
-
-          const weekIndex = Math.floor((day - start) / 7) + 1;
-          if (weekIndex <= block.currentWeek) return { weekIndex, moved: [], needsChoice: false };
-
-          const c = await loadWeekContext(tx, userId, weekIndex, now);
-          if (!isStranded(c.input)) return { weekIndex, moved: [], needsChoice: false };
-          if (isCrowded(c.input)) return { weekIndex, moved: [], needsChoice: true };
-          const res = placeWithLens(c.input, "FEWEST_CHANGES");
-          if (res.kind !== "placed") return { weekIndex, moved: [], needsChoice: true };
-          // Nothing is written unless the layout passes every hard rule.
-          if (checkLayout(c.input, res.layout).length > 0) return { weekIndex, moved: [], needsChoice: true };
-
-          const before = savedLayout(c.input);
-          const changed = Object.fromEntries(
-            Object.entries(res.layout).filter(([id, p]) => !samePlacement(before[id] ?? null, p)),
-          );
-          const written = await applyLayoutToDb(tx, changed, { onlyScheduled: true });
-          if (written !== Object.keys(changed).length) {
-            throw new TRPCError({ code: "CONFLICT", message: "A session changed while we were re-arranging that week. Please try again." });
-          }
-          await tx.decisionLog.create({
-            data: {
-              mesocycleId: c.mesocycleId,
-              weekIndex,
-              type: "SCHEDULE",
-              status: "APPLIED",
-              summary: "Week re-arranged around blocked time",
-              reasoning: "exception",
-              payload: asJson({
-                origin: "exception",
-                lens: "FEWEST_CHANGES",
-                before,
-                after: res.layout,
-                facts: scoreLayout(c.input, res.layout).facts,
-              }),
-            },
-          });
-          return {
-            weekIndex,
-            moved: Object.entries(changed).map(([sessionId, to]) =>
-              moveLine({ sessionId, from: before[sessionId] ?? null, to }, c.label),
-            ),
-            needsChoice: false,
-          };
+  // Several cells at once, for "away Thursday to Saturday". All or nothing.
+  setExceptions: protectedProcedure
+    .input(ExceptionCellsInputSchema)
+    .mutation(async ({ ctx, input }): Promise<{ weeks: WeekResult[] }> => {
+      const userId = ctx.session.user.id;
+      const now = new Date();
+      return ctx.db.$transaction(
+        async (tx) => {
+          if ((await lockActiveBlock(tx, userId)) === null) throw new TRPCError({ code: "NOT_FOUND" });
+          return { weeks: await applyExceptions(tx, userId, input.cells, now) };
         },
         { timeout: 15000 },
       );
@@ -407,14 +396,19 @@ export const scheduleRouter = createTRPCRouter({
     await ctx.db.$transaction(
       async (tx) => {
         if ((await lockActiveBlock(tx, userId)) === null) throw new TRPCError({ code: "NOT_FOUND" });
-        const block = await loadWeekContext(tx, userId, 1, new Date());
-        await tx.availabilityException.deleteMany({
-          where: {
-            athleteProfileId: block.athleteProfileId,
-            date: dbDate(input.date),
-            daypart: { in: block.settings.mode === "DAY" ? ["AM", "PM"] : daypartsOf(input.daypart) },
-          },
-        });
+        await removeExceptions(tx, userId, [input]);
+      },
+      { timeout: 15000 },
+    );
+    return { ok: true };
+  }),
+
+  clearExceptions: protectedProcedure.input(ExceptionCellsInputSchema).mutation(async ({ ctx, input }): Promise<{ ok: true }> => {
+    const userId = ctx.session.user.id;
+    await ctx.db.$transaction(
+      async (tx) => {
+        if ((await lockActiveBlock(tx, userId)) === null) throw new TRPCError({ code: "NOT_FOUND" });
+        await removeExceptions(tx, userId, input.cells);
       },
       { timeout: 15000 },
     );

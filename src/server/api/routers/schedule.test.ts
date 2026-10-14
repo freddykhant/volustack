@@ -697,3 +697,121 @@ describe("applyLayout with a replacement", () => {
     expect(payloadOf(dragged.db)).not.toHaveProperty("optionId");
   });
 });
+
+describe("setExceptions", () => {
+  it("writes every cell in one transaction under the lock", async () => {
+    const { caller, db } = makeCaller();
+    const res = await caller.setExceptions({
+      cells: [
+        { date: "2026-10-08", daypart: null },
+        { date: "2026-10-09", daypart: null },
+      ],
+    });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.$queryRaw.mock.invocationCallOrder[0]!).toBeLessThan(db.availabilityException.createMany.mock.invocationCallOrder[0]!);
+    const rows = db.availabilityException.createMany.mock.calls.flatMap((c) => (c[0] as { data: unknown[] }).data);
+    expect(rows).toHaveLength(4);
+    expect(res).toEqual({ weeks: [{ weekIndex: 1, moved: [], needsChoice: false }] });
+  });
+
+  it("writes nothing when any cell is refused", async () => {
+    const { caller, db } = makeCaller();
+    await expect(
+      caller.setExceptions({ cells: [{ date: "2026-10-08", daypart: null }, { date: "2026-10-06", daypart: null }] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(db.availabilityException.createMany).not.toHaveBeenCalled();
+  });
+
+  it("re-arranges each later week once, however many of its days are blocked", async () => {
+    const week2 = weekRow(2, [sessionRow("s3", "wk-2", 0, "Upper A", 3), sessionRow("s4", "wk-2", 1, "Upper B", 4)]);
+    const { caller, db } = makeCaller({
+      weeks: [weekRow(1, []), week2],
+      exceptions: [...bothHalves("2026-10-15"), ...bothHalves("2026-10-16")],
+    });
+    const res = await caller.setExceptions({
+      cells: [
+        { date: "2026-10-15", daypart: null },
+        { date: "2026-10-16", daypart: null },
+      ],
+    });
+    expect(res.weeks).toHaveLength(1);
+    expect(res.weeks[0]).toMatchObject({ weekIndex: 2, needsChoice: false });
+    expect(res.weeks[0]!.moved).toHaveLength(2);
+    const logs = db.decisionLog.create.mock.calls.filter((c) => (c[0] as { data: { weekIndex: number } }).data.weekIndex === 2);
+    expect(logs).toHaveLength(1);
+  });
+
+  it("reports the current week and a later week separately, in order", async () => {
+    const week2 = weekRow(2, [sessionRow("s3", "wk-2", 0, "Upper A", 3)]);
+    const { caller } = makeCaller({ weeks: [weekRow(1, []), week2], exceptions: bothHalves("2026-10-15") });
+    const res = await caller.setExceptions({
+      cells: [
+        { date: "2026-10-15", daypart: null },
+        { date: "2026-10-08", daypart: null },
+      ],
+    });
+    expect(res.weeks.map((w) => w.weekIndex)).toEqual([1, 2]);
+  });
+
+  it("refuses a half-day in one-a-day mode and more than fourteen cells", async () => {
+    const { caller } = makeCaller();
+    await expect(caller.setExceptions({ cells: [{ date: "2026-10-08", daypart: "AM" }] })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const many = Array.from({ length: 15 }, () => ({ date: "2026-10-08", daypart: null }));
+    await expect(caller.setExceptions({ cells: many })).rejects.toBeDefined();
+  });
+
+  it("is CONFLICT when the re-arrangement of any later week is short, so the whole request fails", async () => {
+    const week2 = weekRow(2, [sessionRow("s3", "wk-2", 0, "Upper A", 3)]);
+    const week3 = weekRow(3, [sessionRow("s5", "wk-3", 0, "Upper A", 3)]);
+    const { caller, db } = makeCaller({
+      weeks: [weekRow(1, []), week2, week3],
+      exceptions: [...bothHalves("2026-10-15"), ...bothHalves("2026-10-22")],
+    });
+    // The first later week writes its row; the second reports none.
+    db.trainingSession.updateMany.mockReset();
+    db.trainingSession.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValue({ count: 0 });
+    await expect(
+      caller.setExceptions({
+        cells: [
+          { date: "2026-10-15", daypart: null },
+          { date: "2026-10-22", daypart: null },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(db.trainingSession.updateMany).toHaveBeenCalledTimes(2);
+    expect(db.decisionLog.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes each row once when cells repeat or overlap", async () => {
+    const { caller, db } = makeCaller({ scheduleMode: "HALF_DAY" });
+    await caller.setExceptions({
+      cells: [
+        { date: "2026-10-08", daypart: null },
+        { date: "2026-10-08", daypart: "AM" },
+        { date: "2026-10-08", daypart: null },
+        { date: "2026-10-09", daypart: "PM" },
+      ],
+    });
+    expect(db.availabilityException.createMany).toHaveBeenCalledTimes(1);
+    expect(db.availabilityException.createMany).toHaveBeenCalledWith({
+      data: [
+        { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "AM" },
+        { athleteProfileId: "profile-1", date: D("2026-10-08"), daypart: "PM" },
+        { athleteProfileId: "profile-1", date: D("2026-10-09"), daypart: "PM" },
+      ],
+      skipDuplicates: true,
+    });
+  });
+});
+
+describe("clearExceptions", () => {
+  it("deletes each cell's rows under the lock and moves nothing", async () => {
+    const { caller, db } = makeCaller();
+    await expect(
+      caller.clearExceptions({ cells: [{ date: "2026-10-08", daypart: null }, { date: "2026-10-09", daypart: null }] }),
+    ).resolves.toEqual({ ok: true });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.availabilityException.deleteMany).toHaveBeenCalledTimes(2);
+    expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
+  });
+});
