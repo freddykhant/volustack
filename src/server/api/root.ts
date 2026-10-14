@@ -1,4 +1,5 @@
 import { checkinRouter } from "~/server/api/routers/checkin";
+import { coachRouter } from "~/server/api/routers/coach";
 import { healthRouter } from "~/server/api/routers/health";
 import { mesocycleRouter } from "~/server/api/routers/mesocycle";
 import { onboardingRouter } from "~/server/api/routers/onboarding";
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   schedule: scheduleRouter,
   checkin: checkinRouter,
   readiness: readinessRouter,
+  coach: coachRouter,
 });
 
 // export type definition of API

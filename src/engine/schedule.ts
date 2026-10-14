@@ -869,3 +869,136 @@ export function proposeLayouts(week: ScheduleInput): LayoutOption[] {
   }
   return out.slice(0, MAX_LAYOUT_OPTIONS);
 }
+
+export interface PlacementAlternative {
+  to: Placement;
+  /**
+   * Cost change if the session moved there: positive is worse. It can be non-zero with
+   * `adds`, `worsens` and `resolves` all empty, when the only difference is the week's
+   * spread cost, which is below the threshold for a fact.
+   */
+  delta: number;
+  /** Problems naming this session, or the whole week, that the move would create and the current layout does not have. */
+  adds: DecisionFact[];
+  /** Problems naming this session, or the whole week, that remain after the move and would be worse, as they would be after it. */
+  worsens: DecisionFact[];
+  /** Problems naming this session, or the whole week, in the current layout that the move would remove. */
+  resolves: DecisionFact[];
+}
+
+export interface PlacementExplanation {
+  sessionId: string;
+  current: Placement;
+  /** Facts of the current layout that name this session. */
+  currentFacts: DecisionFact[];
+  /** The nearest free cell before and after the current one, each compared. */
+  alternatives: PlacementAlternative[];
+  /** The single move of this session the engine would suggest, or null when none clears the suggestion bar. */
+  better: PlacementAlternative | null;
+  /** No single move of this session into a free cell is worth suggesting. */
+  isBest: boolean;
+  /** A current board suggestion (a move or a swap) involves this session. */
+  inSuggestion: boolean;
+}
+
+/** How bad a fact is, higher meaning worse, for comparing two facts of one identity. Null when the kind has no size. */
+function factSeverity(f: DecisionFact): number | null {
+  switch (f.kind) {
+    case "short_rest":
+      return -f.gapHalfDays;
+    case "load_streak":
+      return f.days;
+    case "same_day_stack":
+      return f.sharedSets;
+    case "uneven_spread":
+      return f.longestGapDays - f.shortestGapDays;
+    default:
+      return null;
+  }
+}
+
+/** The sessions a schedule fact is about. Week-wide facts name none. */
+function factSessionIds(f: DecisionFact): string[] {
+  switch (f.kind) {
+    case "short_rest":
+      return f.otherSessionId === null ? [f.sessionId] : [f.sessionId, f.otherSessionId];
+    case "same_day_stack":
+      return [...f.sessionIds];
+    case "off_preference":
+    case "on_blocked_cell":
+      return [f.sessionId];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Why a session is where it is, as a comparison: what the nearest free time before and
+ * after it would cost, in the same facts the board warns with. Reads placements and
+ * footprints only. Null for a session that cannot move or is not on the board.
+ */
+export function explainPlacement(input: ScheduleInput, layout: Layout, sessionId: string): PlacementExplanation | null {
+  const session = input.sessions.find((s) => s.id === sessionId);
+  const current = layout[sessionId];
+  if (!session || current === undefined || isFixed(session)) return null;
+
+  const base = scoreLayout(input, layout);
+  const byIdentity = (facts: DecisionFact[]) => {
+    const out = new Map<string, DecisionFact[]>();
+    for (const f of facts) {
+      const id = factIdentity(f);
+      out.set(id, [...(out.get(id) ?? []), f]);
+    }
+    return out;
+  };
+  const baseFacts = byIdentity(base.facts);
+  const here = placementPosition(current, input.weekStartDay);
+  const held = heldCells(input, layout);
+  const free = openCells(input).filter((c) => !held.has(cellKey(c, input.mode)));
+  // Only problems about this session or the whole week belong to its explanation.
+  const mine = (f: DecisionFact) => {
+    const ids = factSessionIds(f);
+    return ids.length === 0 || ids.includes(sessionId);
+  };
+
+  const compare = (to: Placement, after: LayoutScore): PlacementAlternative => {
+    const afterFacts = byIdentity(after.facts);
+    return {
+      to,
+      delta: Math.round((after.cost - base.cost) * 1e6) / 1e6,
+      adds: after.facts.filter((f) => mine(f) && !baseFacts.has(factIdentity(f))),
+      worsens: after.facts.filter((f) => {
+        const severity = factSeverity(f);
+        const was = (baseFacts.get(factIdentity(f)) ?? []).map(factSeverity);
+        // Worse than every current fact of its identity, so a size that only moved sideways is not a cost.
+        return mine(f) && severity !== null && was.length > 0 && was.every((w) => w !== null && severity > w);
+      }),
+      resolves: base.facts.filter((f) => mine(f) && !afterFacts.has(factIdentity(f))),
+    };
+  };
+
+  const scored = free.map((c) => ({ cell: c, score: scoreLayout(input, { ...layout, [sessionId]: c }) }));
+  const earlier = scored.filter((x) => placementPosition(x.cell, input.weekStartDay) < here).at(-1);
+  const later = scored.find((x) => placementPosition(x.cell, input.weekStartDay) > here);
+  const alternatives = [earlier, later].filter((x) => x !== undefined).map((x) => compare(x.cell, x.score));
+
+  // The lowest-cost free cell, the earliest on a tie, offered only when it clears the bar the board uses.
+  let lowest: (typeof scored)[number] | null = null;
+  for (const x of scored) {
+    if (lowest === null || x.score.cost < lowest.score.cost - SCHEDULE_EPS) lowest = x;
+  }
+  const better =
+    lowest !== null && base.cost - lowest.score.cost > SUGGESTION_MIN_GAIN ? compare(lowest.cell, lowest.score) : null;
+
+  return {
+    sessionId,
+    current: { ...current },
+    currentFacts: base.facts.filter((f) => factSessionIds(f).includes(sessionId)),
+    alternatives,
+    better,
+    isBest: better === null,
+    inSuggestion: suggestMoves(input, layout).some(
+      (m) => m.sessionId === sessionId || m.swapWithSessionId === sessionId,
+    ),
+  };
+}

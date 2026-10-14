@@ -11,7 +11,13 @@ export default defineConfig({
     // loads .env unconditionally for every run. Run it deliberately via
     // `pnpm test:contract`. Spread the defaults here so excluding this one
     // file doesn't also stop excluding node_modules/dist/etc.
-    exclude: [...configDefaults.exclude, "src/server/judgement/contract.test.ts"],
+    // The coach phrasing contract is the same: real, billed Anthropic calls,
+    // run deliberately via `pnpm test:coach-contract`.
+    exclude: [
+      ...configDefaults.exclude,
+      "src/server/judgement/contract.test.ts",
+      "src/server/coach/contract.test.ts",
+    ],
     setupFiles: ["./vitest.setup.ts"],
     // prisma/seed/seed.test.ts is a real integration test: twelve sequential
     // upserts against Neon. That is comfortably past Vitest's 5s default, and

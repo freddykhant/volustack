@@ -13,6 +13,9 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { coachAppliedNotice } from "~/components/coach/applied-notice";
+import { CoachBox, type AppliedWeek } from "~/components/coach/coach-box";
+import { blockedReason } from "~/components/coach/messages";
 import {
   applySuggestion,
   cellKey,
@@ -61,6 +64,8 @@ interface Draft {
 interface Notice {
   text: string;
   availabilityLink: boolean;
+  /** Later weeks that changed or need a choice; each links to its board. */
+  weekLinks?: number[];
 }
 
 function BlockToggle({
@@ -154,9 +159,11 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   const router = useRouter();
   const utils = api.useUtils();
   const query = api.schedule.getWeekSchedule.useQuery({ weekIndex });
+  const coach = api.coach.status.useQuery();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [carryForward, setCarryForward] = useState(false);
+  const [coachBusy, setCoachBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [dismissedOptions, setDismissedOptions] = useState<string | null>(null);
   const tzSynced = useRef(false);
@@ -218,7 +225,14 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     },
     onError: (err) => setNotice({ text: err.message, availabilityLink: false }),
   });
-  const blockPending = setException.isPending || clearException.isPending;
+  async function onCoachApplied(weeks: AppliedWeek[]) {
+    await onExceptionChange();
+    const applied = coachAppliedNotice(weeks, weekIndex);
+    setNotice(applied ? { ...applied, availabilityLink: false } : null);
+  }
+  const togglePending = setException.isPending || clearException.isPending;
+  // The coach box saves blocked time too; the board waits for it like for its own.
+  const blockPending = togglePending || coachBusy;
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
@@ -437,6 +451,18 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
 
   return (
     <section aria-label="Week schedule" className="flex flex-col gap-4">
+      {coach.data?.enabled && !data.readOnly ? (
+        <CoachBox
+          weekIndex={weekIndex}
+          blocked={blockedReason({
+            draftOpen: draft !== null,
+            boardSaving: togglePending || apply.isPending,
+          })}
+          onApplied={onCoachApplied}
+          onBusyChange={setCoachBusy}
+          onShowOptions={() => setDismissedOptions(null)}
+        />
+      ) : null}
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
@@ -550,6 +576,17 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
               </Link>
             </>
           ) : null}
+          {notice.weekLinks?.map((n) => (
+            <span key={n}>
+              {" "}
+              <Link
+                href={`/app/block/week/${n}`}
+                className="text-accent hover:text-accent-strong font-medium"
+              >
+                Week {n}
+              </Link>
+            </span>
+          ))}
         </p>
       ) : null}
 

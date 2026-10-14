@@ -4,3 +4,4 @@ export * from "./onboarding";
 export * from "./logging";
 export * from "./checkin";
 export * from "./schedule";
+export * from "./coach";
