@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { resolveCoachForm, type CoachWeek } from "~/domain/coach/resolve";
 import { SUGGESTION_MIN_GAIN } from "~/engine/constants";
+import type * as EngineModule from "~/engine";
 import { explainPlacement, proposeLayouts, savedLayout, suggestMoves } from "~/engine";
 import { loadWeekContext } from "~/server/schedule/week-context";
 import { toMoveSuggestionView } from "~/views/schedule";
@@ -10,7 +11,7 @@ import { coachWeekFrom } from "./week";
 vi.mock("server-only", () => ({}));
 // The real engine throughout; one test makes it find no way to re-arrange the week.
 vi.mock("~/engine", async (importOriginal) => {
-  const engine = await importOriginal<typeof import("~/engine")>();
+  const engine = await importOriginal<typeof EngineModule>();
   return { ...engine, proposeLayouts: vi.fn(engine.proposeLayouts) };
 });
 
