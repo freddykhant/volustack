@@ -66,6 +66,7 @@ export {
   checkLayout,
   dayIndex,
   daypartForDay,
+  explainPlacement,
   footprintOf,
   freeDayCount,
   isCrowded,
@@ -99,6 +100,8 @@ export type {
   OverflowOutcome,
   PlaceResult,
   Placement,
+  PlacementAlternative,
+  PlacementExplanation,
   ScheduleInput,
   ScheduleSession,
 } from "./schedule";
