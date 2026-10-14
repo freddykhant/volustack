@@ -31,7 +31,7 @@ import {
 } from "~/schema";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { executeJudgement } from "~/server/judgement/execute";
-import { loadWeekContext, lockActiveBlock } from "~/server/schedule/week-context";
+import { loadWeekContext, lockActiveBlock, suggestionDismissed } from "~/server/schedule/week-context";
 import {
   applyLayoutToDb,
   availabilityFromRows,
@@ -203,16 +203,8 @@ export const scheduleRouter = createTRPCRouter({
     if (c.readOnly) return [];
     // A stranded session is the replacement panel's job; one voice at a time.
     if (isStranded(c.input)) return [];
+    if (await suggestionDismissed(ctx.db, c)) return [];
     const layout = savedLayout(c.input);
-    const key = layoutKey(layout);
-    const dismissed = await ctx.db.decisionLog.findMany({
-      where: { mesocycleId: c.mesocycleId, weekIndex: input.weekIndex, type: "SCHEDULE", status: "REJECTED" },
-      select: { payload: true },
-    });
-    const wasDismissed = dismissed.some(
-      (d) => typeof d.payload === "object" && d.payload !== null && (d.payload as { layoutKey?: unknown }).layoutKey === key,
-    );
-    if (wasDismissed) return [];
     return suggestMoves(c.input, layout).map((s) => toMoveSuggestionView(s, c.label));
   }),
 

@@ -146,3 +146,4 @@ export const UNSUPPORTED_LINES = [
 export const UNAVAILABLE_LINES = ["I couldn't work that out just now. You can still block time from the board."];
 export const LIMIT_LINES = ["You've reached today's limit for the coach. The board still works."];
 export const FINISHED_WEEK_LINES = ["That week is over, so there is nothing to change in it."];
+export const BLOCK_OVER_LINES = ["Your block has finished, so there is nothing left to schedule in it."];

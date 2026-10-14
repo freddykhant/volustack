@@ -1,6 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Prisma } from "../../../../generated/prisma";
 import { createCallerFactory } from "~/server/api/trpc";
+import { readinessState } from "~/components/viz/readiness-state";
+import { readinessSamplesFrom } from "~/server/mesocycle/readiness-samples";
+import { BLOCK_OVER_LINES } from "~/views/coach";
 import { coachRouter } from "./coach";
 
 vi.mock("server-only", () => ({}));
@@ -75,8 +78,36 @@ function weekRow(index: number, sessions: ReturnType<typeof sessionRow>[]) {
   return { id: `wk-${index}`, mesocycleId: "meso-1", index, isDeload: false, sessions };
 }
 
+// The block as the readiness query selects it: one finished session with logged sets, so the
+// series is not empty. Nothing about it is a week-loader field.
+const READINESS_BLOCK = {
+  startDate: START,
+  lengthWeeks: 4,
+  weeks: [
+    {
+      index: 1,
+      sessions: [
+        {
+          status: "COMPLETED",
+          completedAt: new Date("2026-10-06T10:00:00Z"),
+          prescriptions: [{ setLogs: Array.from({ length: 24 }, () => ({ achievedRir: 1 })) }],
+        },
+      ],
+      checkIns: [],
+    },
+  ],
+};
+// A block with nothing logged yet: it yields an empty series without throwing.
+const EMPTY_BLOCK = { startDate: START, lengthWeeks: 4, weeks: [{ index: 1, sessions: [], checkIns: [] }] };
+
 interface Opts {
   noBlock?: boolean;
+  /** The block the readiness query sees: a block, or "reject" for a failed read. Default: nothing logged. */
+  readinessBlock?: typeof READINESS_BLOCK | "reject";
+  /** Rows the dismissal lookup finds. */
+  dismissed?: { payload: unknown }[];
+  /** The viewed week's sessions (default: Upper A on Thursday, Upper B on Saturday). */
+  week1?: ReturnType<typeof sessionRow>[];
   /** Coach messages already sent in the last 24 hours. */
   messagesToday?: number;
   weeks?: ReturnType<typeof weekRow>[];
@@ -85,7 +116,7 @@ interface Opts {
 }
 
 function makeCaller(opts: Opts = {}) {
-  const week1 = [sessionRow("s1", "wk-1", 0, "Upper A", 3), sessionRow("s2", "wk-1", 1, "Upper B", 5)];
+  const week1 = opts.week1 ?? [sessionRow("s1", "wk-1", 0, "Upper A", 3), sessionRow("s2", "wk-1", 1, "Upper B", 5)];
   const meso = {
     id: "meso-1",
     startDate: START,
@@ -100,12 +131,19 @@ function makeCaller(opts: Opts = {}) {
     weeks: opts.weeks ?? [weekRow(1, week1)],
   };
   const db = {
-    mesocycle: { findFirst: vi.fn().mockResolvedValue(opts.noBlock ? null : meso) },
+    // Two reads per request: the week loader (selects the athlete profile), then readiness.
+    mesocycle: {
+      findFirst: vi.fn((args: { select: Record<string, unknown> }) => {
+        if ("athleteProfile" in args.select) return Promise.resolve(opts.noBlock ? null : meso);
+        if (opts.readinessBlock === "reject") return Promise.reject(new Error("db down"));
+        return Promise.resolve(opts.readinessBlock ?? EMPTY_BLOCK);
+      }),
+    },
     coachMessage: {
       count: vi.fn().mockResolvedValue(opts.messagesToday ?? 0),
       create: vi.fn<(args: { data: Record<string, unknown> }) => Promise<unknown>>().mockResolvedValue({}),
     },
-    decisionLog: { findMany: vi.fn().mockResolvedValue([]) },
+    decisionLog: { findMany: vi.fn().mockResolvedValue(opts.dismissed ?? []) },
     trainingSession: { update: vi.fn(), updateMany: vi.fn() },
     availabilityException: { createMany: vi.fn(), deleteMany: vi.fn() },
     $transaction: vi.fn(),
@@ -143,6 +181,8 @@ describe("coach.interpret", () => {
     expect(db.availabilityException.createMany).not.toHaveBeenCalled();
     expect(db.trainingSession.updateMany).not.toHaveBeenCalled();
     expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.trainingSession.update).not.toHaveBeenCalled();
+    expect(db.availabilityException.deleteMany).not.toHaveBeenCalled();
   });
 
   it("sends the model the athlete's week without any database id", async () => {
@@ -194,7 +234,7 @@ describe("coach.interpret", () => {
     });
     const { data } = db.coachMessage.create.mock.calls[0]![0] as { data: { form: unknown } };
     expect(data).toMatchObject({ outcome: "timeout", model: null });
-    expect(data.form).toBe(Prisma.JsonNull);
+    expect(data.form).toBe(Prisma.DbNull);
   });
 
   it("answers with the fixed line when the interpreter throws", async () => {
@@ -281,5 +321,132 @@ describe("coach.interpret", () => {
     understood({ intent: "rearrange_week" });
     const { caller } = makeCaller({ exceptions: bothHalves("2026-10-08") });
     await expect(caller.interpret({ weekIndex: 1, text: "sort out my week" })).resolves.toMatchObject({ kind: "rearrange", state: "options" });
+  });
+
+  it("reads recovery from the athlete's logged training", async () => {
+    understood({ intent: "ask_recovery" });
+    const { caller } = makeCaller({ readinessBlock: READINESS_BLOCK });
+    // The same pure functions on the same fixture give the expected label.
+    const sample = readinessSamplesFrom(READINESS_BLOCK).filter((x) => x.weekIndex <= 1).at(-1)!;
+    const reply = await caller.interpret({ weekIndex: 1, text: "how's my recovery?" });
+    expect(reply).toMatchObject({ kind: "answer", topic: "recovery" });
+    if (reply.kind !== "answer") return;
+    expect(reply.lines[0]).toBe(`Your form reads ${readinessState(sample)}.`);
+    expect(reply.lines[1]).toMatch(/^Fitness \d+\.\d, fatigue \d+\.\d, form -?\d+\.\d\.$/);
+    expect(reply.lines[1]).toBe(`Fitness ${sample.fitness.toFixed(1)}, fatigue ${sample.fatigue.toFixed(1)}, form ${sample.form.toFixed(1)}.`);
+  });
+
+  it("says there is not enough logged training when nothing is logged", async () => {
+    understood({ intent: "ask_recovery" });
+    const { caller } = makeCaller();
+    await expect(caller.interpret({ weekIndex: 1, text: "recovery?" })).resolves.toEqual({
+      kind: "answer",
+      topic: "recovery",
+      lines: ["There isn't enough logged training yet to read your recovery."],
+    });
+  });
+
+  it("still answers when the readiness read fails", async () => {
+    understood({ intent: "ask_recovery" });
+    const { caller } = makeCaller({ readinessBlock: "reject" });
+    await expect(caller.interpret({ weekIndex: 1, text: "recovery?" })).resolves.toEqual({
+      kind: "answer",
+      topic: "recovery",
+      lines: ["There isn't enough logged training yet to read your recovery."],
+    });
+  });
+});
+
+describe("coach.interpret early exits", () => {
+  it("reports a finished week before it mentions the missing key", async () => {
+    vi.mocked(coachEnabled).mockReturnValue(false);
+    vi.setSystemTime(new Date("2026-10-14T02:00:00Z"));
+    try {
+      const { caller } = makeCaller({ weeks: [weekRow(1, []), weekRow(2, [])] });
+      await expect(caller.interpret({ weekIndex: 1, text: "hi" })).resolves.toMatchObject({
+        kind: "unsupported",
+        lines: ["That week is over, so there is nothing to change in it."],
+      });
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+
+  it("reports the missing key before it counts the day's messages", async () => {
+    vi.mocked(coachEnabled).mockReturnValue(false);
+    const { caller, db } = makeCaller({ messagesToday: 50 });
+    await expect(caller.interpret({ weekIndex: 1, text: "hi" })).resolves.toEqual({
+      kind: "unavailable",
+      lines: ["I couldn't work that out just now. You can still block time from the board."],
+    });
+    expect(db.coachMessage.count).not.toHaveBeenCalled();
+  });
+
+  it("says the block is over, with no model call and no log, once no date is left", async () => {
+    // The block ran 5 Oct to Sun 1 Nov; it is still ACTIVE on 3 Nov and its last week is current.
+    vi.setSystemTime(new Date("2026-11-03T02:00:00Z"));
+    try {
+      const { caller, db } = makeCaller({ weeks: [weekRow(4, [])] });
+      await expect(caller.interpret({ weekIndex: 4, text: "can't make Thursday" })).resolves.toEqual({
+        kind: "unsupported",
+        lines: BLOCK_OVER_LINES,
+      });
+      expect(interpret).not.toHaveBeenCalled();
+      expect(db.coachMessage.count).not.toHaveBeenCalled();
+      expect(db.coachMessage.create).not.toHaveBeenCalled();
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+});
+
+describe("coach.interpret and a dismissed suggestion", () => {
+  // Two chest sessions on consecutive days: the engine wants them apart, and has a suggestion.
+  const tight = () => [sessionRow("s1", "wk-1", 0, "Upper A", 3), sessionRow("s2", "wk-1", 1, "Upper B", 4)];
+  const CURRENT_KEY = "s1:3:-|s2:4:-";
+
+  it("offers the suggestion when none was dismissed", async () => {
+    understood({ intent: "rearrange_week" });
+    const { caller } = makeCaller({ week1: tight() });
+    const reply = await caller.interpret({ weekIndex: 1, text: "sort out my week" });
+    expect(reply).toMatchObject({ kind: "rearrange", state: "suggestion" });
+  });
+
+  it("says there is nothing to change once that layout's suggestion was dismissed", async () => {
+    understood({ intent: "rearrange_week" });
+    const { caller, db } = makeCaller({ week1: tight(), dismissed: [{ payload: { layoutKey: CURRENT_KEY } }] });
+    await expect(caller.interpret({ weekIndex: 1, text: "sort out my week" })).resolves.toMatchObject({
+      kind: "rearrange",
+      state: "nothing",
+    });
+    expect(db.decisionLog.findMany).toHaveBeenCalledWith({
+      where: { mesocycleId: "meso-1", weekIndex: 1, type: "SCHEDULE", status: "REJECTED" },
+      select: { payload: true },
+    });
+  });
+
+  it("does not list the dismissed suggestion among the week's issues", async () => {
+    understood({ intent: "ask_week_issues" });
+    const { caller } = makeCaller({ week1: tight(), dismissed: [{ payload: { layoutKey: CURRENT_KEY } }] });
+    const reply = await caller.interpret({ weekIndex: 1, text: "what's wrong with my week?" });
+    expect(reply.kind).toBe("answer");
+    if (reply.kind === "answer") expect(reply.lines.some((l) => l.startsWith("Suggested:"))).toBe(false);
+  });
+
+  it("lists the suggestion among the week's issues when it was not dismissed", async () => {
+    understood({ intent: "ask_week_issues" });
+    const { caller } = makeCaller({ week1: tight() });
+    const reply = await caller.interpret({ weekIndex: 1, text: "what's wrong with my week?" });
+    if (reply.kind === "answer") expect(reply.lines.some((l) => l.startsWith("Suggested:"))).toBe(true);
+    else expect.unreachable();
+  });
+
+  it("suggests again when the dismissed layout was a different one", async () => {
+    understood({ intent: "rearrange_week" });
+    const { caller } = makeCaller({ week1: tight(), dismissed: [{ payload: { layoutKey: "s1:3:-|s2:6:-" } }] });
+    await expect(caller.interpret({ weekIndex: 1, text: "sort out my week" })).resolves.toMatchObject({
+      kind: "rearrange",
+      state: "suggestion",
+    });
   });
 });

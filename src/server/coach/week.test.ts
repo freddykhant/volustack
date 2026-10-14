@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { SUGGESTION_MIN_GAIN } from "~/engine/constants";
+import { savedLayout, suggestMoves } from "~/engine";
 import { loadWeekContext } from "~/server/schedule/week-context";
+import { toMoveSuggestionView } from "~/views/schedule";
 import { toModelContext } from "./context";
 import { coachWeekFrom } from "./week";
 
@@ -45,7 +48,12 @@ function sessionRow(
   };
 }
 
-async function weekFor(sessions: ReturnType<typeof sessionRow>[], exceptions: { date: Date; daypart: "AM" | "PM" }[] = []) {
+const THURSDAY = [
+  { date: new Date("2026-10-08T00:00:00Z"), daypart: "AM" as const },
+  { date: new Date("2026-10-08T00:00:00Z"), daypart: "PM" as const },
+];
+
+async function contextFor(sessions: ReturnType<typeof sessionRow>[], exceptions: { date: Date; daypart: "AM" | "PM" }[] = []) {
   const meso = {
     id: "meso-1",
     startDate: START,
@@ -54,8 +62,16 @@ async function weekFor(sessions: ReturnType<typeof sessionRow>[], exceptions: { 
     weeks: [{ id: "wk-1", mesocycleId: "meso-1", index: 1, isDeload: false, sessions }],
   };
   const db = { mesocycle: { findFirst: vi.fn().mockResolvedValue(meso) } };
-  const c = await loadWeekContext(db as never, "user-1", 1, NOW);
-  return coachWeekFrom(c, { now: NOW, readiness: null });
+  return loadWeekContext(db as never, "user-1", 1, NOW);
+}
+
+async function weekFor(
+  sessions: ReturnType<typeof sessionRow>[],
+  exceptions: { date: Date; daypart: "AM" | "PM" }[] = [],
+  suggestionDismissed = false,
+) {
+  const c = await contextFor(sessions, exceptions);
+  return coachWeekFrom(c, { now: NOW, readiness: null, suggestionDismissed });
 }
 
 describe("coachWeekFrom", () => {
@@ -98,16 +114,33 @@ describe("coachWeekFrom", () => {
     expect(high.next).toMatchObject({ label: "Upper A", first: null });
   });
 
-  it("offers no suggestion while the week is stranded", async () => {
-    const week = await weekFor(
-      [sessionRow("a", 0, "Upper A", 3), sessionRow("b", 1, "Upper B", 5)],
-      [
-        { date: new Date("2026-10-08T00:00:00Z"), daypart: "AM" },
-        { date: new Date("2026-10-08T00:00:00Z"), daypart: "PM" },
-      ],
-    );
-    expect(week.stranded).toBe(true);
-    expect(week.suggestion).toBeNull();
+  describe("suggestion", () => {
+    // Two sessions on consecutive days that train the same muscles: the engine wants them apart.
+    const tight = () => [sessionRow("a", 0, "Upper A", 3), sessionRow("b", 1, "Upper B", 4)];
+
+    it("relays the engine's top suggestion", async () => {
+      const c = await contextFor(tight());
+      const top = suggestMoves(c.input, savedLayout(c.input))[0];
+      expect(top).toBeDefined();
+      expect(top!.gain).toBeGreaterThan(SUGGESTION_MIN_GAIN);
+      const view = toMoveSuggestionView(top!, c.label);
+      const week = coachWeekFrom(c, { now: NOW, readiness: null, suggestionDismissed: false });
+      expect(week.suggestion).toEqual({ headline: view.headline, reasons: view.reasons });
+      expect(view.headline).toMatch(/^(Move|Swap) /);
+      expect(view.reasons.length).toBeGreaterThan(0);
+    });
+
+    it("offers none while the week is stranded", async () => {
+      const week = await weekFor(tight(), THURSDAY);
+      expect(week.stranded).toBe(true);
+      expect(week.suggestion).toBeNull();
+    });
+
+    it("offers none once the athlete dismissed it", async () => {
+      const week = await weekFor(tight(), [], true);
+      expect(week.stranded).toBe(false);
+      expect(week.suggestion).toBeNull();
+    });
   });
 
   it("gives the model no session id", async () => {

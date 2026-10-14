@@ -5,10 +5,10 @@ import { COACH_DAILY_LIMIT, CoachMessageInputSchema } from "~/schema";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { anthropicInterpreter, coachEnabled, type InterpretResult } from "~/server/coach/client";
 import { toModelContext } from "~/server/coach/context";
-import { coachWeekFrom } from "~/server/coach/week";
+import { coachWeekFrom, weekDates } from "~/server/coach/week";
 import { BLOCK_FOR_READINESS_SELECT, readinessSamplesFrom } from "~/server/mesocycle/readiness-samples";
-import { loadWeekContext } from "~/server/schedule/week-context";
-import { FINISHED_WEEK_LINES, LIMIT_LINES, UNAVAILABLE_LINES, type CoachReply, type ReadinessInfo } from "~/views/coach";
+import { loadWeekContext, suggestionDismissed } from "~/server/schedule/week-context";
+import { BLOCK_OVER_LINES, FINISHED_WEEK_LINES, LIMIT_LINES, UNAVAILABLE_LINES, type CoachReply, type ReadinessInfo } from "~/views/coach";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const asJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -24,12 +24,17 @@ export const coachRouter = createTRPCRouter({
     const now = new Date();
     const c = await loadWeekContext(ctx.db, userId, input.weekIndex, now);
     if (c.readOnly) return { kind: "unsupported", lines: FINISHED_WEEK_LINES };
+    // The block's last day has passed but it is still ACTIVE: no date is left to act on.
+    if (weekDates(c, now).length === 0) return { kind: "unsupported", lines: BLOCK_OVER_LINES };
     if (!coachEnabled()) return { kind: "unavailable", lines: UNAVAILABLE_LINES };
 
     const sent = await ctx.db.coachMessage.count({
       where: { athleteProfileId: c.athleteProfileId, createdAt: { gte: new Date(now.getTime() - DAY_MS) } },
     });
     if (sent >= COACH_DAILY_LIMIT) return { kind: "unavailable", lines: LIMIT_LINES };
+
+    // The board hides a suggestion the athlete dismissed for this layout; the coach must too.
+    const dismissed = await suggestionDismissed(ctx.db, c);
 
     // Readiness is one of the four answers. It is best-effort: without it the answer
     // says there is not enough logged training, which is true of an empty block too.
@@ -47,7 +52,7 @@ export const coachRouter = createTRPCRouter({
       readiness = null;
     }
 
-    const week = coachWeekFrom(c, { now, readiness });
+    const week = coachWeekFrom(c, { now, readiness, suggestionDismissed: dismissed });
 
     let result: InterpretResult;
     try {
@@ -64,7 +69,7 @@ export const coachRouter = createTRPCRouter({
           athleteProfileId: c.athleteProfileId,
           weekIndex: input.weekIndex,
           text: input.text,
-          form: result.ok ? asJson(result.form) : Prisma.JsonNull,
+          form: result.ok ? asJson(result.form) : Prisma.DbNull,
           outcome: result.ok ? reply.kind : result.reason,
           model: result.ok ? result.model : null,
           inputTokens: result.ok ? result.inputTokens : null,

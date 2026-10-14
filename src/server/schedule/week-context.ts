@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { Prisma } from "../../../generated/prisma";
+import { layoutKey, savedLayout } from "~/engine";
 import {
   availabilityFromRows,
   exceptionsFromRows,
@@ -61,6 +62,19 @@ export async function loadWeekContext(db: Pick<Tx, "mesocycle">, userId: string,
     days: weekDays(startDate, weekIndex, settings.timezone),
     label: (id: string) => week.sessions.find((s) => s.id === id)?.splitSlot ?? "Session",
   };
+}
+
+/** Whether the athlete dismissed the engine's suggestion for the layout the week has now.
+ * A dismissal is tied to that exact layout: change it and the engine may suggest again. */
+export async function suggestionDismissed(db: Pick<Tx, "decisionLog">, c: WeekContext): Promise<boolean> {
+  const key = layoutKey(savedLayout(c.input));
+  const dismissed = await db.decisionLog.findMany({
+    where: { mesocycleId: c.mesocycleId, weekIndex: c.week.index, type: "SCHEDULE", status: "REJECTED" },
+    select: { payload: true },
+  });
+  return dismissed.some(
+    (d) => typeof d.payload === "object" && d.payload !== null && (d.payload as { layoutKey?: unknown }).layoutKey === key,
+  );
 }
 
 /** Serialise writes per block. Under Read Committed two concurrent writers could both read
