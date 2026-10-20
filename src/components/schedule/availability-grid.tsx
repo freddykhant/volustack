@@ -1,5 +1,6 @@
 "use client";
 
+import { Ban, Star } from "lucide-react";
 import { cellState, type AvailabilityCellInput } from "~/engine/schedule";
 import type { Daypart, ScheduleMode } from "~/schema";
 import { DAY_NAMES } from "~/views/schedule";
@@ -10,7 +11,12 @@ const STATE_LABEL = {
   PREFERRED: "Preferred",
   BLOCKED: "Blocked",
 } as const;
-const STATE_MARK = { AVAILABLE: "·", PREFERRED: "★", BLOCKED: "✕" } as const;
+
+function Mark({ state }: { state: keyof typeof STATE_LABEL }) {
+  if (state === "PREFERRED") return <Star className="size-4" aria-hidden />;
+  if (state === "BLOCKED") return <Ban className="size-4" aria-hidden />;
+  return <span aria-hidden className="size-1 rounded-full bg-current" />;
+}
 
 /** The athlete's standing week. Tap a cell to cycle Available → Preferred → Blocked.
  * State is carried by the mark and the label, not by colour alone. */
@@ -27,18 +33,21 @@ export function AvailabilityGrid({
 }) {
   const rows: (Daypart | null)[] = mode === "HALF_DAY" ? ["AM", "PM"] : [null];
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="overflow-x-auto">
         <div className="grid min-w-[420px] grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] gap-1.5">
           <span />
           {DAY_NAMES.map((d) => (
-            <span key={d} className="text-fg-subtle text-center text-[12px]">
+            <span
+              key={d}
+              className="text-eyebrow text-center font-medium text-fg-subtle"
+            >
               {d}
             </span>
           ))}
           {rows.map((daypart) => (
             <div key={daypart ?? "day"} className="contents">
-              <span className="text-fg-subtle self-center text-[12px]">
+              <span className="text-eyebrow self-center font-medium text-fg-subtle">
                 {daypart ?? ""}
               </span>
               {DAY_NAMES.map((name, day) => {
@@ -53,15 +62,15 @@ export function AvailabilityGrid({
                       onChange(cycleCell(value, mode, day, daypart))
                     }
                     className={
-                      "rounded-control text-nav h-10 border transition-colors disabled:opacity-60 " +
+                      "flex h-11 items-center justify-center rounded-control border transition-colors disabled:opacity-60 " +
                       (state === "PREFERRED"
-                        ? "border-accent bg-selection text-accent"
+                        ? "border-accent/25 bg-selection text-accent"
                         : state === "BLOCKED"
-                          ? "border-border-subtle bg-canvas text-fg-subtle"
-                          : "border-border-subtle text-fg-muted hover:border-border")
+                          ? "border-dashed border-border-strong text-fg-subtle hover:bg-hover"
+                          : "border-transparent bg-sunken text-fg-muted hover:bg-press")
                     }
                   >
-                    {STATE_MARK[state]}
+                    <Mark state={state} />
                   </button>
                 );
               })}
@@ -69,8 +78,12 @@ export function AvailabilityGrid({
           ))}
         </div>
       </div>
-      <p className="text-fg-subtle text-[12px]">
-        ★ preferred · · available · ✕ blocked. Tap a cell to change it.
+      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-meta text-fg-muted">
+        <Star className="size-3.5" aria-hidden /> preferred
+        <span aria-hidden>·</span> available
+        <span aria-hidden>·</span>
+        <Ban className="size-3.5" aria-hidden /> blocked
+        <span aria-hidden>·</span> tap a cell to change it
       </p>
     </div>
   );

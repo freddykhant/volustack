@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AvailabilityCellInput } from "~/engine/schedule";
 import type { ScheduleMode } from "~/schema";
+import { Button } from "~/components/ui-kit/app-shell-kit";
 import { api } from "~/trpc/react";
 import { AvailabilityGrid } from "./availability-grid";
 
@@ -30,10 +31,10 @@ export function SchedulePrefsForm() {
   const prefs = api.schedule.getPrefs.useQuery();
 
   if (prefs.isLoading)
-    return <p className="text-nav text-fg-subtle">Loading…</p>;
+    return <p className="text-card-desc text-fg-muted">Loading…</p>;
   if (prefs.isError || !prefs.data) {
     return (
-      <p className="text-nav text-fg-soft">
+      <p className="text-card-desc text-fg-soft">
         Couldn’t load your schedule settings.
       </p>
     );
@@ -62,7 +63,7 @@ function PrefsFormBody({ initial }: { initial: LoadedPrefs }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <span className="text-nav text-fg font-medium">
+        <span className="text-nav text-fg-soft">
           How you plan your week
         </span>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -78,28 +79,28 @@ function PrefsFormBody({ initial }: { initial: LoadedPrefs }) {
                 update.reset();
               }}
               className={
-                "rounded-control flex-1 border p-3 text-left transition-colors disabled:opacity-60 " +
+                "flex-1 rounded-callout border p-4 text-left transition-colors disabled:opacity-60 " +
                 (mode === m.value
-                  ? "border-accent bg-selection"
-                  : "border-border-subtle hover:border-border")
+                  ? "border-accent/25 bg-selection"
+                  : "border-transparent bg-sunken hover:bg-press")
               }
             >
               <div
                 className={
-                  "text-nav font-medium " +
+                  "text-list " +
                   (mode === m.value ? "text-accent" : "text-fg")
                 }
               >
                 {m.label}
               </div>
-              <div className="text-fg-muted text-[12px]">{m.hint}</div>
+              <div className="mt-0.5 text-meta text-fg-muted">{m.hint}</div>
             </button>
           ))}
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-nav text-fg font-medium">When you can train</span>
+        <span className="text-nav text-fg-soft">When you can train</span>
         <AvailabilityGrid
           mode={mode}
           value={availability}
@@ -110,7 +111,7 @@ function PrefsFormBody({ initial }: { initial: LoadedPrefs }) {
           }}
           disabled={update.isPending}
         />
-        <p className="text-fg-subtle text-[12px]">
+        <p className="text-meta text-fg-muted">
           Changing this never moves a session on its own. If a session ends up
           on a blocked time, your coach will suggest a move.
         </p>
@@ -119,27 +120,26 @@ function PrefsFormBody({ initial }: { initial: LoadedPrefs }) {
       {update.isError ? (
         <p
           role="alert"
-          className="rounded-control border-border bg-callout text-nav text-fg-soft border px-3 py-2"
+          className="rounded-control bg-callout px-3 py-2 text-card-desc text-fg-soft"
         >
           {update.error.message}
         </p>
       ) : null}
 
       <div className="flex items-center gap-3">
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={() => update.mutate({ scheduleMode: mode, availability })}
-          disabled={update.isPending}
-          className="rounded-control bg-accent text-nav hover:bg-accent-strong px-4 py-2 font-medium text-white transition-colors disabled:opacity-60"
+          loading={update.isPending}
         >
           {update.isPending ? "Saving…" : "Save"}
-        </button>
+        </Button>
         {saved ? (
-          <span role="status" className="text-nav text-fg-muted">
+          <span role="status" className="text-card-desc text-fg-muted">
             Saved.
           </span>
         ) : null}
-        <span className="text-fg-subtle text-[12px]">
+        <span className="text-meta text-fg-muted">
           Timezone: {initial.timezone}
         </span>
       </div>
