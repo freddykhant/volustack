@@ -6,6 +6,14 @@
 **Builds on:** ① schedule foundation (placements, `Footprint`, AM/PM), ③ blocked time (date-keyed `AvailabilityException`, the athlete's local date), ④ coach box (engine-phrased lines in `src/views/`).
 **Part of:** Dynamic Scheduling ① → ② → ③ → ④ → **⑤ situational coach cues (this)**.
 
+## Amendments (2026-10-20, during planning; these win over the body)
+
+1. Router tests follow the repo's existing pattern: a mocked `db` (as in `schedule.test.ts`), not a live database.
+2. `rankCues`'s placeholder breaks ties by cue id, not "first session": ids are stable and that keeps it deterministic.
+3. The board's "+ activity" form opens inline under the day, not as a floating popover, so it stays outside dnd-kit's droppable cells.
+4. `heavy_lower` carries `mealHoursBefore` (from `CUE_PRE_MEAL_HOURS = [2, 3]`), so the "2–3 hours" in its line is an engine number too (Law 1).
+5. The home card renders nothing until it has read the device's dismissals, so a dismissed cue never flashes back.
+
 ## Problem
 
 The plan knows *when* the athlete lifts, but not what else their day holds, and it never says anything timely about the day ahead. The athlete's own example: an AM run and leg day on the same day should get "make sure you get your carbs in", ideally with a number.
