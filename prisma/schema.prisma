@@ -154,6 +154,20 @@ enum Daypart {
   PM
 }
 
+enum ActivityKind {
+  RUN
+  RIDE
+  SWIM
+  SPORT
+  OTHER
+}
+
+enum ActivityIntensity {
+  EASY
+  MODERATE
+  HARD
+}
+
 enum AvailabilityState {
   PREFERRED
   BLOCKED
@@ -244,6 +258,7 @@ model AthleteProfile {
   availability AvailabilityCell[]
   availabilityExceptions AvailabilityException[]
   coachMessages CoachMessage[]
+  outsideActivities OutsideActivity[]
 
   @@map("athlete_profile")
 }
@@ -287,6 +302,24 @@ model AvailabilityException {
 
   @@unique([athleteProfileId, date, daypart])
   @@map("availability_exception")
+}
+
+/// Something the athlete does outside their lifting plan (a run, a ride, a game). Keyed by
+/// the athlete's local date, like AvailabilityException, so re-planning a block never
+/// touches it. Cues read it; scheduling never does.
+model OutsideActivity {
+  id               String            @id @default(cuid())
+  athleteProfileId String
+  athleteProfile   AthleteProfile    @relation(fields: [athleteProfileId], references: [id], onDelete: Cascade)
+  date             DateTime          @db.Date
+  daypart          Daypart?
+  kind             ActivityKind
+  intensity        ActivityIntensity
+  durationMin      Int?
+  createdAt        DateTime          @default(now())
+
+  @@index([athleteProfileId, date])
+  @@map("outside_activity")
 }
 
 /// One message typed into the coach box, with what it was understood as. Kept for the
