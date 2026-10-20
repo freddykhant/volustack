@@ -1,23 +1,42 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { FaGoogle } from "react-icons/fa";
 
+import { Button } from "~/components/ui-kit/app-shell-kit";
 import { authClient } from "~/server/better-auth/client";
 
 export function SignInButton() {
+  const [pending, setPending] = useState(false);
+
+  // Coming back from Google restores this page from the bfcache with the spinner still on; clear it.
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setPending(false);
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
+
+  async function signIn() {
+    setPending(true);
+    try {
+      const res = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/app",
+      });
+      // On success the browser navigates away; only an error lands back here.
+      if (res?.error) setPending(false);
+    } catch {
+      setPending(false);
+    }
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() =>
-        authClient.signIn.social({
-          provider: "google",
-          callbackURL: "/app",
-        })
-      }
-      className="inline-flex items-center rounded-full bg-white/10 px-10 py-3 font-semibold transition hover:bg-white/20"
-    >
-      <FaGoogle className="mr-2 h-4 w-4" />
-      Sign in with Google
-    </button>
+    <Button variant="primary" size="lg" loading={pending} onClick={() => void signIn()}>
+      {/* The kit's `icon` prop takes a Lucide icon; the brand mark is passed as a child and yields to the spinner. */}
+      {pending ? null : <FaGoogle className="size-4" aria-hidden />}
+      Continue with Google
+    </Button>
   );
 }
