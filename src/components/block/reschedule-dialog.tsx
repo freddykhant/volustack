@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
+import { Button, Skeleton } from "~/components/ui-kit/app-shell-kit";
 
 export function RescheduleDialog({
   sessionId,
@@ -72,7 +73,7 @@ export function RescheduleDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 grid place-items-center bg-scrim p-4 backdrop-blur-[2px] animate-fade"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -84,32 +85,35 @@ export function RescheduleDialog({
         aria-modal="true"
         aria-labelledby="reschedule-title"
         aria-describedby="reschedule-desc"
-        className="w-full max-w-md rounded-card border border-border bg-canvas p-6 outline-none"
+        className="w-full max-w-[480px] rounded-sheet bg-surface-raised p-6 shadow-pop outline-none animate-rise"
       >
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-start justify-between gap-3">
           <h2 id="reschedule-title" className="text-card-title text-fg">
             {title ?? "Missed it? Let’s adjust."}
           </h2>
-          <button type="button" onClick={onClose} className="text-nav text-fg-subtle hover:text-fg">
+          <Button variant="ghost" size="sm" onClick={onClose} className="-mt-1 -mr-2">
             Close
-          </button>
+          </Button>
         </div>
-        <p id="reschedule-desc" className="mt-1 text-nav text-fg-muted">
+        <p id="reschedule-desc" className="mt-1.5 text-card-desc text-fg-muted">
           Here’s how we can recover the volume — your call.
         </p>
 
-        <div className="mt-4 flex flex-col gap-2">
-          {options.isLoading && <p className="text-nav text-fg-subtle">Finding your best options…</p>}
+        <div className="mt-5 flex flex-col gap-2.5">
+          {options.isLoading && (
+            <div aria-busy="true" className="flex flex-col gap-2.5">
+              <p className="sr-only">Finding your best options…</p>
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-[84px] w-full rounded-callout" />
+              ))}
+            </div>
+          )}
           {options.isError && (
-            <div className="rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">
+            <div role="alert" className="rounded-callout bg-callout px-3.5 py-3 text-card-desc text-fg-soft">
               <p>Couldn’t load your options. {options.error.message}</p>
-              <button
-                type="button"
-                onClick={() => void options.refetch()}
-                className="mt-1 text-nav font-medium text-accent transition-colors hover:text-accent-strong"
-              >
+              <Button variant="secondary" size="sm" onClick={() => void options.refetch()} className="mt-2.5">
                 Try again
-              </button>
+              </Button>
             </div>
           )}
           {options.data?.map((o) => (
@@ -119,34 +123,34 @@ export function RescheduleDialog({
               disabled={apply.isPending}
               onClick={() => apply.mutate({ sessionId, kind: o.kind })}
               className={
-                "flex flex-col gap-1 rounded-control border p-4 text-left transition-colors disabled:opacity-60 " +
-                (o.recommended ? "border-accent bg-selection" : "border-border-subtle hover:border-border")
+                "flex flex-col gap-1 rounded-callout border p-4 text-left transition-colors duration-200 disabled:opacity-60 " +
+                (o.recommended
+                  ? "border-accent bg-selection"
+                  : "border-border bg-surface-raised hover:border-border-strong hover:bg-hover")
               }
             >
-              <div className="flex items-center justify-between">
-                <span className="flex items-center">
-                  <span className={"text-nav font-medium " + (o.recommended ? "text-accent" : "text-fg")}>
+              <div className="flex items-start justify-between gap-3">
+                <span className="flex flex-wrap items-center gap-x-2">
+                  <span className={"text-list " + (o.recommended ? "text-accent" : "text-fg")}>
                     {o.kind === "MAKE_UP" ? "Make it up" : o.kind === "PARTIAL" ? "Partial recovery" : "Let it go"}
                     {o.recommended ? " · recommended" : ""}
                   </span>
-                  {o.closeCall ? (
-                    <span className="ml-2 text-[12px] text-fg-muted">Close call</span>
-                  ) : null}
+                  {o.closeCall ? <span className="text-meta text-fg-muted">Close call</span> : null}
                 </span>
-                <span className="text-[12px] text-fg-subtle">
+                <span className="shrink-0 text-meta text-fg-subtle tabular-nums">
                   +{o.recoveredSets} recovered · {o.droppedSets} dropped
                 </span>
               </div>
-              <span className="text-[12px] text-fg-muted">{o.summary}</span>
+              <span className="text-card-desc text-fg-muted">{o.summary}</span>
               {o.perSession.length > 0 ? (
-                <span className="text-[12px] text-fg-subtle">
+                <span className="text-meta text-fg-subtle tabular-nums">
                   {o.perSession.map((s) => `${s.label} +${s.addedSets}`).join(" · ")}
                 </span>
               ) : null}
             </button>
           ))}
           {apply.isError && (
-            <p className="rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">
+            <p role="alert" className="rounded-callout bg-callout px-3.5 py-2.5 text-card-desc text-fg-soft">
               {apply.error.message}
             </p>
           )}
