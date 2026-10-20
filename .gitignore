@@ -52,3 +52,6 @@ yarn-error.log*
 
 /.agents
 skills-lock.json
+
+# brainstorm mockups (visual companion)
+.superpowers/

@@ -1,81 +1,185 @@
-/* App-shell design tokens (Tailwind v4 @theme) — cloned from the live ReadMe
-   reference via computed-style extraction (2026-07-24).
-   Wire-up: in src/styles/globals.css, after `@import "tailwindcss";` add
-   `@import "./theme.css";` (adjust the path to wherever you put this file).
-   Then give <body> the app defaults: className="bg-canvas font-sans text-fg antialiased"
-   — or just mount everything inside <AppShell> / <AppCanvas>, which apply them. */
+/* Mesodapt design tokens (Tailwind v4 @theme). Source of truth: DESIGN.md.
+   Light, atmospheric, Luma-inspired (2026-10-20). Token NAMES are stable — every
+   component uses them by role (`bg-surface`, `text-fg-muted`, `rounded-card`),
+   so changing a value here repaints the whole app. Never add a raw hex in a
+   component; add a role token here first. */
 
 @theme {
-  --color-canvas: #0b0c0d;
-  --color-surface: rgba(255, 255, 255, 0.05);
-  --color-surface-raised: rgba(255, 255, 255, 0.075);
-  --color-selection: rgba(0, 146, 255, 0.09);
-  --color-callout: rgba(17, 140, 253, 0.05);
+  /* ── Ground & surfaces ─────────────────────────────────────────────── */
+  --color-canvas: #faf9f7; /* warm off-white page ground */
+  --color-surface: rgba(255, 255, 255, 0.82); /* cards, panels (sits on canvas) */
+  --color-surface-raised: #ffffff; /* popovers, dialogs, active nav row */
+  --color-sunken: rgba(17, 18, 20, 0.035); /* wells: inputs, segmented tracks, grid cells */
+  --color-hover: rgba(17, 18, 20, 0.04); /* hover wash on rows/ghost buttons */
+  --color-press: rgba(17, 18, 20, 0.07); /* pressed wash */
+  --color-scrim: rgba(17, 18, 20, 0.28); /* behind dialogs */
+  --color-selection: rgba(10, 111, 224, 0.08); /* active contextual-list row */
+  --color-callout: rgba(10, 111, 224, 0.06); /* info banner fill */
 
-  /* Landmark zone tokens (Mesodapt data-viz family) — reserved for DATA, never
-     decorative UI. Progression grey→blue→green→amber is colorblind-safe on the
-     #0b0c0d canvas and keeps "max" a warning, not an alarm. Full-strength for
-     small marks (bars, chips, markers); -soft translucent fills for large areas
-     (grid cells, body regions). Hues may be refined with the dataviz skill. */
+  /* ── Ink (text) ────────────────────────────────────────────────────── */
+  --color-fg: #17181a; /* primary text, titles */
+  --color-fg-soft: #3d4148; /* eyebrows, strong secondary */
+  --color-fg-muted: #5f646c; /* descriptions, metadata, default icons (≈5.9:1) */
+  --color-fg-subtle: #70757c; /* timestamps, chevrons, supporting only (≈4.6:1) */
+
+  /* ── Action ────────────────────────────────────────────────────────── */
+  --color-ink: #17181a; /* primary button fill (Luma: dark pill on light) */
+  --color-ink-hover: #2a2c30;
+  --color-on-ink: #ffffff;
+  --color-accent: #0a6fe0; /* the one live signal: next-up, active, links, focus (≈4.9:1) */
+  --color-accent-strong: #0858b8; /* pressed / emphatic */
+  --color-on-accent: #ffffff;
+  --color-danger: #c4320a; /* destructive confirm text only */
+
+  /* ── Lines ─────────────────────────────────────────────────────────── */
+  --color-border: rgba(17, 18, 20, 0.08);
+  --color-border-subtle: rgba(17, 18, 20, 0.06);
+  --color-border-strong: rgba(17, 18, 20, 0.14); /* input focus-less stroke, dividers that must read */
+
+  /* ── Data-viz zone family — DATA ONLY, never chrome ────────────────── */
+  /* Darkened from the dark-theme values so small marks hold ≥3:1 on canvas. */
   --color-zone-rest: #64748b;
-  --color-zone-rest-soft: rgba(100, 116, 139, 0.14);
-  --color-zone-building: #38bdf8;
-  --color-zone-building-soft: rgba(56, 189, 248, 0.16);
-  --color-zone-optimal: #34d399;
-  --color-zone-optimal-soft: rgba(52, 211, 153, 0.18);
-  --color-zone-max: #f59e0b;
-  --color-zone-max-soft: rgba(245, 158, 11, 0.22);
+  --color-zone-rest-soft: rgba(100, 116, 139, 0.12);
+  --color-zone-building: #0284c7;
+  --color-zone-building-soft: rgba(2, 132, 199, 0.11);
+  --color-zone-optimal: #059669;
+  --color-zone-optimal-soft: rgba(5, 150, 105, 0.12);
+  --color-zone-max: #d97706;
+  --color-zone-max-soft: rgba(217, 119, 6, 0.14);
 
-  --color-fg: #ffffff;
-  --color-fg-soft: #c6cdd4;
-  --color-fg-muted: #aab4bc;
-  --color-fg-subtle: #9ba1a6;
+  /* ── Shape ─────────────────────────────────────────────────────────── */
+  --radius-control: 10px; /* inputs, small square buttons, nav rows */
+  --radius-card: 20px; /* cards, panels */
+  --radius-sheet: 24px; /* dialogs, sheets */
+  --radius-pill: 9999px; /* buttons, chips, segmented controls */
+  --radius-callout: 14px;
 
-  --color-accent: #0092ff;
-  --color-accent-strong: #118cfd;
+  /* ── Elevation (light theme: soft, low, wide — never a hard drop) ──── */
+  --shadow-card: 0 1px 2px rgba(17, 18, 20, 0.04), 0 8px 24px -12px rgba(17, 18, 20, 0.1);
+  --shadow-card-hover: 0 1px 2px rgba(17, 18, 20, 0.05), 0 14px 32px -14px rgba(17, 18, 20, 0.16);
+  --shadow-pop: 0 2px 6px rgba(17, 18, 20, 0.05), 0 24px 56px -18px rgba(17, 18, 20, 0.22);
+  --shadow-control: 0 1px 2px rgba(17, 18, 20, 0.08);
 
-  --color-border: rgba(255, 255, 255, 0.1);
-  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  /* ── Type (system stack — SF Pro on Apple, like Luma) ──────────────── */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 
-  --radius-card: 8px;
-  --radius-pill: 8px;
-  --radius-control: 6px;
-  --radius-callout: 2px;
+  --text-page-title: 30px;
+  --text-page-title--line-height: 36px;
+  --text-page-title--font-weight: 650;
+  --text-page-title--letter-spacing: -0.022em;
 
-  --text-page-title: 39px;
-  --text-page-title--line-height: 50px;
-  --text-page-title--font-weight: 600;
-
-  --text-section: 24px;
-  --text-section--line-height: 30px;
+  --text-section: 20px;
+  --text-section--line-height: 26px;
   --text-section--font-weight: 600;
+  --text-section--letter-spacing: -0.014em;
 
-  --text-card-title: 16px;
+  --text-card-title: 17px;
+  --text-card-title--line-height: 22px;
   --text-card-title--font-weight: 600;
+  --text-card-title--letter-spacing: -0.01em;
 
-  --text-body: 16px;
-  --text-body--line-height: 24px;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
   --text-body--font-weight: 400;
 
-  --text-card-desc: 16px;
-  --text-card-desc--line-height: 22.4px;
+  --text-card-desc: 14px;
+  --text-card-desc--line-height: 20px;
   --text-card-desc--font-weight: 400;
 
   --text-nav: 14px;
-  --text-nav--font-weight: 400;
+  --text-nav--line-height: 20px;
+  --text-nav--font-weight: 500;
 
-  --text-list: 16px;
+  --text-list: 15px;
   --text-list--line-height: 20px;
-  --text-list--font-weight: 400;
+  --text-list--font-weight: 500;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text-meta: 13px;
+  --text-meta--line-height: 18px;
+  --text-meta--font-weight: 400;
+
+  --text-stat: 34px; /* big numbers: readiness, volume totals */
+  --text-stat--line-height: 38px;
+  --text-stat--font-weight: 650;
+  --text-stat--letter-spacing: -0.03em;
+
+  /* ── Motion (Luma: 0.3s ease-out-ish on everything) ────────────────── */
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1); /* small overshoot: toggles, check-offs */
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --animate-shimmer: shimmer 1.6s var(--ease-soft) infinite;
+  --animate-rise: rise 320ms var(--ease-soft) both;
+  --animate-fade: fade 240ms var(--ease-soft) both;
+
+  @keyframes shimmer {
+    0% { background-position: 120% 0; }
+    100% { background-position: -20% 0; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 }
 
-/* Eyebrow helper: size/tracking/case only — weight and color come from
-   utilities at each use site (content eyebrow: font-medium text-fg-soft;
-   sidebar section labels: font-semibold text-fg-muted). */
+/* Eyebrow: the small uppercase label above titles and sections. Weight/colour
+   come from utilities at the use site (default: font-medium text-fg-subtle). */
 .text-eyebrow {
   font-size: 12px;
-  letter-spacing: 0.02em;
+  line-height: 16px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* Atmosphere: the soft peach→periwinkle glow along the top edge of the page.
+   One per screen, on the scrolling content column only. Decorative. */
+.bg-atmosphere {
+  background-image:
+    radial-gradient(56% 340px at 22% -60px, rgba(255, 190, 150, 0.34), transparent 70%),
+    radial-gradient(48% 300px at 82% -60px, rgba(150, 168, 255, 0.28), transparent 70%);
+  background-repeat: no-repeat;
+}
+
+/* Aura: the atmosphere's two hues as a small solid fill (avatar, empty-state art).
+   The only place the glow colours may appear outside .bg-atmosphere. */
+.bg-aura {
+  background-image: linear-gradient(135deg, #ffd9b8, #c9d3ff);
+}
+
+/* Skeleton: loading placeholder. Shape it with size + rounded-* utilities. */
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(
+      90deg,
+      rgba(17, 18, 20, 0.05) 0%,
+      rgba(17, 18, 20, 0.09) 50%,
+      rgba(17, 18, 20, 0.05) 100%
+    )
+    0 0 / 220% 100%;
+  animation: var(--animate-shimmer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* Focus: one visible ring everywhere, keyboard only. */
+:where(a, button, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(10, 111, 224, 0.16);
 }
