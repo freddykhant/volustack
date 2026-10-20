@@ -5,7 +5,7 @@ import type { ReadinessLabel, ReadinessView } from "~/views/types";
 
 /** Form state → zone-token dot. Presentation mapping only (Law 1: the state
  * itself comes from readinessState); mirrors TrainingStatusCard's status dot. */
-const DOT: Record<ReadinessLabel, string> = {
+export const READINESS_DOT: Record<ReadinessLabel, string> = {
   Fresh: "bg-zone-optimal",
   Productive: "bg-zone-building",
   Fatigued: "bg-zone-rest",
@@ -21,11 +21,16 @@ export function ReadinessChip({ readiness }: { readiness: ReadinessView }) {
   return (
     <Link
       href="/app/readiness"
-      className="inline-flex items-center gap-1.5 rounded-pill border border-border px-3 py-1 text-nav text-fg-muted transition-colors hover:text-fg"
+      className="group inline-flex h-8 items-center gap-2 rounded-pill border border-border bg-surface-raised pr-2.5 pl-3 text-nav whitespace-nowrap text-fg-muted shadow-control transition-[border-color,color] duration-200 hover:border-border-strong hover:text-fg"
     >
-      <span className={`size-2 rounded-full ${DOT[state]}`} aria-hidden />
-      Form: {state}
-      <ArrowRight className="size-3.5" aria-hidden />
+      <span className={`size-2 rounded-full ${READINESS_DOT[state]}`} aria-hidden />
+      <span>
+        Form: <span className="text-fg">{state}</span>
+      </span>
+      <ArrowRight
+        className="size-3.5 text-fg-subtle transition-transform duration-200 group-hover:translate-x-0.5"
+        aria-hidden
+      />
     </Link>
   );
 }
