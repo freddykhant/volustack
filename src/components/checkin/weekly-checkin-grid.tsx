@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "~/components/ui-kit/app-shell-kit";
 import type { MuscleGroup } from "~/schema";
 
 export interface MuscleScore {
@@ -37,8 +38,10 @@ function Scale({
           title={label}
           onClick={() => onChange(i)}
           className={
-            "size-8 rounded-control border text-eyebrow transition-colors " +
-            (value === i ? "border-accent bg-selection text-accent" : "border-border-subtle text-fg-subtle hover:border-border")
+            "size-9 rounded-control border text-nav font-medium tabular-nums transition-colors duration-200 " +
+            (value === i
+              ? "border-accent bg-selection text-accent"
+              : "border-transparent bg-sunken text-fg-muted hover:bg-press hover:text-fg")
           }
         >
           {i}
@@ -65,31 +68,26 @@ export function WeeklyCheckInGrid({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col divide-y divide-border-subtle">
         {muscles.map((m) => (
-          <div key={m.muscle} className="rounded-control border border-border-subtle bg-surface p-4">
+          <div key={m.muscle} className="py-4 first:pt-0">
             <div className="text-card-title text-fg">{humanMuscle(m.muscle)}</div>
-            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-6 gap-y-3">
               <label className="flex flex-col gap-1.5">
-                <span className="text-eyebrow font-medium text-fg-soft">Recovery</span>
+                <span className="text-meta font-medium text-fg-muted">Recovery</span>
                 <Scale value={m.recovery} onChange={(v) => set(m.muscle, "recovery", v)} labels={RECOVERY_LABELS} ariaLabel={`${humanMuscle(m.muscle)} recovery`} />
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className="text-eyebrow font-medium text-fg-soft">Joints</span>
+                <span className="text-meta font-medium text-fg-muted">Joints</span>
                 <Scale value={m.joint} onChange={(v) => set(m.muscle, "joint", v)} labels={JOINT_LABELS} ariaLabel={`${humanMuscle(m.muscle)} joint stress`} />
               </label>
             </div>
           </div>
         ))}
       </div>
-      <button
-        type="button"
-        disabled={isPending}
-        onClick={onSubmit}
-        className="inline-flex items-center justify-center gap-2 rounded-control bg-accent px-5 py-3 text-list font-medium text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
-      >
+      <Button variant="accent" size="lg" loading={isPending} onClick={onSubmit} className="w-full">
         {isPending ? "Reading your week…" : "See next week's plan"}
-      </button>
+      </Button>
     </div>
   );
 }

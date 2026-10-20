@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ArrowRight, TriangleAlert } from "lucide-react";
+import { Button } from "~/components/ui-kit/app-shell-kit";
 import type { DeloadProposalView, ProgressionProposalView } from "~/views/types";
 
 const CAUSE_COPY: Record<string, string> = {
@@ -54,10 +55,14 @@ export function ProgressionProposalDialog({
     return () => { document.removeEventListener("keydown", onKeyDown); restoreFocusTo.current?.focus(); };
   }, [onReject]);
 
+  const SCRIM = "fixed inset-0 z-50 grid place-items-center bg-scrim p-4 backdrop-blur-[2px] animate-fade";
+  const SHEET = "w-full max-w-[460px] rounded-sheet bg-surface-raised p-6 shadow-pop outline-none animate-rise";
+  const ROW = "flex items-center justify-between gap-3 rounded-callout bg-sunken px-3.5 py-2.5";
+
   if (proposal.kind === "DELOAD") {
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className={SCRIM}
         onClick={(e) => { if (e.target === e.currentTarget) onReject(); }}
       >
         <div
@@ -66,29 +71,29 @@ export function ProgressionProposalDialog({
           role="dialog"
           aria-modal="true"
           aria-labelledby="deload-title"
-          className="w-full max-w-md rounded-card border border-border bg-canvas p-6 outline-none"
+          className={SHEET}
         >
           <h2 id="deload-title" className="text-card-title text-fg">Time to back off?</h2>
-          <p className="mt-1 text-nav text-fg-muted">
+          <p className="mt-1.5 text-card-desc text-fg-muted">
             You&apos;ve been deep in fatigue two weeks running — a deload next week protects your progress.
           </p>
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="mt-5 flex flex-col gap-1.5">
             {proposal.rows.map((r) => (
-              <div key={r.muscle} className="flex items-center justify-between rounded-control border border-border-subtle px-3 py-2 text-nav">
-                <span className="font-medium text-fg">{humanMuscle(r.muscle)}</span>
-                <span className="text-fg-subtle">
+              <div key={r.muscle} className={ROW}>
+                <span className="text-list text-fg">{humanMuscle(r.muscle)}</span>
+                <span className="text-nav text-fg-muted tabular-nums">
                   {r.plannedSets} → {r.deloadedSets}{" "}
-                  <span className="text-zone-rest">{r.delta}</span>
+                  <span className="font-medium text-fg">{r.delta}</span>
                 </span>
               </div>
             ))}
           </div>
           {errorMessage ? (
-            <p className="mt-3 rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">{errorMessage}</p>
+            <p role="alert" className="mt-3 rounded-callout bg-callout px-3.5 py-2.5 text-card-desc text-fg-soft">{errorMessage}</p>
           ) : null}
-          <div className="mt-5 flex items-center justify-end gap-2">
-            <button type="button" disabled={isPending} onClick={onReject} className="rounded-control border border-border px-4 py-2.5 text-nav text-fg-soft hover:text-fg disabled:opacity-60">Keep pushing</button>
-            <button type="button" disabled={isPending} onClick={onAccept} className="rounded-control bg-accent px-5 py-2.5 text-nav font-medium text-white hover:bg-accent-strong disabled:opacity-60">Accept deload</button>
+          <div className="mt-6 flex items-center justify-end gap-2">
+            <Button variant="ghost" disabled={isPending} onClick={onReject}>Keep pushing</Button>
+            <Button variant="accent" disabled={isPending} onClick={onAccept}>Accept deload</Button>
           </div>
         </div>
       </div>
@@ -106,36 +111,40 @@ export function ProgressionProposalDialog({
         : "Here’s how next week adapts to what you just did — your call.";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => { if (e.target === e.currentTarget) onReject(); }}>
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="prog-title" aria-describedby="prog-desc" className="w-full max-w-md rounded-card border border-border bg-canvas p-6 outline-none">
+    <div className={SCRIM} onClick={(e) => { if (e.target === e.currentTarget) onReject(); }}>
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="prog-title" aria-describedby="prog-desc" className={SHEET}>
         <h2 id="prog-title" className="text-card-title text-fg">{title}</h2>
-        <p id="prog-desc" className="mt-1 text-nav text-fg-muted">{subtitle}</p>
+        <p id="prog-desc" className="mt-1.5 text-card-desc text-fg-muted">{subtitle}</p>
 
         {proposal.advisory ? (
-          <div className="mt-3 flex items-start gap-2 rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">
+          <div role="note" className="mt-4 flex items-start gap-2.5 rounded-callout bg-callout px-3.5 py-3 text-card-desc text-fg-soft">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden />
             <span>{proposal.advisory}</span>
           </div>
         ) : null}
 
         {!informational ? (
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="mt-5 flex flex-col gap-1.5">
             {proposal.closeCall && proposal.adjustments.length > 0 ? (
-              <p className="text-[12px] text-fg-muted">Some of these were close calls — adjust if they don’t match how you felt.</p>
+              <p className="mb-1 text-meta text-fg-muted">Some of these were close calls — adjust if they don’t match how you felt.</p>
             ) : null}
             {proposal.adjustments.length === 0 ? (
-              <p className="rounded-control border border-border-subtle px-3 py-2 text-nav text-fg-muted">You’re right on plan — holding volume next week.</p>
+              <p className={ROW + " text-card-desc text-fg-muted"}>You’re right on plan — holding volume next week.</p>
             ) : (
               proposal.adjustments.map((a) => (
-                <div key={a.muscle} className="flex items-center justify-between rounded-control border border-border-subtle px-3 py-2">
-                  <div className="flex items-center gap-2 text-nav text-fg">
-                    <span className="font-medium">{humanMuscle(a.muscle)}</span>
-                    <span className="text-fg-subtle">{a.plannedSets} → {a.adjustedSets}</span>
-                    <span className={a.delta > 0 ? "text-zone-optimal" : a.delta < 0 ? "text-zone-rest" : "text-fg-subtle"}>
+                <div key={a.muscle} className={ROW}>
+                  <div className="flex items-center gap-2 text-nav text-fg tabular-nums">
+                    <span className="text-list">{humanMuscle(a.muscle)}</span>
+                    <span className="text-fg-muted">{a.plannedSets} → {a.adjustedSets}</span>
+                    <span className="inline-flex items-center gap-1 font-medium">
+                      <span
+                        aria-hidden
+                        className={"size-1.5 rounded-full " + (a.delta > 0 ? "bg-zone-optimal" : a.delta < 0 ? "bg-zone-rest" : "bg-fg-subtle")}
+                      />
                       {a.delta > 0 ? `+${a.delta}` : a.delta}
                     </span>
                   </div>
-                  <span className="text-[12px] text-fg-muted">
+                  <span className="text-right text-meta text-fg-muted">
                     {CAUSE_COPY[a.cause] ?? a.cause}{a.swapCandidate ? " · consider a swap" : ""}
                   </span>
                 </div>
@@ -145,18 +154,18 @@ export function ProgressionProposalDialog({
         ) : null}
 
         {errorMessage ? (
-          <p className="mt-3 rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">{errorMessage}</p>
+          <p role="alert" className="mt-3 rounded-callout bg-callout px-3.5 py-2.5 text-card-desc text-fg-soft">{errorMessage}</p>
         ) : null}
 
-        <div className="mt-5 flex items-center justify-end gap-2">
+        <div className="mt-6 flex items-center justify-end gap-2">
           {informational ? (
-            <button type="button" onClick={onReject} className="rounded-control bg-accent px-5 py-2.5 text-nav font-medium text-white hover:bg-accent-strong">Got it</button>
+            <Button variant="primary" onClick={onReject}>Got it</Button>
           ) : (
             <>
-              <button type="button" disabled={isPending} onClick={onReject} className="rounded-control border border-border px-4 py-2.5 text-nav text-fg-soft hover:text-fg disabled:opacity-60">Keep as-is</button>
-              <button type="button" disabled={isPending} onClick={onAccept} className="inline-flex items-center gap-2 rounded-control bg-accent px-5 py-2.5 text-nav font-medium text-white hover:bg-accent-strong disabled:opacity-60">
-                Accept plan <ArrowRight className="size-4" aria-hidden />
-              </button>
+              <Button variant="ghost" disabled={isPending} onClick={onReject}>Keep as-is</Button>
+              <Button variant="accent" disabled={isPending} loading={isPending} trailingIcon={ArrowRight} onClick={onAccept}>
+                Accept plan
+              </Button>
             </>
           )}
         </div>

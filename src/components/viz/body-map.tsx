@@ -8,7 +8,7 @@ function Region({ muscle, fill, onHover, title, ...rest }: RegionProps & React.S
       {...rest}
       rx={4}
       fill={fill}
-      stroke="var(--color-border)"
+      stroke="var(--color-border-strong)"
       strokeWidth={1}
       onMouseEnter={() => onHover?.(muscle)}
       onMouseLeave={() => onHover?.(null)}
@@ -33,7 +33,7 @@ export function BodyMap({
   return (
     <svg viewBox="0 0 320 220" className="w-full" role="img" aria-label="Muscle volume body map">
       {/* FRONT */}
-      <text x="70" y="14" textAnchor="middle" className="fill-[var(--color-fg-subtle)] text-[10px]">Front</text>
+      <text x="70" y="14" textAnchor="middle" className="fill-[var(--color-fg-subtle)] text-[10px] font-medium">Front</text>
       {r("FRONT_DELTS", 44, 40, 52, 12, "Front delts")}
       {r("CHEST", 46, 54, 48, 22, "Chest")}
       {r("BICEPS", 30, 66, 12, 28, "Biceps")}
@@ -41,7 +41,7 @@ export function BodyMap({
       {r("QUADS", 48, 118, 44, 44, "Quads")}
       {r("FOREARMS", 24, 96, 12, 26, "Forearms")}
       {/* BACK */}
-      <text x="250" y="14" textAnchor="middle" className="fill-[var(--color-fg-subtle)] text-[10px]">Back</text>
+      <text x="250" y="14" textAnchor="middle" className="fill-[var(--color-fg-subtle)] text-[10px] font-medium">Back</text>
       {r("TRAPS", 226, 38, 48, 14, "Traps")}
       {r("REAR_DELTS", 218, 52, 16, 12, "Rear delts")}
       {r("SIDE_DELTS", 264, 52, 16, 12, "Side delts")}

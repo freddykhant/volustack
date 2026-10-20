@@ -1,37 +1,40 @@
 "use client";
 
+import { forwardRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Check, Circle, CircleDot, type LucideIcon, type LucideProps } from "lucide-react";
+import { NavItem } from "~/components/ui-kit/app-shell-kit";
 import type { MesocycleView } from "~/views/types";
 
+/** The current week keeps its accent dot even when it isn't the open row. */
+const CurrentWeekIcon: LucideIcon = forwardRef<SVGSVGElement, LucideProps>(function CurrentWeekIcon({ className, ...props }, ref) {
+  return <CircleDot ref={ref} {...props} className={(className ?? "") + " text-accent"} />;
+});
+
+/** Upcoming weeks: a faint ring, so the column reads done → now → ahead. */
+const UpcomingWeekIcon: LucideIcon = forwardRef<SVGSVGElement, LucideProps>(function UpcomingWeekIcon(props, ref) {
+  return <Circle ref={ref} {...props} strokeOpacity={0.45} />;
+});
+
 export function BlockNavigator({ block }: { block: MesocycleView }) {
-  const pathname = usePathname() ?? "";
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <Link href="/app/block" className="text-list font-semibold text-fg hover:text-accent">
+    <div className="flex flex-col gap-5">
+      <div className="px-2.5">
+        <div className="text-eyebrow font-medium text-fg-subtle">{block.status}</div>
+        <Link href="/app/block" className="mt-1 block text-list font-semibold text-fg transition-colors hover:text-accent">
           {block.name}
         </Link>
-        <div className="text-[12px] text-fg-subtle">{block.status}</div>
       </div>
-      <nav className="flex flex-col gap-0.5">
+      <nav aria-label="Weeks" className="flex flex-col gap-0.5">
         {block.weeks.map((w) => {
-          const href = `/app/block/week/${w.index}`;
-          const active = pathname === href;
-          const marker = w.index < block.currentWeekIndex ? "✓" : w.isCurrent ? "◀" : "";
-          const label = w.isDeload ? "Deload" : `Wk ${w.index}`;
+          const icon = w.index < block.currentWeekIndex ? Check : w.isCurrent ? CurrentWeekIcon : UpcomingWeekIcon;
           return (
-            <Link
+            <NavItem
               key={w.index}
-              href={href}
-              className={
-                "flex items-center justify-between rounded-pill px-2.5 py-1.5 text-list transition-colors " +
-                (active ? "bg-selection text-accent" : "text-fg-muted hover:text-fg")
-              }
-            >
-              <span>{label}</span>
-              <span className={w.isCurrent ? "text-accent" : "text-fg-subtle"}>{marker}</span>
-            </Link>
+              href={`/app/block/week/${w.index}`}
+              label={w.isDeload ? "Deload" : `Wk ${w.index}`}
+              icon={icon}
+            />
           );
         })}
       </nav>
