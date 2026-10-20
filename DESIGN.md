@@ -1,270 +1,276 @@
 ---
 name: Mesodapt
-description: The adaptive training command center for self-coached athletes — a flat, dark, accent-scarce operating surface.
+description: The adaptive training layer for self-coached athletes. A light, warm, quiet surface where one blue signal says what's next.
+source: src/components/ui-kit/app-shell-kit/theme.css   # values below mirror it exactly; theme.css wins on conflict
 colors:
-  canvas: "#0b0c0d"
-  surface: "rgba(255, 255, 255, 0.05)"
-  surface-raised: "rgba(255, 255, 255, 0.075)"
-  selection: "rgba(0, 146, 255, 0.09)"
-  callout: "rgba(17, 140, 253, 0.05)"
-  accent: "#0092ff"
-  accent-strong: "#118cfd"
-  fg: "#ffffff"
-  fg-soft: "#c6cdd4"
-  fg-muted: "#aab4bc"
-  fg-subtle: "#9ba1a6"
-  border: "rgba(255, 255, 255, 0.1)"
-  border-subtle: "rgba(255, 255, 255, 0.08)"
-  zone-rest: "#64748b"
-  zone-building: "#38bdf8"
-  zone-optimal: "#34d399"
-  zone-max: "#f59e0b"
+  canvas: "#faf9f7"
+  surface: "rgba(255, 255, 255, 0.82)"
+  surface-raised: "#ffffff"
+  sunken: "rgba(17, 18, 20, 0.035)"
+  hover: "rgba(17, 18, 20, 0.04)"
+  press: "rgba(17, 18, 20, 0.07)"
+  scrim: "rgba(17, 18, 20, 0.28)"
+  selection: "rgba(10, 111, 224, 0.08)"
+  callout: "rgba(10, 111, 224, 0.06)"
+  fg: "#17181a"
+  fg-soft: "#3d4148"
+  fg-muted: "#5f646c"
+  fg-subtle: "#70757c"
+  ink: "#17181a"
+  ink-hover: "#2a2c30"
+  on-ink: "#ffffff"
+  accent: "#0a6fe0"
+  accent-strong: "#0858b8"
+  on-accent: "#ffffff"
+  danger: "#c4320a"
+  border: "rgba(17, 18, 20, 0.08)"
+  border-subtle: "rgba(17, 18, 20, 0.06)"
+  border-strong: "rgba(17, 18, 20, 0.14)"
+  zone-rest: "#64748b"            # soft: rgba(100, 116, 139, 0.12)
+  zone-building: "#0284c7"        # soft: rgba(2, 132, 199, 0.11)
+  zone-optimal: "#059669"         # soft: rgba(5, 150, 105, 0.12)
+  zone-max: "#d97706"             # soft: rgba(217, 119, 6, 0.14)
 typography:
-  display:
-    fontFamily: "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif"
-    fontSize: "39px"
-    fontWeight: 600
-    lineHeight: "50px"
-  headline:
-    fontFamily: "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif"
-    fontSize: "24px"
-    fontWeight: 600
-    lineHeight: "30px"
-  title:
-    fontFamily: "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif"
-    fontSize: "16px"
-    fontWeight: 600
-  body:
-    fontFamily: "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif"
-    fontSize: "16px"
-    fontWeight: 400
-    lineHeight: "24px"
-  label:
-    fontFamily: "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif"
-    fontSize: "14px"
-    fontWeight: 400
-  eyebrow:
-    fontFamily: "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif"
-    fontSize: "12px"
-    fontWeight: 500
-    letterSpacing: "0.02em"
+  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+  display:    { size: "clamp(40px, 4.2vw + 20px, 56px)", lineHeight: 1.04, weight: 680, tracking: "-0.035em" }
+  page-title: { size: 30px, lineHeight: 36px, weight: 650, tracking: "-0.022em" }
+  section:    { size: 20px, lineHeight: 26px, weight: 600, tracking: "-0.014em" }
+  card-title: { size: 17px, lineHeight: 22px, weight: 600, tracking: "-0.01em" }
+  body:       { size: 15px, lineHeight: 22px, weight: 400 }
+  list:       { size: 15px, lineHeight: 20px, weight: 500 }
+  card-desc:  { size: 14px, lineHeight: 20px, weight: 400 }
+  nav:        { size: 14px, lineHeight: 20px, weight: 500 }
+  meta:       { size: 13px, lineHeight: 18px, weight: 400 }
+  eyebrow:    { size: 12px, lineHeight: 16px, tracking: "0.04em", case: uppercase }
+  stat:       { size: 34px, lineHeight: 38px, weight: 650, tracking: "-0.03em" }
 rounded:
-  control: "6px"
-  card: "8px"
-  pill: "8px"
-  callout: "2px"
-spacing:
-  sm: "8px"
-  md: "16px"
-  lg: "24px"
-  section: "40px"
-components:
-  button-primary:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.control}"
-    padding: "8px 16px"
-    typography: "{typography.label}"
-  button-primary-hover:
-    backgroundColor: "{colors.accent-strong}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.control}"
-    padding: "8px 16px"
-  card-filled:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.card}"
-    padding: "24px"
-  card-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.card}"
-    padding: "4px"
-  callout:
-    backgroundColor: "{colors.callout}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.callout}"
-    padding: "20px"
-  input:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.control}"
-    padding: "10px 12px"
-    typography: "{typography.body}"
-  nav-item-neutral:
-    backgroundColor: "transparent"
-    textColor: "{colors.fg-muted}"
-    rounded: "{rounded.control}"
-    padding: "6px 10px"
-    typography: "{typography.label}"
-  nav-item-neutral-active:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.control}"
-    padding: "6px 10px"
-  nav-item-accent-active:
-    backgroundColor: "{colors.selection}"
-    textColor: "{colors.accent}"
-    rounded: "{rounded.pill}"
-    padding: "6px 10px"
+  tile: 9px
+  control: 10px
+  callout: 14px
+  card: 20px
+  sheet: 24px
+  pill: 9999px
+  skeleton: 8px   # .skeleton default
+shadow:
+  control: "0 1px 2px rgba(17, 18, 20, 0.08)"
+  card: "0 1px 2px rgba(17, 18, 20, 0.04), 0 8px 24px -12px rgba(17, 18, 20, 0.1)"
+  card-hover: "0 1px 2px rgba(17, 18, 20, 0.05), 0 14px 32px -14px rgba(17, 18, 20, 0.16)"
+  pop: "0 2px 6px rgba(17, 18, 20, 0.05), 0 24px 56px -18px rgba(17, 18, 20, 0.22)"
+motion:
+  ease-soft: "cubic-bezier(0.4, 0, 0.2, 1)"     # default for every transition
+  ease-out: "cubic-bezier(0.22, 1, 0.36, 1)"    # entrances, check-offs; no overshoot
+  default-duration: 200ms
+  rise: "320ms ease-soft, translateY(6px) -> none"
+  fade: "240ms ease-soft"
+  shimmer: "1.6s ease-soft infinite"
+layout:
+  nav-column: 240px
+  context-column: 256px
+  top-bar: 52px
+  content-max: 800px
+  content-padding: "pt-10 pb-20, px-6 / md:px-10"
 ---
 
 # Design System: Mesodapt
 
 ## Overview
 
-**Creative North Star: "The Training Command Center"**
+**Creative north star: "A calm page with one live signal."**
 
-Mesodapt is a quiet, dark instrument panel for the self-coached athlete. At rest, everything is measured and calm — near-black canvas, translucent surfaces, one type family, borders drawn in whisper-thin white alpha. The interface's job is to hold a lot of training intelligence (volumes, zones, readiness, the week ahead) without ever feeling loud, so the athlete can read their whole situation at a glance and act. The single blue accent is the one live signal on the board; its scarcity is what gives it authority.
+Mesodapt takes the strain out of managing training, so the interface has to feel like relief. It's a light, warm page: an off-white canvas, translucent white cards drawn with a hairline and a soft, wide shadow, lots of whitespace, and the system font. Nearly everything is ink on paper. **One blue** marks what's live: the next session, the active row, a link, the focus ring, the confirm on an accept-gate. Because it's rare, the eye goes straight to it.
 
-Energy in this system is **concentrated, not distributed**. The visual world stays restrained precisely so that the moments that matter — the next session to hit, a plan proposal to accept, a completed set, a PR — can land with force. This is where the motivational voice lives: not in ambient decoration, but in the punch of accent and the confidence of the primary action at each decision point. The athlete is always in the pilot's seat; the coach proposes on the board and the athlete calls it.
+The engine holds a lot of numbers (volumes, zones, readiness, the week ahead). Those numbers carry the only other colour in the system, the zone family, and that family is for data only. Chrome stays neutral so that data reads as data.
 
-Components lean **tactile and energetic** as their intended direction — buttons that feel eager to be pressed, responsive state shifts, accent used to reward action. The current build is more restrained than that target (flat surfaces, a single hover-brighten transition, no entry motion — see Elevation and Motion below); treat the tactile/energetic character as the direction new work should build toward from that flat baseline, not a license to scatter effects.
+Motion is quick and soft: 200–300ms on one curve, with no bounce. Loading uses skeletons shaped like the content they stand in for, never a spinner in the middle of the page.
 
-**Key Characteristics:**
-- Near-black canvas (`#0b0c0d`) with translucent white surfaces — depth by tone, never shadow.
-- A single blue accent (`#0092ff`), used scarcely and reserved for interactive/active state.
-- One type family (Geist), hierarchy from size and weight alone — no typeface switching.
-- Borders are white-alpha hairlines, never solid gray.
-- A separate data-viz zone palette (grey → blue → green → amber) reserved strictly for data, never chrome.
-- Three-column app shell: workspace nav · contextual list · scrollable 756px content.
+**What this is not:** gradient text, glass on everything, emoji icons, purple-to-blue buttons, cards inside cards, centred hero templates. If a screen looks like a landing-page kit, it's wrong.
 
 ## Colors
 
-An intentionally small palette — one accent, one neutral spectrum on a dark ground — plus a walled-off data-viz family. Consistency comes from using tokens by role, never by hex.
+Use tokens by role (`bg-surface`, `text-fg-muted`). Never write a hex in a component.
 
-### Primary
-- **Signal Blue** (`#0092ff`): the one live signal. Links, active tab text, active nav-row text, primary-action buttons, focused input borders. Used on a small fraction of any screen — its rarity is the point.
-- **Signal Blue Strong** (`#118cfd`): the pressed/emphatic sibling. Button hover, the 3px callout left bar, focus rings, callout icons.
+- **Ground:** `canvas` (`#faf9f7`) is the page. `surface` (white at 82%) is cards and panels. `surface-raised` (`#ffffff`) is dialogs, popovers, the active nav row and secondary buttons. `sunken` (ink at 3.5%) is wells: inputs, segmented tracks, icon chips and grid cells.
+- **States:** `hover` (4%) and `press` (7%) are ink washes on rows and ghost buttons. `selection` (accent at 8%) is the active contextual row. `callout` (accent at 6%) is the info banner. `scrim` (ink at 28%) sits behind dialogs.
+- **Ink:** `fg` for titles and body, `fg-soft` for eyebrows and strong secondary text, `fg-muted` (≈5.9:1) for descriptions, metadata and default icons. `fg-subtle` (≈4.6:1) is for timestamps and chevrons, never for anything critical.
+- **Action:** `ink` / `ink-hover` / `on-ink` make the primary pill. `accent` (`#0a6fe0`, ≈4.9:1) and `accent-strong` (`#0858b8`) are the live signal. `danger` (`#c4320a`) is for destructive confirm text only.
+- **Lines:** `border` (8%) for card and popover hairlines, `border-subtle` (6%) for column edges and dividers, and `border-strong` (14%) for input focus and dividers that must read.
+- **Zones (data only):** `zone-rest` `#64748b` · `zone-building` `#0284c7` · `zone-optimal` `#059669` · `zone-max` `#d97706`. Each has a `-soft` fill. Use full strength for small marks (dots, bars, lines) and `-soft` for large areas (grid cells, body regions, chip fills). Max is a warning amber, not an alarm red.
+- **Atmosphere:** `.bg-atmosphere` puts a peach-to-periwinkle glow along the top of the scrolling column; the AppShell applies it, once per screen. `.bg-aura` is the same two hues as a small solid fill (avatar, empty-state art), and it's the only other place those hues may appear.
 
-### Neutral
-- **Command Canvas** (`#0b0c0d`): the app background — `<body>`, the shell grid, and the ground every surface floats on.
-- **Raised Surface** (`rgba(255,255,255,0.05)` / `0.075`): filled cards and popovers at 5%; menu/nav hover and active workspace rows at 7.5%. Elevation is expressed by this tonal step, not shadow.
-- **Selection Wash** (`rgba(0,146,255,0.09)`): the active contextual-nav row background — a faint accent tint, not a solid fill.
-- **Callout Wash** (`rgba(17,140,253,0.05)`): info-banner fill behind the accent-strong left bar.
-- **Primary Text** (`#ffffff`): body copy, H1/H2, card titles. Exceeds WCAG AAA on canvas.
-- **Soft Text** (`#c6cdd4`): eyebrow labels above headers.
-- **Muted Text** (`#aab4bc`): card descriptions, secondary body, default icon color. Exceeds AA on canvas.
-- **Subtle Text** (`#9ba1a6`): timestamps, disclosure chevrons, supporting labels only — never critical information.
-- **Hairline Border** (`rgba(255,255,255,0.1)`): card and popover borders.
-- **Hairline Border Subtle** (`rgba(255,255,255,0.08)`): dividers, column edges, input strokes.
-
-### Data-viz Zone Family (walled off from chrome)
-Reserved for **data only** — landmark/volume marks, grid cells, readiness regions — never decorative UI. The grey → blue → green → amber progression is colorblind-safe on the canvas and deliberately keeps "max" a warning amber, not an alarm red. Full-strength values (below) are for small marks; each has a translucent `-soft` fill for large areas (grid cells, body regions).
-- **Rest Grey** (`#64748b`): rest / no-training state.
-- **Building Blue** (`#38bdf8`): sub-optimal / building volume. Distinct from the UI Signal Blue by hue and context.
-- **Optimal Green** (`#34d399`): in the optimal training zone.
-- **Max Amber** (`#f59e0b`): at/over the max recoverable volume — a warning, not an alarm.
-
-### Named Rules
-**The One Signal Rule.** The primary accent marks interactive or active state and nothing else. If two elements on a screen both wear accent, one is probably wrong.
-
-**The No New Hex Rule.** Never introduce a raw color. If a design needs a shade the tokens don't have, add a semantic token (`--color-<role>`) first, then use it.
-
-**The Data-Only Zone Rule.** The `zone-*` palette never touches chrome. If a green or amber appears on a button, border, or label, it's a bug — those hues mean *data*.
+**The One Signal Rule.** Accent marks live or interactive state and nothing else. If two unrelated things on screen are both blue, one of them is wrong.
+**The Data-Only Zone Rule.** Zone hues never touch chrome. A green button, an amber border or a sky-blue heading is a bug.
+**The No New Hex Rule.** Need a shade that doesn't exist? Add a role token to `theme.css` first.
 
 ## Typography
 
-**Display / Body / Label Font:** Geist (with `ui-sans-serif, system-ui, -apple-system, sans-serif` fallback).
+**The system stack:** SF Pro on Apple, Segoe UI or Roboto elsewhere. There is one family, and size and weight carry the hierarchy. Never add a display face, a serif or a mono.
 
-**Character:** One family does everything. The personality is precision and legibility on a dark ground — hierarchy is built entirely from size and weight, never from switching typefaces. No serif, no mono, no display face.
+| Utility | Size / line | Weight | Use |
+|---|---|---|---|
+| `text-display` | clamp(40→56px) / 1.04 | 680 | Landing headline only |
+| `text-page-title` | 30 / 36 | 650 | The one H1, via `PageHeader` |
+| `text-section` | 20 / 26 | 600 | Section H2, via `SectionHeading` |
+| `text-card-title` | 17 / 22 | 600 | Card and dialog titles |
+| `text-body` | 15 / 22 | 400 | Body copy, inputs |
+| `text-list` | 15 / 20 | 500 | List-row titles |
+| `text-card-desc` | 14 / 20 | 400 | Descriptions under a title (`text-fg-muted`) |
+| `text-nav` | 14 / 20 | 500 | Nav, tabs, md buttons |
+| `text-meta` | 13 / 18 | 400 | Timestamps, captions, sm buttons |
+| `text-eyebrow` | 12 / 16, +0.04em, caps | add `font-medium` | Label above a title (`text-fg-subtle`) |
+| `text-stat` | 34 / 38 | 650 | Big numbers: readiness, volume totals |
 
-### Hierarchy
-- **Display / Page Title** (600, 39px, 50px line-height): the single H1 per page, rendered by `PageHeader` with an eyebrow above it.
-- **Headline / Section** (600, 24px, 30px line-height): section H2s, with `40px` (mt-10) top margin.
-- **Title** (600, 16px): card titles and list-item titles.
-- **Body** (400, 16px, 24px line-height): body copy.
-- **Card Description** (400, 16px, 22.4px line-height, muted): sits directly under a 16px/600 title in a fixed rhythm — don't adjust the weights.
-- **Label / Nav** (400–450, 14px): nav items and tab labels. 450 is the deliberate target between normal and medium; fall back to 500 where the font can't render 450.
-- **Eyebrow** (500–600, 12px, 0.02em tracking, UPPERCASE, soft/subtle): the label above every page title and section header.
+Large sizes carry negative tracking from the token, so don't add `tracking-*` yourself.
 
-### Named Rules
-**The One Family Rule.** Every heading and body string is Geist. Hierarchy comes from size and weight — reaching for a second typeface is off-system.
-
-**The One H1 Rule.** Exactly one page title per page, always via `PageHeader`, always with an uppercase eyebrow above it. The eyebrow is never bold and never accent-colored.
+**The Tabular Rule.** Every number that can change or sit in a column (sets, reps, kg, RIR, percentages, dates in lists) gets `tabular-nums`.
+**The One H1 Rule.** One page title per page, always through `PageHeader`.
 
 ## Layout
 
-A full-viewport, always-visible **three-column grid**: `grid-template-columns: 256px 288px 1fr`, `height: 100vh`, canvas ground.
-- **Column 1 (256px) — workspace nav:** transparent over canvas, no right border, `16px` padding. Workspace switcher, primary nav, admin nav, bottom user row.
-- **Column 2 (288px) — contextual list:** content changes per route section, `20px` padding.
-- **Column 3 (1fr) — content:** a fixed `49px` top nav bar over a scrollable `<main>`; content constrained to **`max-width: 756px`, `32px` padding**. This is the only column that scrolls.
+`AppShell` gives a 240px nav column, an optional 256px contextual column, an optional 52px top bar (tabs) and one scrolling content column. Content is capped at **800px** (`max-w-[800px] px-6 md:px-10 pt-10 pb-20`) unless the route opts into `fullBleed` (block grid, analysis). Below `lg` the nav column hides, and below `md` the contextual column hides.
 
-**Content rhythm:** card grids are two columns (`grid gap-6 md:grid-cols-2`) with a `24px` gap; filled-card padding `24px`; callout padding `20px`; section H2 top margin `40px`; the `PageHeader` divider sits `24px` below the title. Inside content, use Tailwind's default spacing scale; only the shell dimensions (256 / 288 / 49 / 756) are fixed exact values.
+- **Rhythm:** use `gap-6` between page blocks and `mt-10` before a section (built into `SectionHeading`). Cards in a pair go in `grid gap-4 md:grid-cols-2`, never three across inside 800px.
+- **Whitespace separates.** Use space before you reach for a divider. `PageHeader`'s `divider` is off by default.
+- **Alignment:** left-aligned, always. Centre only an empty state's contents.
 
-**Responsive:** ≥1024px both sidebars visible, 2-col grids. 768–1023px Column 1 hides (`display:none`, toggleable later), Column 2 stays, 2-col grids. <768px both sidebars hide, single-column content. No hamburger menu in v1.
-
-### Named Rules
-**The 756 Rule.** Reading and form content lives in the 756px content column. Full-bleed is reserved for surfaces that opt in (training grid, analysis) via the shell's `fullBleed` flag.
+**The 800 Rule.** Reading and form content lives in the 800px column. Full-bleed is opt-in, for dense data surfaces only.
 
 ## Elevation & Depth
 
-**Flat by doctrine — no shadows.** On a `#0b0c0d` canvas, drop-shadows read as smudges. Depth is expressed entirely through **tonal layering**: the base canvas, then `surface` at 5% white, then `surface-raised` at 7.5% white for hover/active/popover. A raised element is lighter, not lifted.
+Elevation on a light page is a soft, low, wide shadow plus a hairline, never a hard drop. The ladder has four steps:
 
-### Named Rules
-**The No-Shadow Rule.** No `box-shadow` for elevation anywhere in the dark UI. If something needs to feel raised, step it up the surface tone ladder (`surface` → `surface-raised`), don't shadow it.
+1. **Canvas:** flat.
+2. **Card** (`bg-surface border border-border shadow-card`): anything that holds content.
+3. **Card hover** (`shadow-card-hover` + `-translate-y-px`): whole-card click targets only, and `Panel interactive` does it for you.
+4. **Pop** (`bg-surface-raised shadow-pop`): dialogs, sheets, menus and popovers.
 
-**The Alpha-Border Rule.** Every border and divider is white with alpha (10% for `border`, 8% for `border-subtle`). Solid gray borders look muddy on the canvas — never use them.
+`shadow-control` is the 1px lift on secondary buttons, the segmented thumb and the active nav row.
 
-### Planned material: Liquid Glass
-*Intended direction, not yet built.* Polish will introduce a **liquid-glass** material (via `liquid-glass-react`, github.com/rdev/liquid-glass-react) — refraction, specular rim-light, and `backdrop-filter` blur — as the system's one form of true elevation. This amends "flat, full stop" to **flat by default, glass for signature elevation**. It does not reintroduce drop shadows (still banned): glass lifts through refraction and rim-light, not smudge.
+**The Flat Inside Rule.** A card never contains another shadowed card. Group inside a card with `bg-sunken` wells, `border-t border-border-subtle` dividers or whitespace.
+**The No Glass Rule.** No `backdrop-blur` on surfaces. The only blur in the system is the 2px blur on the dialog scrim.
 
-**The Concentrated Glass Rule.** Glass is a signature material for the moments that matter, never a global skin. Apply it to elevated, decision-carrying surfaces — the accept-gate reschedule dialog, the Now / next-session card, a floating top nav — and never to data-dense regions (the block grid, analysis charts) where refraction hurts legibility and the `zone-*` data colors must read true. Because it is GPU-heavy (`backdrop-filter` + SVG displacement), scarcity is also a performance requirement, not only an aesthetic one.
+## Motion
+
+Every transition uses `--ease-soft` (`cubic-bezier(0.4, 0, 0.2, 1)`) at **200ms**, Tailwind's default, so `transition-colors` needs no duration. Lifts and shadows use `duration-300`. Use `--ease-out` (`cubic-bezier(0.22, 1, 0.36, 1)`) for entrances and check-offs, and never use an overshoot or spring.
+
+- `animate-rise`: 320ms, 6px up plus fade. Use it for page headers, dialogs and newly inserted cards.
+- `animate-fade`: 240ms. Use it for scrims and swapped content.
+- `active:scale-[0.98]`: the button press, built in.
+- `prefers-reduced-motion` reduces every animation and transition to 1ms and stops the shimmer. That's handled globally, so don't re-implement it.
+
+**The Quiet Motion Rule.** Motion confirms a change; it never decorates. Nothing loops except the skeleton shimmer.
+
+## Loading & empty states
+
+- **Skeletons mirror layout.** Build the same Panel with the same padding, and put `Skeleton` bars where the text sits, sized to the line (`h-4` for body, `h-5` for card titles, `h-3` for meta). Use `rounded-pill` for chip and button placeholders. Don't use a page spinner. A button's own `loading` spinner is the only spinner.
+- **Empty states** sit in a Panel: a 40px `bg-aura` or `bg-sunken` tile with an outlined Lucide icon, a `text-card-title` line saying what's missing, one `text-card-desc` line saying why or what to do, and at most one button. Centre this one block only.
 
 ## Shapes
 
-A tight, restrained radius vocabulary — nothing is very round:
-- **Control** (`6px`): buttons, inputs, workspace-nav rows.
-- **Card / Pill** (`8px`): cards, contextual-nav rows (the "pill" and "card" radii are intentionally the same value).
-- **Callout** (`2px`): near-square, letting the 3px accent-strong left bar do the identifying work.
+`rounded-tile` 9px (wordmark, icon tiles) · `rounded-control` 10px (inputs, nav rows, icon chips) · `rounded-callout` 14px · `rounded-card` 20px (cards, panels) · `rounded-sheet` 24px (dialogs) · `rounded-pill` (every button, chip and segmented control). Inner radius = outer radius minus padding; never put a sharp corner inside a round one.
 
-Form language is rectangular and calm: hairline borders, generous internal padding, no heavy strokes or clipping. Icons are **Lucide, outlined only** — no filled/outlined mixing, no other icon family, no emoji.
+Icons are **Lucide, outlined**: `size-4` in controls, `size-[18px]` in tiles and `size-5` in list rows. Never use filled icons, a second icon family or emoji.
 
 ## Components
 
-Components lean tactile and energetic in intent; the values below are the current implemented baseline (precise and flat) to build that energy up from.
+All of these come from `~/components/ui-kit/app-shell-kit`.
 
-### Buttons
-- **Shape:** `6px` radius (control), `inline-flex items-center gap-2`.
-- **Primary:** `bg-accent` with white text, `text-nav font-medium`, padding `8px 16px` (px-4 py-2; a taller `px-4 py-2.5` variant exists for form footers).
-- **Hover:** `transition-colors` to `accent-strong`.
-- **Disabled:** `opacity-60` (or `opacity-40` + `cursor-not-allowed` on the hard-blocked variant).
-- There is no documented secondary/ghost button; secondary actions are typically bordered rows or plain text links in accent.
+- **Button / ButtonLink:** `variant` = `primary` (ink pill, one per view), `accent` (blue pill, accept-gate confirm only), `secondary` (white pill with hairline), `ghost` (text) or `danger` (destructive confirm). `size` = `sm` 32px · `md` 36px · `lg` 44px. `icon`, `trailingIcon` and `loading` keep the button's width. `buttonClass()` covers the element that can't be a button.
+- **IconButton:** 32px round, icon only, `aria-label` required.
+- **Chip:** 24px pill. `tone` = `neutral`, `accent`, `rest`, `building`, `optimal` or `max`. Zone tones carry a full-strength dot.
+- **Segmented:** a sunken pill track with a raised white thumb. Use it for 2–4 exclusive views, `sm` or `md`.
+- **Panel:** the card surface, with `padding` none/sm/md/lg (0/16/20/24px). `interactive` adds the lift; `as` takes section or article.
+- **Card:** a whole-card link. `filled` is a tile with an icon chip (it goes in a 2-col grid); `ghost` is a list row with a hover wash.
+- **Callout:** an info banner (`bg-callout`, accent icon, `role="note"`), placed directly under PageHeader.
+- **PageHeader:** eyebrow, H1, description and `actions` (one Button or a Segmented). Exactly one per page.
+- **SectionHeading:** the H2 with `mt-10` and an optional "View all →" link.
+- **NavItem / TabStrip / PageToc:** navigation. The active row is `bg-surface-raised shadow-control` (neutral) or `bg-selection text-accent` (contextual), and always carries `aria-current`.
+- **Wordmark:** the ink tile with a Dumbbell, plus the name. `md` for nav, `lg` for landing.
+- **Skeleton:** `<Skeleton className="h-4 w-32" />`.
 
-### Cards / Containers
-- **Corner:** `8px` (card).
-- **Filled (hero tile):** `bg-surface`, `border-border`, `24px` padding; icon on top (24px, muted), then 16px/600 title, then muted description. Icon **and** title shift to accent on hover (`group-hover:text-accent`).
-- **Ghost (list row):** transparent, `4px` padding, icon left + title/description right; same accent-on-hover behavior.
-- **Shadow strategy:** none (see Elevation).
+## Component recipes
 
-### Inputs / Fields
-- **Style:** `bg-canvas` (recessed below the surrounding surface), `border-border-subtle`, `6px` radius, padding `10px 12px`, `text-body`, `placeholder:text-fg-subtle`.
-- **Focus:** border shifts to `accent` (`focus:border-accent`), `outline-none` on the field but a visible 2px `accent-strong` focus ring elsewhere. No glow.
-- **Read-only / display values:** `border-border-subtle bg-canvas` with `fg-subtle` text; informational values use `bg-callout` with `fg-soft`.
+Canonical className patterns. Copy them; don't improvise variants.
 
-### Navigation
-- **Neutral (Column 1 workspace nav):** `text-nav` (14px), `6px` radius; default `text-fg-muted hover:text-fg`, active `bg-surface-raised text-fg`.
-- **Accent (Column 2 contextual list):** `text-list` (16px), `8px` pill radius; default `text-fg-muted hover:text-fg`, active `bg-selection text-accent`.
-- Every active row carries `aria-current="page"`. Optional trailing chevron in `fg-subtle`.
+```tsx
+// Page layout (inside AppShell; the shell supplies the 800px column and atmosphere)
+<>
+  <PageHeader eyebrow="Block 2" title="Week 3 of 6" description="Upper / Lower · 4 sessions"
+    actions={<Button>Log session</Button>} />
+  <div className="mt-8 flex flex-col gap-6">{/* Panels */}</div>
+  <SectionHeading title="This week" action={{ label: "View block", href: "/app/block" }} />
+</>
 
-### Callout
-- Info banner: `bg-callout` fill with a **3px `accent-strong` left bar**, `2px` radius, `20px` padding, `role="note"`. Optional 20px accent-strong icon. Place directly under `PageHeader`.
+// Card list row (rows inside one Panel padding="none", divided, never nested cards)
+<Panel padding="none">
+  <ul className="divide-y divide-border-subtle">
+    <li className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-hover">
+      <span className="flex size-9 items-center justify-center rounded-control bg-sunken text-fg-muted">
+        <Dumbbell className="size-[18px]" aria-hidden /></span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-list text-fg">Upper A</div>
+        <div className="text-meta text-fg-muted tabular-nums">Tue · 5 exercises · 18 sets</div>
+      </div>
+      <Chip tone="accent">Next up</Chip>
+    </li>
+  </ul>
+</Panel>
+
+// Empty state
+<Panel padding="lg" className="flex flex-col items-center py-12 text-center">
+  <span className="flex size-10 items-center justify-center rounded-control bg-aura text-fg-soft">
+    <CalendarPlus className="size-5" aria-hidden /></span>
+  <div className="mt-4 text-card-title text-fg">No sessions logged yet</div>
+  <p className="mt-1 max-w-[36ch] text-card-desc text-fg-muted">Log your first session and your volume shows up here.</p>
+  <Button className="mt-5" size="sm">Log a session</Button>
+</Panel>
+
+// Card skeleton (same Panel, same padding, bars where the text sits)
+<Panel aria-busy="true">
+  <Skeleton className="size-9 rounded-control" />
+  <Skeleton className="mt-4 h-5 w-40" />
+  <Skeleton className="mt-2 h-4 w-64" />
+</Panel>
+
+// Dialog (accept-gate: accent confirm; ordinary: primary confirm; always a ghost cancel)
+<div className="fixed inset-0 z-50 grid place-items-center bg-scrim p-4 backdrop-blur-[2px] animate-fade">
+  <div role="dialog" aria-modal="true" aria-labelledby="dlg-title"
+    className="w-full max-w-[440px] rounded-sheet bg-surface-raised p-6 shadow-pop animate-rise">
+    <h2 id="dlg-title" className="text-card-title text-fg">Move Lower B to Saturday?</h2>
+    <p className="mt-1.5 text-card-desc text-fg-muted">Thursday is blocked. Nothing changes until you accept.</p>
+    <div className="mt-6 flex justify-end gap-2">
+      <Button variant="ghost">Not now</Button>
+      <Button variant="accent">Accept move</Button>
+    </div>
+  </div>
+</div>
+
+// Form input
+<label className="flex flex-col gap-1.5">
+  <span className="text-nav text-fg-soft">Top-set weight</span>
+  <input className="h-10 rounded-control bg-sunken border border-transparent px-3 text-body text-fg tabular-nums
+    placeholder:text-fg-subtle outline-none transition-colors focus:bg-surface-raised focus:border-border-strong" />
+  <span className="text-meta text-fg-muted">kg, as lifted</span>
+</label>
+```
 
 ## Do's and Don'ts
 
-### Do:
-- **Do** use tokens by role (`text-fg-muted`, `bg-surface`), never raw hex — add a semantic token before introducing any new color.
-- **Do** keep the accent scarce: reserve `#0092ff` for interactive/active state and the one primary action per view.
-- **Do** express elevation by stepping the surface tone (`surface` → `surface-raised`); keep everything flat otherwise.
-- **Do** draw all borders in white alpha (10% / 8%).
-- **Do** concentrate energy at decision moments — the next-session CTA, an accept-the-plan action, a logged PR — rather than spreading effects across the page.
-- **Do** use the `zone-*` palette for data marks only, `-soft` fills for large regions and full-strength for small marks.
-- **Do** render every page's H1 through `PageHeader` with an uppercase eyebrow above it.
+**Do**
+- Use role tokens only, and add a token to `theme.css` before you use any new colour.
+- Keep one ink primary per view. Use accent for live state and the accept-gate confirm.
+- Shape skeletons like the content they replace.
+- Put `tabular-nums` on numbers, and use left-aligned layouts with whitespace before dividers.
+- Use zone colours for data marks: soft fills for areas, full strength for small marks.
 
-### Don't:
-- **Don't** add `box-shadow` for elevation — shadows read as smudges on the dark canvas.
-- **Don't** put a second accent on screen; if two elements both wear blue, one is wrong.
-- **Don't** let the `zone-*` green/amber/blue touch chrome (buttons, borders, labels) — those hues mean data.
-- **Don't** switch typefaces for hierarchy; Geist does everything, size and weight carry the levels.
-- **Don't** use solid gray borders, filled Lucide icons, mixed icon families, or emoji as icons.
-- **Don't** use `fg-subtle` (`#9ba1a6`) for critical information — it's for supporting labels only.
+**Don't**
+- Use gradient text, gradient buttons, glass surfaces or glows beyond `.bg-atmosphere` / `.bg-aura`.
+- Put a card inside a card, or a shadow inside a shadow.
+- Put zone hues on chrome, or a second accent on screen.
+- Use emoji or filled icons, or mix icon families.
+- Use `fg-subtle` for anything the athlete must read to act.
+- Go above 300ms, overshoot easing or add decorative loops.
+- Write a raw hex or Tailwind palette class (`gray-500`, `blue-600`) in a component.
+
+**Named rules, recap:** One Signal · Data-Only Zone · No New Hex · Tabular · One H1 · 800 · Flat Inside · No Glass · Quiet Motion.
+
+**Theming later:** dark mode will arrive as `[data-theme=dark]` overriding these same token names. Components never branch on the theme.
