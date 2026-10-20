@@ -13,6 +13,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { Ban, Info, RotateCw, TriangleAlert, Wand2 } from "lucide-react";
 import { coachAppliedNotice } from "~/components/coach/applied-notice";
 import { CoachBox, type AppliedWeek } from "~/components/coach/coach-box";
 import { blockedReason } from "~/components/coach/messages";
@@ -46,6 +47,8 @@ import {
   suggestionStillValid,
   type DropTarget,
 } from "./draft";
+import { Button, Callout } from "~/components/ui-kit/app-shell-kit";
+import { BoardSkeleton } from "./board-skeleton";
 import { DraftBar } from "./draft-bar";
 import { blockState } from "./exceptions";
 import { ReplacementPanel } from "./replacement-panel";
@@ -86,12 +89,52 @@ function BlockToggle({
       aria-label={`Can’t train ${label}`}
       disabled={disabled}
       onClick={onToggle}
-      className="text-fg-muted hover:text-fg text-[11px] transition-colors disabled:opacity-50"
+      className="text-meta h-6 rounded-pill px-2 font-medium text-fg-subtle transition-colors hover:bg-hover hover:text-fg disabled:pointer-events-none disabled:opacity-45"
     >
       {state === "one_off" ? "Undo" : "Can’t train"}
     </button>
   );
 }
+
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/** The athlete's calendar date ("YYYY-MM-DD") in their own timezone. */
+function localToday(timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
+  } catch {
+    return new Intl.DateTimeFormat("en-CA").format(new Date());
+  }
+}
+
+/** "2026-10-21" → "21 Oct". */
+function shortDate(iso: string): string {
+  return `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`;
+}
+
+/** A soft line under the main area: one callout style for every board message. */
+function Note({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="animate-fade">
+      <Callout icon={Info}>{children}</Callout>
+    </div>
+  );
+}
+
+const LINK = "font-medium text-accent transition-colors hover:text-accent-strong";
 
 function Cell({
   placement,
@@ -115,35 +158,43 @@ function Cell({
   // no-op in the board's move), not fall through to whichever enabled cell is nearest.
   const { setNodeRef, isOver } = useDroppable({ id: cellId(placement) });
   const tone = !target
-    ? "border-border-subtle"
+    ? blocked
+      ? "border-dashed border-border-strong"
+      : "border-transparent bg-sunken"
     : refused
-      ? "border-border-subtle opacity-40"
+      ? blocked
+        ? "border-dashed border-border-strong opacity-40"
+        : "border-transparent bg-sunken opacity-40"
       : target.kind === "warn"
-        ? "border-dashed border-border"
-        : "border-accent/40 bg-selection";
+        ? "border-dashed border-border-strong bg-sunken"
+        : "border-accent/25 bg-selection";
+  const over = isOver && !refused;
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-control flex min-h-20 flex-col gap-1.5 border p-1.5 transition-colors ${tone} ${isOver && !refused ? "ring-accent ring-1" : ""}`}
+      className={`flex min-h-14 min-w-0 flex-col gap-2 rounded-callout border p-2 transition-[background-color,border-color,box-shadow,opacity] duration-200 ease-out ${tone} ${over ? "bg-selection ring-2 ring-accent" : ""}`}
     >
-      {showHalf || blocked || toggle ? (
-        <div className="flex items-center gap-1.5">
+      {showHalf || blocked || note || toggle ? (
+        <div className="flex min-h-6 items-center gap-2 px-1.5">
           {showHalf ? (
-            <span className="text-fg-subtle text-[11px]">
+            <span className="text-eyebrow font-medium text-fg-subtle">
               {placement.daypart}
             </span>
           ) : null}
           {blocked ? (
             <span
-              aria-label="Blocked"
               title="Blocked"
-              className="text-fg-subtle text-[11px]"
+              className="text-meta inline-flex items-center gap-1 text-fg-subtle"
             >
-              ✕
+              <Ban className="size-3.5" aria-hidden />
+              Blocked
             </span>
           ) : null}
           {note ? (
-            <span className="text-fg-subtle text-[11px]">{note}</span>
+            <span className="text-meta text-fg-subtle">
+              {blocked ? "· " : ""}
+              {note}
+            </span>
           ) : null}
           {toggle ? <span className="ml-auto">{toggle}</span> : null}
         </div>
@@ -252,19 +303,26 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   }, [storedTz, setTimezone]);
 
   if (query.isLoading)
-    return <p className="text-nav text-fg-subtle">Loading your week…</p>;
+    return (
+      <div role="status">
+        <span className="sr-only">Loading your week…</span>
+        <BoardSkeleton composer={false} />
+      </div>
+    );
   if (query.isError || !query.data) {
     return (
-      <div className="rounded-control border-border bg-callout text-nav text-fg-soft border px-3 py-2">
+      <Callout icon={Info}>
         <p>Couldn’t load your schedule.</p>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={RotateCw}
           onClick={() => void query.refetch()}
-          className="text-accent hover:text-accent-strong mt-1 font-medium"
+          className="mt-2.5"
         >
           Try again
-        </button>
-      </div>
+        </Button>
+      </Callout>
     );
   }
 
@@ -449,8 +507,11 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
     );
   };
 
+  const today = localToday(data.timezone);
+  const lastDay = data.days.length - 1;
+
   return (
-    <section aria-label="Week schedule" className="flex flex-col gap-4">
+    <section aria-label="Week schedule" className="flex flex-col gap-6">
       {coach.data?.enabled && !data.readOnly ? (
         <CoachBox
           weekIndex={weekIndex}
@@ -470,92 +531,134 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
         onDragCancel={() => setDragging(null)}
         onDragEnd={onDragEnd}
       >
-        <div className="overflow-x-auto">
-          <div className="grid min-w-[680px] grid-cols-7 gap-2">
-            {data.days.map((d) => {
-              const state = blockState(data.input, d.weekday, null);
-              return (
-                <div
-                  key={d.date}
-                  className="text-fg-subtle flex items-baseline justify-between gap-1 px-1 text-[12px]"
-                >
-                  <span>
-                    <span className="text-fg-soft font-medium">
-                      {DAY_NAMES[d.weekday]}
-                    </span>{" "}
-                    {Number(d.date.slice(8))}
+        {/* A timeline: the date on the left, the day's sessions on the right. */}
+        <ol className="flex flex-col">
+          {data.days.map((d, i) => {
+            const state = blockState(data.input, d.weekday, null);
+            const isToday = d.date === today;
+            return (
+              <li
+                key={d.date}
+                aria-current={isToday ? "date" : undefined}
+                className="grid grid-cols-[84px_minmax(0,1fr)] sm:grid-cols-[112px_minmax(0,1fr)]"
+              >
+                <div className="flex flex-col items-start pt-[15px] pr-3 pb-3">
+                  <span
+                    className={
+                      "text-list " + (isToday ? "text-accent" : "text-fg")
+                    }
+                  >
+                    {DAY_NAMES[d.weekday]}
+                  </span>
+                  <span className="text-meta text-fg-subtle tabular-nums">
+                    {isToday ? "Today" : shortDate(d.date)}
                   </span>
                   {!data.readOnly &&
                   (state === "open" || state === "one_off") ? (
-                    <BlockToggle
-                      state={state}
-                      label={DAY_NAMES[d.weekday]!}
-                      disabled={!canBlock}
-                      onToggle={() => toggleBlock(d.weekday, null)}
-                    />
+                    <span className="mt-1.5 -ml-2">
+                      <BlockToggle
+                        state={state}
+                        label={DAY_NAMES[d.weekday]!}
+                        disabled={!canBlock}
+                        onToggle={() => toggleBlock(d.weekday, null)}
+                      />
+                    </span>
                   ) : null}
                 </div>
-              );
-            })}
-            {rows.map((daypart) =>
-              data.days.map((d) => {
-                const placement: Placement = { day: d.weekday, daypart };
-                const key = cellKey(placement, data.mode);
-                const saved = blockState(data.input, d.weekday, daypart);
-                const here = data.sessions.filter(
-                  (s) =>
-                    layout[s.id] !== undefined &&
-                    cellKey(layout[s.id]!, data.mode) === key,
-                );
-                return (
-                  <Cell
-                    key={`${d.date}:${daypart ?? "-"}`}
-                    placement={placement}
-                    target={targets?.find(
-                      (t) => cellId(t.placement) === cellId(placement),
-                    )}
-                    showHalf={daypart !== null}
-                    blocked={
-                      cellState(input.availability, data.mode, placement) ===
-                      "BLOCKED"
+                <div className="relative pb-3 pl-6">
+                  {/* The rail runs dot to dot: it starts at the first and ends at the last. */}
+                  <span
+                    aria-hidden
+                    className={
+                      "absolute left-[4.5px] border-l border-dashed border-border-strong " +
+                      (i === 0 ? "top-6 " : "top-0 ") +
+                      (i === lastDay ? "h-6" : "bottom-0")
                     }
-                    note={saved === "one_off" ? "this week" : undefined}
-                    toggle={
-                      !data.readOnly &&
-                      daypart !== null &&
-                      (saved === "open" || saved === "one_off") ? (
-                        <BlockToggle
-                          state={saved}
-                          label={`${DAY_NAMES[d.weekday]} ${daypart}`}
-                          disabled={!canBlock}
-                          onToggle={() => toggleBlock(d.weekday, daypart)}
-                        />
-                      ) : undefined
+                  />
+                  <span
+                    aria-hidden
+                    className={
+                      "absolute top-[19px] left-0 size-2.5 rounded-full " +
+                      (isToday
+                        ? "bg-accent ring-4 ring-selection"
+                        : "bg-border-strong")
+                    }
+                  />
+                  <div
+                    className={
+                      data.mode === "HALF_DAY"
+                        ? "grid gap-2 md:grid-cols-2"
+                        : "flex flex-col"
                     }
                   >
-                    {here.map((s) => chip(s.id))}
-                  </Cell>
-                );
-              }),
-            )}
-          </div>
-        </div>
+                    {rows.map((daypart) => {
+                      const placement: Placement = {
+                        day: d.weekday,
+                        daypart,
+                      };
+                      const key = cellKey(placement, data.mode);
+                      const saved = blockState(data.input, d.weekday, daypart);
+                      const here = data.sessions.filter(
+                        (s) =>
+                          layout[s.id] !== undefined &&
+                          cellKey(layout[s.id]!, data.mode) === key,
+                      );
+                      return (
+                        <Cell
+                          key={`${d.date}:${daypart ?? "-"}`}
+                          placement={placement}
+                          target={targets?.find(
+                            (t) => cellId(t.placement) === cellId(placement),
+                          )}
+                          showHalf={daypart !== null}
+                          blocked={
+                            cellState(
+                              input.availability,
+                              data.mode,
+                              placement,
+                            ) === "BLOCKED"
+                          }
+                          note={saved === "one_off" ? "this week" : undefined}
+                          toggle={
+                            !data.readOnly &&
+                            daypart !== null &&
+                            (saved === "open" || saved === "one_off") ? (
+                              <BlockToggle
+                                state={saved}
+                                label={`${DAY_NAMES[d.weekday]} ${daypart}`}
+                                disabled={!canBlock}
+                                onToggle={() => toggleBlock(d.weekday, daypart)}
+                              />
+                            ) : undefined
+                          }
+                        >
+                          {here.map((s) => chip(s.id))}
+                        </Cell>
+                      );
+                    })}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
 
         {unplaced.length > 0 ? (
-          <div className="rounded-card border-border-subtle flex flex-col gap-2 border p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-nav text-fg-muted">Not placed yet</span>
+          <div className="flex flex-col gap-3 rounded-card border border-dashed border-border-strong p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-3 pl-1">
+              <span className="text-nav text-fg-soft">Not placed yet</span>
               {editable ? (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={Wand2}
                   onClick={placeForMe}
-                  className="text-nav text-accent hover:text-accent-strong font-medium"
                 >
                   Place for me
-                </button>
+                </Button>
               ) : null}
             </div>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {unplaced.map((s) => chip(s.id))}
             </div>
           </div>
@@ -563,15 +666,12 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
       </DndContext>
 
       {notice ? (
-        <p className="rounded-control border-border bg-callout text-nav text-fg-soft border px-3 py-2">
+        <Note>
           {notice.text}
           {notice.availabilityLink ? (
             <>
               {" "}
-              <Link
-                href="/app/settings"
-                className="text-accent hover:text-accent-strong font-medium"
-              >
+              <Link href="/app/settings" className={LINK}>
                 Availability
               </Link>
             </>
@@ -579,15 +679,12 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
           {notice.weekLinks?.map((n) => (
             <span key={n}>
               {" "}
-              <Link
-                href={`/app/block/week/${n}`}
-                className="text-accent hover:text-accent-strong font-medium"
-              >
+              <Link href={`/app/block/week/${n}`} className={LINK}>
                 Week {n}
               </Link>
             </span>
           ))}
-        </p>
+        </Note>
       ) : null}
 
       {draft ? (
@@ -619,9 +716,21 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
             />
           ) : null}
           {warnings.length > 0 ? (
-            <ul className="text-nav text-fg-muted flex flex-col gap-1">
+            <ul
+              aria-label="Recovery notes"
+              className="flex flex-col gap-1.5 pl-1"
+            >
               {warnings.map((w) => (
-                <li key={w}>{w}</li>
+                <li
+                  key={w}
+                  className="text-card-desc flex items-start gap-2 text-fg-muted"
+                >
+                  <TriangleAlert
+                    className="mt-[3px] size-3.5 shrink-0 text-fg-subtle"
+                    aria-hidden
+                  />
+                  {w}
+                </li>
               ))}
             </ul>
           ) : null}
@@ -632,11 +741,7 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
               onAccept={accept}
             />
           ) : null}
-          {apply.isError ? (
-            <p className="rounded-control border-border bg-callout text-nav text-fg-soft border px-3 py-2">
-              {apply.error.message}
-            </p>
-          ) : null}
+          {apply.isError ? <Note>{apply.error.message}</Note> : null}
         </>
       )}
     </section>
