@@ -1,7 +1,7 @@
 "use client";
 
 import { Dumbbell, Home, LineChart, MessageSquare, Library, Settings, LogOut, HeartPulse } from "lucide-react";
-import { IconButton, NavItem } from "~/components/ui-kit/app-shell-kit";
+import { IconButton, NavItem, Wordmark } from "~/components/ui-kit/app-shell-kit";
 import { authClient } from "~/server/better-auth/client";
 import { useRouter } from "next/navigation";
 
@@ -9,11 +9,8 @@ export function AppNav({ userName, userEmail }: { userName: string; userEmail: s
   const router = useRouter();
   return (
     <>
-      <div className="flex items-center gap-2.5 px-2.5 py-1.5">
-        <span className="flex size-7 items-center justify-center rounded-[9px] bg-ink text-on-ink">
-          <Dumbbell className="size-4" aria-hidden />
-        </span>
-        <span className="text-card-title text-fg">Mesodapt</span>
+      <div className="px-2.5 py-1.5">
+        <Wordmark />
       </div>
       <nav className="mt-6 flex flex-col gap-0.5">
         <NavItem appearance="neutral" href="/app" label="Now" icon={Home} matchPatterns={["/app"]} />
