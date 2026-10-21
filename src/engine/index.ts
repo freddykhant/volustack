@@ -105,3 +105,6 @@ export type {
   ScheduleInput,
   ScheduleSession,
 } from "./schedule";
+
+export { deriveCues, rankCues, cueId, lowerSets, gramRange } from "./cues";
+export type { CueLift, CueActivity, CueDayInput, CueSubject, GramRange, CueFact, CueKind } from "./cues";
