@@ -2,6 +2,7 @@ import { nextSession } from "~/views/next-session";
 import { rollUpStatus } from "~/components/viz/roll-up-status";
 import { readinessState } from "~/components/viz/readiness-state";
 import { NowHome } from "~/components/home/now-home";
+import { api } from "~/trpc/server";
 import { requireCurrentBlock, readiness } from "~/server/mesocycle/current-block";
 
 export default async function NowPage() {
@@ -16,6 +17,9 @@ export default async function NowPage() {
     readinessData.series[readinessData.series.length - 1];
   const readinessLabel = readinessPoint ? readinessState(readinessPoint) : undefined;
 
+  // Cues are a nudge: if they fail to load, the page renders without them.
+  const cueDays = await api.cue.upcoming().catch(() => []);
+
   return (
     <NowHome
       splitLabel={block.splitLabel}
@@ -27,6 +31,7 @@ export default async function NowPage() {
       coachNotes={block.coachNotes}
       readiness={readinessData}
       readinessLabel={readinessLabel}
+      cueDays={cueDays}
     />
   );
 }
