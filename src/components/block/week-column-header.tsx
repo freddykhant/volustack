@@ -6,12 +6,21 @@ export function WeekColumnHeader({ week }: { week: WeekView }) {
   return (
     <Link
       href={`/app/block/week/${week.index}`}
-      className={
-        "block px-2 py-1.5 text-center text-nav transition-colors hover:text-fg " +
-        (week.isCurrent ? "font-semibold text-accent" : week.isDeload ? "text-fg-subtle" : "text-fg-muted")
-      }
+      aria-current={week.isCurrent ? "true" : undefined}
+      className="flex h-9 items-center justify-center"
     >
-      {label}
+      <span
+        className={
+          "inline-flex h-7 items-center rounded-pill px-2.5 text-meta font-medium tabular-nums transition-colors " +
+          (week.isCurrent
+            ? "bg-selection text-accent"
+            : week.isDeload
+              ? "text-fg-subtle hover:bg-hover hover:text-fg"
+              : "text-fg-muted hover:bg-hover hover:text-fg")
+        }
+      >
+        {label}
+      </span>
     </Link>
   );
 }

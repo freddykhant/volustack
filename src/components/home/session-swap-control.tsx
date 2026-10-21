@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { RefreshCw, Undo2 } from "lucide-react";
+import { Check, RefreshCw, Undo2 } from "lucide-react";
 import type { ReadinessLabel, SwapOption } from "~/views/types";
+import { buttonClass } from "~/components/ui-kit/app-shell-kit";
 
 export function SessionSwapControl({
   options,
@@ -33,8 +34,14 @@ export function SessionSwapControl({
 
   if (chosen) {
     return (
-      <div className="mt-4 flex items-center justify-between rounded-control border border-border-subtle px-3 py-2 text-nav text-fg-soft">
-        <span>Swapped to {chosen.label} — still right on plan.</span>
+      <div
+        role="status"
+        className="flex w-full animate-fade items-center justify-between gap-3 rounded-callout bg-sunken py-2 pr-2 pl-4 text-nav text-fg-soft sm:w-auto sm:flex-1"
+      >
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <Check className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+          <span>Swapped to {chosen.label} — still right on plan.</span>
+        </span>
         <button
           ref={undoRef}
           type="button"
@@ -42,9 +49,9 @@ export function SessionSwapControl({
             setChosen(null);
             setOpen(false);
           }}
-          className="inline-flex items-center gap-1 text-fg-muted transition-colors hover:text-fg"
+          className={buttonClass("ghost", "sm")}
         >
-          <Undo2 className="size-4" aria-hidden /> Undo
+          <Undo2 className="size-3.5" aria-hidden /> Undo
         </button>
       </div>
     );
@@ -59,7 +66,7 @@ export function SessionSwapControl({
           interacted.current = true;
           setOpen(true);
         }}
-        className="mt-4 inline-flex items-center gap-2 rounded-control border border-border-subtle px-3 py-2 text-nav text-fg-soft transition-colors hover:border-border hover:text-fg"
+        className={buttonClass("secondary", "lg", "w-full sm:w-auto")}
       >
         <RefreshCw className="size-4" aria-hidden /> Swap session
       </button>
@@ -67,7 +74,7 @@ export function SessionSwapControl({
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-2" role="group" aria-label="Swap this session">
+    <div className="flex w-full animate-rise flex-col gap-1.5" role="group" aria-label="Swap this session">
       {options.map((opt, i) => {
         const hint = fatigued && opt.intent === "easier";
         return (
@@ -76,10 +83,10 @@ export function SessionSwapControl({
             ref={i === 0 ? firstOptionRef : undefined}
             type="button"
             onClick={() => setChosen(opt)}
-            className="flex items-center justify-between gap-3 rounded-control border border-border-subtle px-3 py-2 text-left transition-colors hover:border-border"
+            className="flex flex-col gap-0.5 rounded-control border border-border bg-surface-raised px-4 py-3 text-left shadow-control transition-[border-color,box-shadow] duration-200 hover:border-border-strong hover:shadow-card sm:flex-row sm:items-center sm:justify-between sm:gap-3"
           >
-            <span className="text-nav text-fg">{opt.label}</span>
-            <span className="text-nav text-fg-muted">
+            <span className="text-list text-fg">{opt.label}</span>
+            <span className="text-card-desc text-fg-muted tabular-nums">
               {hint ? "Fatigue high — consider easier · " : ""}
               {opt.summary}
             </span>
@@ -89,7 +96,7 @@ export function SessionSwapControl({
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="self-start text-nav text-fg-subtle transition-colors hover:text-fg"
+        className={buttonClass("ghost", "sm", "mt-1 self-start")}
       >
         Cancel
       </button>

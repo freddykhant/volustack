@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Info, TrendingUp, type LucideIcon } from "lucide-react";
+import { Panel } from "~/components/ui-kit/app-shell-kit";
 import type { CoachNote } from "~/views/types";
 
 /** Coach tone → icon + text emphasis. Distinction is carried by icon SHAPE
@@ -15,26 +16,31 @@ const TONE: Record<CoachNote["tone"], { icon: LucideIcon; text: string; iconColo
 export function CoachCard({ notes }: { notes: CoachNote[] }) {
   if (notes.length === 0) return null;
   return (
-    <div className="rounded-card border border-border bg-surface p-6">
-      <div className="text-eyebrow font-medium text-fg-soft">Coach</div>
+    <Panel as="section" aria-label="Coach" className="flex flex-col">
+      <div className="text-eyebrow font-medium text-fg-subtle">Coach</div>
       <ul className="mt-3 flex flex-col gap-3">
         {notes.map((note) => {
           const { icon: Icon, text, iconColor } = TONE[note.tone];
           return (
-            <li key={note.id} className={`flex items-start gap-2.5 text-card-desc ${text}`}>
-              <Icon className={`mt-0.5 size-4 shrink-0 ${iconColor}`} aria-hidden />
-              <span>{note.text}</span>
+            <li key={note.id} className={`flex items-start gap-3 text-card-desc ${text}`}>
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-pill bg-sunken">
+                <Icon className={`size-3.5 ${iconColor}`} aria-hidden />
+              </span>
+              <span className="pt-0.5">{note.text}</span>
             </li>
           );
         })}
       </ul>
       <Link
         href="/app/coach"
-        className="mt-4 inline-flex items-center gap-1 text-nav text-fg-muted transition-colors hover:text-fg"
+        className="group mt-auto inline-flex items-center gap-1 self-start pt-5 text-nav text-fg-muted transition-colors hover:text-fg"
       >
         View all
-        <ArrowRight className="size-4" aria-hidden />
+        <ArrowRight
+          className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+          aria-hidden
+        />
       </Link>
-    </div>
+    </Panel>
   );
 }

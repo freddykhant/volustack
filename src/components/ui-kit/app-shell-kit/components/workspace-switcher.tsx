@@ -27,7 +27,7 @@ export function WorkspaceSwitcher({ currentSlug, currentName, workspaces }: Prop
       {open ? (
         <div
           role="menu"
-          className="absolute left-0 right-0 top-full z-40 mt-1 rounded-card border border-border bg-canvas p-2"
+          className="absolute left-0 right-0 top-full z-40 mt-1 animate-rise rounded-control border border-border bg-surface-raised p-1.5 shadow-pop"
         >
           <div className="px-2 pb-1 text-eyebrow font-semibold text-fg-muted">Workspaces</div>
           {workspaces.map((w) => (

@@ -521,6 +521,9 @@ model CheckIn {
 
   muscleFeedback CheckInMuscle[]
 
+  // At most one check-in per (week, scope). weekId is nullable; Postgres treats
+  // NULLs as distinct, so non-week-scoped check-ins are not over-constrained.
+  @@unique([weekId, scope])
   @@map("check_in")
 }
 
@@ -552,6 +555,10 @@ model DecisionLog {
   createdAt   DateTime       @default(now())
   respondedAt DateTime?
 
+  // NOTE: a PARTIAL unique index enforces "at most one PROPOSED row per
+  // (mesocycleId, weekIndex)" while allowing many REJECTED/APPLIED rows. Prisma
+  // cannot express partial indexes, so it lives in the accept_gate_unique
+  // migration, not here. See prisma/migrations/README.md.
   @@index([mesocycleId, createdAt])
   @@map("decision_log")
 }

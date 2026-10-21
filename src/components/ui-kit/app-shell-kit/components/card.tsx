@@ -9,29 +9,28 @@ type Props = {
   href: string;
 };
 
-/** Whole-card click target. `filled` = hero grid tile (icon on top, surface bg, border); `ghost` = list row (icon left, transparent). Icon + title shift to accent on hover. Always place in a 2-column grid (`grid gap-6 md:grid-cols-2`) inside the 756px content column. */
+/** Whole-card link. `filled` = tile on a Panel surface (icon chip on top, lifts on hover); `ghost` = list row (icon left, hover wash).
+ *  Place filled tiles in `grid gap-4 md:grid-cols-2`. */
 export function Card({ variant, icon: Icon, title, description, href }: Props) {
   if (variant === "filled") {
     return (
       <Link
         href={href}
-        className="group flex flex-col rounded-card border border-border bg-surface p-6 transition-colors"
+        className="group flex flex-col rounded-card border border-border bg-surface p-5 shadow-card transition-[box-shadow,transform] duration-300 hover:-translate-y-px hover:shadow-card-hover"
       >
-        <Icon className="size-6 text-fg-muted transition-colors group-hover:text-accent" />
-        <div className="mt-3 text-card-title text-fg transition-colors group-hover:text-accent">
-          {title}
-        </div>
+        <span className="flex size-9 items-center justify-center rounded-control bg-sunken text-fg-muted transition-colors group-hover:text-accent">
+          <Icon className="size-[18px]" aria-hidden />
+        </span>
+        <div className="mt-4 text-card-title text-fg">{title}</div>
         <div className="mt-1 text-card-desc text-fg-muted">{description}</div>
       </Link>
     );
   }
   return (
-    <Link href={href} className="group flex items-start gap-3 rounded-card p-1 transition-colors">
-      <Icon className="size-6 shrink-0 text-fg-muted transition-colors group-hover:text-accent" />
+    <Link href={href} className="group -mx-2 flex items-start gap-3 rounded-control px-2 py-2 transition-colors hover:bg-hover">
+      <Icon className="mt-0.5 size-5 shrink-0 text-fg-subtle transition-colors group-hover:text-accent" aria-hidden />
       <div className="min-w-0">
-        <div className="text-card-title text-fg transition-colors group-hover:text-accent">
-          {title}
-        </div>
+        <div className="text-list text-fg">{title}</div>
         <div className="text-card-desc text-fg-muted">{description}</div>
       </div>
     </Link>

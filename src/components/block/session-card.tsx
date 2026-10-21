@@ -1,41 +1,66 @@
-import type { SessionView } from "~/views/types";
+import { Panel } from "~/components/ui-kit/app-shell-kit";
+import type { PrescriptionView, SessionView } from "~/views/types";
 
 function short(m: string): string {
   return m.replace(/_/g, " ").toLowerCase();
 }
 
+/** "Mon · 55 min" — quiet, right of the session title. */
+export function SessionMeta({ session }: { session: SessionView }) {
+  return (
+    <div className="shrink-0 text-meta whitespace-nowrap text-fg-subtle tabular-nums">
+      {session.dayTag ? `${session.dayTag} · ` : ""}
+      {session.estimatedMinutes} min
+    </div>
+  );
+}
+
+/** Exercise name over its prescription line ("3 × 8–12 @ 2 RIR"). */
+export function PrescriptionLine({ p }: { p: PrescriptionView }) {
+  return (
+    <>
+      <div className="text-body font-medium text-fg">{p.exerciseName}</div>
+      <div className="mt-0.5 text-meta text-fg-muted tabular-nums">
+        {p.sets} × {p.repRangeLow}–{p.repRangeHigh} @ {p.targetRir} RIR
+      </div>
+    </>
+  );
+}
+
+/** Muscle contributions: primary movers in a sunken pill, secondaries as plain text. */
+export function MuscleChips({ p }: { p: PrescriptionView }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-1">
+      {p.muscles.map((c) => (
+        <span
+          key={c.muscle}
+          className={
+            "inline-flex h-5 items-center rounded-pill px-2 text-[12px] leading-none tabular-nums " +
+            (c.role === "PRIMARY" ? "bg-sunken text-fg-soft" : "text-fg-subtle")
+          }
+        >
+          {short(c.muscle)} {c.fraction}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function SessionCard({ session }: { session: SessionView }) {
   return (
-    <div className="rounded-card border border-border bg-surface p-4">
-      <div className="flex items-baseline justify-between">
+    <Panel>
+      <div className="flex items-baseline justify-between gap-3">
         <div className="text-card-title text-fg">{session.label}</div>
-        <div className="text-[12px] text-fg-subtle">
-          {session.dayTag ? `${session.dayTag} · ` : ""}
-          {session.estimatedMinutes} min
-        </div>
+        <SessionMeta session={session} />
       </div>
-      <ul className="mt-3 flex flex-col gap-3">
+      <ul className="mt-3 flex flex-col divide-y divide-border-subtle">
         {session.prescriptions.map((p, i) => (
-          <li key={`${p.exerciseName}-${i}`}>
-            <div className="text-body text-fg">
-              {p.exerciseName} — {p.sets} × {p.repRangeLow}–{p.repRangeHigh} @ {p.targetRir} RIR
-            </div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {p.muscles.map((c) => (
-                <span
-                  key={c.muscle}
-                  className={
-                    "rounded-pill px-1.5 py-0.5 text-[11px] " +
-                    (c.role === "PRIMARY" ? "bg-surface-raised text-fg-soft" : "text-fg-subtle")
-                  }
-                >
-                  {short(c.muscle)} {c.fraction}
-                </span>
-              ))}
-            </div>
+          <li key={`${p.exerciseName}-${i}`} className="py-3 first:pt-1 last:pb-0">
+            <PrescriptionLine p={p} />
+            <MuscleChips p={p} />
           </li>
         ))}
       </ul>
-    </div>
+    </Panel>
   );
 }

@@ -1,78 +1,51 @@
-# App-Shell UI Kit (ReadMe-cloned, dark-only)
+# Mesodapt UI kit (app-shell-kit)
 
-A drop-in design system for a **Next.js App Router + Tailwind v4** project (T3-ready).
-Every token value was extracted from the live ReadMe app via computed-style
-measurement (2026-07-24) — this is a faithful clone of that shell, not an approximation.
+The light, Luma-inspired design system for Mesodapt: Next.js App Router, Tailwind v4,
+`lucide-react`, and nothing else.
 
-Plain React + Tailwind + `lucide-react`. No other dependencies.
+**Source of truth:** [`/DESIGN.md`](../../../../DESIGN.md) is the design system: rules,
+tokens, motion, loading and empty states, and copy-paste component recipes.
+[`theme.css`](./theme.css) holds the token values. If DESIGN.md and theme.css
+disagree, theme.css wins and DESIGN.md is the bug. The live reference is
+`/app/styleguide` (signed in), which renders every token and component below.
 
-## Install into a T3 app
+## Wiring
 
-1. Copy this folder to `src/components/ui-kit/` (or wherever you keep shared UI).
-2. `pnpm add lucide-react` (or npm/bun equivalent).
-3. In `src/styles/globals.css`, after `@import "tailwindcss";`, add:
-   ```css
-   @import "../components/ui-kit/theme.css";
-   ```
-4. Mount your app section inside the shell, in that section's `layout.tsx`:
-
-```tsx
-import { AppShell } from "~/components/ui-kit";
-
-export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AppShell slug="acme" workspaceName="Acme Inc">
-      {children}
-    </AppShell>
-  );
-}
-```
-
-Active nav/tab states derive from `usePathname()` automatically (exact paths or
-`"/prefix/*"` via `matchPatterns`). Pass `currentPath` only to override in tests/storybook.
+`src/styles/globals.css` imports `theme.css` after `@import "tailwindcss";`, and each
+token becomes a utility (`bg-surface`, `text-fg-muted`, `rounded-card`, `shadow-card`,
+`text-page-title`, `animate-rise`). Import components from
+`~/components/ui-kit/app-shell-kit`.
 
 ## Components
 
 | Component | Use |
 |---|---|
-| `AppShell` | The frame: 256px workspace nav → 49px hub bar (spans the rest) → optional 288px `column2` → 756px-capped content → optional `toc`. Slots: `column1`, `column2`, `tabs`, `toc`, `topNav`. Mount once per route section — never nested. |
-| `AppCanvas` | Dark canvas root for anything rendered outside the shell. |
-| `PageHeader` | Every content page starts with this: eyebrow + 39px H1 + divider. `divider={false}` when a TabStrip follows. |
-| `SectionHeading` | 24px H2 with 42px top rhythm + optional accent action link. |
-| `Card` | `filled` (hero grid tile) / `ghost` (list row). Always in `grid gap-6 md:grid-cols-2`. |
-| `Callout` | Info banner (3px accent bar) — sits directly under PageHeader. |
-| `NavItem` | Sidebar row. `appearance="neutral"` = Column-1 style (14px, white on 7.5%-white); default `"accent"` = Column-2 style (16px, accent on blue selection). |
-| `TabStrip` | 14px/500 underline tabs (hub bar or detail pages). Container needs `border-b border-border-subtle`. |
-| `WorkspaceSwitcher` | Column-1 top slot (replaces a logo/wordmark). |
-| `PageToc` | Right-hand ToC — accent rail on the active item. Pass into `AppShell`'s `toc` slot. |
+| `AppShell` | The frame: a 240px nav column, an optional 256px `column2`, an optional 52px top bar (`tabs` / `topNav`), and an 800px content column with the atmosphere glow (`fullBleed` opts out). There's an optional `toc`. Mount it once per route section. |
+| `AppCanvas` | The canvas, font and text root for content rendered outside the shell. |
+| `PageHeader` | The one H1 per page: eyebrow, title, description, and `actions`. |
+| `SectionHeading` | An H2 with `mt-10` and an optional text link. |
+| `Panel` | The card surface (hairline, `shadow-card`, 20px radius). `padding`, `interactive`, `as`. |
+| `Skeleton` | A shimmer placeholder, shaped with size and `rounded-*` utilities. |
+| `Card` | A whole-card link: `filled` tile or `ghost` row. |
+| `Callout` | An info banner, placed directly under PageHeader. |
+| `Button` / `ButtonLink` / `buttonClass` | Pills: `primary` (ink), `accent`, `secondary`, `ghost`, `danger`; `sm` / `md` / `lg`; `icon`, `trailingIcon`, `loading`. |
+| `IconButton` | A 32px round icon-only button. `aria-label` is required. |
+| `Chip` | A status pill in the `neutral`, `accent` or zone tones (`rest`, `building`, `optimal`, `max`). |
+| `Segmented` | A 2–4 option exclusive switch (client component). |
+| `NavItem` / `isNavItemActive` | A sidebar row: `appearance="neutral"` (nav column) or `"accent"` (contextual list). |
+| `TabStrip` | Underline tabs for the top bar. |
+| `PageToc` | A right-hand table of contents. |
+| `WorkspaceSwitcher` | A legacy menu from the original kit, not used by Mesodapt. |
+| `Wordmark` | The ink tile with the M, and the name. |
+| `Mark` | The M on its own, in `currentColor`. For the rare place that needs the mark without the name. |
 
-## Styling rules (what makes it look right)
+## House rules (short form; DESIGN.md has the full set)
 
-Style **only** with the semantic token utilities — never raw hexes, never `gray-500`-style palette names:
+- Use role tokens only. No raw hex and no `gray-500`-style palette classes; add a token first.
+- Use one ink primary per view. Accent is the one live signal: next-up, active, links, focus, and the accept-gate confirm.
+- Zone colours are for data only.
+- No card inside a card, no glass and no gradient text.
+- Motion is 200–300ms on `--ease-soft`, and `tabular-nums` goes on numbers.
 
-- Surfaces: `bg-canvas` `bg-surface` `bg-surface-raised` `bg-selection` `bg-callout`
-- Text: `text-fg` `text-fg-soft` `text-fg-muted` `text-fg-subtle` `text-accent` `text-accent-strong`
-- Borders: `border-border` `border-border-subtle` (white-alpha — never solid gray)
-- Radii: `rounded-card` `rounded-pill` `rounded-control` (32px-high buttons/inputs) `rounded-callout`
-- Type: `text-page-title` `text-section` `text-card-title` `text-body` `text-card-desc` `text-nav` `text-list` `text-eyebrow` (add weight + color at use site: content eyebrows `font-medium text-fg-soft`, sidebar labels `font-semibold text-fg-muted`)
-
-House rules from the source system: **accent is scarce** (active/interactive only — two accent elements on screen usually means one is wrong); **no shadows** in dark UI (elevation = `bg-surface`); card grids are always 2-column inside the 756px content column, never 3; every content page opens with `PageHeader`, every section with `SectionHeading`; hub-bar controls are 32px tall with `rounded-control`.
-
-**Re-branding**: every component styles itself through the role-named tokens, so
-editing the `@theme` block in `theme.css` re-skins the whole kit — add a semantic
-token before ever introducing a new hex.
-
-## Guidelines folder
-
-`guidelines/` holds the original design-system spec docs (foundations, layout,
-screens, components) — great as a composition brief and for AI coding agents
-(reference them from your CLAUDE.md). **Caveat:** a few written values predate the
-live-app clone (22px sections, 3.5px callout bar, Geist font, content-only top bar).
-Where the docs and this kit disagree, **the kit and `theme.css` win**.
-
-## Provenance
-
-Cloned from the ReadMe docs-app shell (a live instance) as part of a
-/design-sync run; the same components are synced to the Claude Design project
-"ReadMe Landing Design System" — design screens there, then implement with this kit
-for a 1:1 mapping.
+`guidelines/` only holds pointers into DESIGN.md. The original ReadMe-clone specs it
+held described the old dark system and have been retired.

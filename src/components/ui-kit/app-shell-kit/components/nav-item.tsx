@@ -35,15 +35,16 @@ export function NavItem({ href, label, icon: Icon, matchPatterns, trailing, curr
   const active = isNavItemActive(path, matchPatterns ?? [href]);
   const look =
     appearance === "neutral"
-      ? "rounded-control text-nav " + (active ? "bg-surface-raised text-fg" : "text-fg-muted hover:text-fg")
-      : "rounded-pill text-list " + (active ? "bg-selection text-accent" : "text-fg-muted hover:text-fg");
+      ? "text-nav " +
+        (active ? "bg-surface-raised text-fg shadow-control" : "text-fg-muted hover:bg-hover hover:text-fg")
+      : "text-list " + (active ? "bg-selection text-accent" : "text-fg-muted hover:bg-hover hover:text-fg");
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={"flex items-center gap-2 px-2.5 py-1.5 transition-colors " + look}
+      className={"flex h-9 items-center gap-2.5 rounded-control px-2.5 transition-[background-color,color,box-shadow] " + look}
     >
-      {Icon ? <Icon className="size-4" /> : null}
+      {Icon ? <Icon className={"size-4 " + (active ? "" : "opacity-80")} aria-hidden /> : null}
       <span className="flex-1">{label}</span>
       {trailing === "chevron" ? <ChevronRight className="size-4 text-fg-subtle" /> : null}
     </Link>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
+import { Button } from "~/components/ui-kit/app-shell-kit";
 import type { DeloadProposalView, ProgressionProposalView } from "~/views/types";
 import { WeeklyCheckInEntry } from "./weekly-checkin-entry";
 import { WeeklyCheckInGrid, type MuscleScore } from "./weekly-checkin-grid";
@@ -73,7 +74,7 @@ export function WeeklyCheckInFlow({ weekIndex }: { weekIndex: number }) {
 
       {stage === "grid" ? (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-scrim p-4 backdrop-blur-[2px] animate-fade"
           onClick={(e) => { if (e.target === e.currentTarget) setStage("closed"); }}
         >
           <div
@@ -83,14 +84,14 @@ export function WeeklyCheckInFlow({ weekIndex }: { weekIndex: number }) {
             aria-modal="true"
             aria-labelledby="grid-title"
             aria-describedby="grid-desc"
-            className="mt-12 w-full max-w-lg rounded-card border border-border bg-canvas p-6 outline-none"
+            className="my-8 w-full max-w-[520px] rounded-sheet bg-surface-raised p-6 shadow-pop outline-none animate-rise"
           >
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-start justify-between gap-3">
               <h2 id="grid-title" className="text-card-title text-fg">Week {weekIndex} check-in</h2>
-              <button type="button" onClick={() => setStage("closed")} className="text-nav text-fg-subtle hover:text-fg">Close</button>
+              <Button variant="ghost" size="sm" onClick={() => setStage("closed")} className="-mt-1 -mr-2">Close</Button>
             </div>
-            <p id="grid-desc" className="mt-1 text-nav text-fg-muted">How recovered does each muscle feel? Any joints complaining?</p>
-            <div className="mt-4">
+            <p id="grid-desc" className="mt-1.5 text-card-desc text-fg-muted">How recovered does each muscle feel? Any joints complaining?</p>
+            <div className="mt-5">
               <WeeklyCheckInGrid
                 muscles={muscles}
                 onChange={setMuscles}
@@ -98,7 +99,7 @@ export function WeeklyCheckInFlow({ weekIndex }: { weekIndex: number }) {
                 onSubmit={() => submit.mutate({ weekIndex, muscles })}
               />
             </div>
-            {submit.isError ? <p className="mt-3 rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">{submit.error.message}</p> : null}
+            {submit.isError ? <p role="alert" className="mt-3 rounded-callout bg-callout px-3.5 py-2.5 text-card-desc text-fg-soft">{submit.error.message}</p> : null}
           </div>
         </div>
       ) : null}

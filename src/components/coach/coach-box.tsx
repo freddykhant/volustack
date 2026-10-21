@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { ArrowUp } from "lucide-react";
+import { IconButton } from "~/components/ui-kit/app-shell-kit";
 import { RescheduleDialog } from "~/components/block/reschedule-dialog";
 import { COACH_MAX_TEXT } from "~/schema";
 import { api } from "~/trpc/react";
@@ -100,7 +102,7 @@ export function CoachBox({
   return (
     <div className="flex flex-col gap-3">
       <form
-        className="flex items-center gap-2"
+        className="flex items-center gap-1 rounded-pill bg-sunken p-1 pl-4 transition-colors focus-within:bg-surface-raised focus-within:shadow-control"
         onSubmit={(e) => {
           e.preventDefault();
           send();
@@ -120,19 +122,19 @@ export function CoachBox({
           readOnly={interpret.isPending}
           aria-busy={interpret.isPending}
           autoComplete="off"
-          className="rounded-control border-border-subtle bg-canvas text-nav text-fg placeholder:text-fg-subtle min-w-0 flex-1 border px-3 py-2"
+          className="h-9 min-w-0 flex-1 bg-transparent text-body text-fg outline-none placeholder:text-fg-subtle"
         />
-        <button
+        <IconButton
           type="submit"
+          icon={ArrowUp}
+          aria-label={interpret.isPending ? "Thinking…" : "Send"}
           disabled={pending || text.trim() === ""}
-          className="rounded-control border-border text-nav text-fg-soft hover:text-fg border px-3 py-2 font-medium transition-colors disabled:opacity-60"
-        >
-          {interpret.isPending ? "Thinking…" : "Send"}
-        </button>
+          className="bg-ink! text-on-ink! hover:bg-ink-hover! hover:text-on-ink!"
+        />
       </form>
       <div role="status" className="flex flex-col gap-3">
         {interpret.isError ? (
-          <p className="text-nav text-fg-soft">
+          <p className="text-card-desc text-fg-soft">
             {interpret.error.data?.code === "NOT_FOUND"
               ? "That week isn’t available."
               : "Something went wrong sending that. Try again."}

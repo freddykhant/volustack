@@ -1,0 +1,18 @@
+import { Mark } from "./mark";
+
+/** The Mesodapt wordmark: ink tile with the M + the name. One component for nav, landing and onboarding. */
+export function Wordmark({ size = "md" }: { size?: "md" | "lg" }) {
+  const lg = size === "lg";
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      <span
+        className={
+          "flex items-center justify-center rounded-tile bg-ink text-on-ink " + (lg ? "size-8" : "size-7")
+        }
+      >
+        <Mark className={lg ? "size-5" : "size-[18px]"} />
+      </span>
+      <span className={(lg ? "text-section" : "text-card-title") + " text-fg"}>Mesodapt</span>
+    </span>
+  );
+}
