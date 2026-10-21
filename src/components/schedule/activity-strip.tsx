@@ -104,6 +104,11 @@ export function ActivityStrip({
     add.reset();
   }
 
+  function openForm() {
+    remove.reset();
+    setOpen(true);
+  }
+
   function cancel() {
     close();
     addButton.current?.focus();
@@ -123,6 +128,7 @@ export function ActivityStrip({
   const canAdd = !readOnly && activities.length < MAX_ACTIVITIES_PER_DAY;
   if (activities.length === 0 && !canAdd) return null;
   const alert = problem ?? confirmErrorText(add.error);
+  const removeAlert = confirmErrorText(remove.error);
   const patch = (p: Partial<ActivityDraft>) => setDraft((d) => ({ ...d, ...p }));
 
   return (
@@ -142,7 +148,10 @@ export function ActivityStrip({
                 type="button"
                 aria-label={`Remove ${activityChipText(a)}`}
                 disabled={busy}
-                onClick={() => remove.mutate({ weekIndex, id: a.id })}
+                onClick={() => {
+                  add.reset();
+                  remove.mutate({ weekIndex, id: a.id });
+                }}
                 className="flex size-4 items-center justify-center rounded-pill text-fg-subtle transition-colors hover:bg-press hover:text-fg disabled:pointer-events-none disabled:opacity-45"
               >
                 <X className="size-3" aria-hidden />
@@ -156,13 +165,18 @@ export function ActivityStrip({
             type="button"
             aria-expanded={open}
             disabled={busy}
-            onClick={() => (open ? cancel() : setOpen(true))}
+            onClick={() => (open ? cancel() : openForm())}
             className="text-meta h-6 rounded-pill px-2 font-medium text-fg-subtle transition-colors hover:bg-hover hover:text-fg disabled:pointer-events-none disabled:opacity-45"
           >
             + activity
           </button>
         ) : null}
       </div>
+      {removeAlert ? (
+        <p role="alert" className="text-card-desc text-fg-soft">
+          {removeAlert}
+        </p>
+      ) : null}
       {canAdd && open ? (
         <form
           aria-label="Add an outside activity"

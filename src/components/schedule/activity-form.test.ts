@@ -8,6 +8,10 @@ describe("toAddInput", () => {
     });
     expect(toAddInput({ ...EMPTY_ACTIVITY_DRAFT, minutes: " 45 " }, 1, "2026-10-20")).toMatchObject({ durationMin: 45 });
   });
+  it("accepts the bounds themselves", () => {
+    expect(toAddInput({ ...EMPTY_ACTIVITY_DRAFT, minutes: "5" }, 1, "2026-10-20")).toMatchObject({ durationMin: 5 });
+    expect(toAddInput({ ...EMPTY_ACTIVITY_DRAFT, minutes: "600" }, 1, "2026-10-20")).toMatchObject({ durationMin: 600 });
+  });
   it("explains a duration it can't send", () => {
     for (const minutes of ["4", "601", "4.5", "abc"]) {
       expect(toAddInput({ ...EMPTY_ACTIVITY_DRAFT, minutes }, 1, "2026-10-20")).toBe("Minutes should be a whole number from 5 to 600.");

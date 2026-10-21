@@ -1,4 +1,11 @@
-import type { ActivityAddInput, ActivityIntensity, ActivityKind, Daypart } from "~/schema";
+import {
+  ACTIVITY_MAX_MINUTES,
+  ACTIVITY_MIN_MINUTES,
+  type ActivityAddInput,
+  type ActivityIntensity,
+  type ActivityKind,
+  type Daypart,
+} from "~/schema";
 
 export interface ActivityDraft {
   kind: ActivityKind;
@@ -16,7 +23,8 @@ export function toAddInput(draft: ActivityDraft, weekIndex: number, date: string
   let durationMin: number | null = null;
   if (typed !== "") {
     const n = Number(typed);
-    if (!Number.isInteger(n) || n < 5 || n > 600) return "Minutes should be a whole number from 5 to 600.";
+    if (!Number.isInteger(n) || n < ACTIVITY_MIN_MINUTES || n > ACTIVITY_MAX_MINUTES)
+      return `Minutes should be a whole number from ${ACTIVITY_MIN_MINUTES} to ${ACTIVITY_MAX_MINUTES}.`;
     durationMin = n;
   }
   return { weekIndex, date, kind: draft.kind, intensity: draft.intensity, daypart: draft.daypart, durationMin };
