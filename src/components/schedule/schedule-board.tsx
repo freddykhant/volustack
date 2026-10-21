@@ -215,6 +215,12 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   const coach = api.coach.status.useQuery();
   const activities = api.activity.list.useQuery({ weekIndex });
   const cues = api.cue.upcoming.useQuery(undefined, { staleTime: 60_000 });
+  // Any change to the saved week can change what today's and tomorrow's cues say.
+  const weekSavedAt = query.dataUpdatedAt;
+  useEffect(() => {
+    if (weekSavedAt === 0) return;
+    void utils.cue.upcoming.invalidate();
+  }, [weekSavedAt, utils]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [carryForward, setCarryForward] = useState(false);
