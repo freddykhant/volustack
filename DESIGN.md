@@ -170,6 +170,17 @@ Every transition uses `--ease-soft` (`cubic-bezier(0.4, 0, 0.2, 1)`) at **200ms*
 
 Icons are **Lucide, outlined**: `size-4` in controls, `size-[18px]` in tiles and `size-5` in list rows. Never use filled icons, a second icon family or emoji.
 
+## Brand
+
+**The mark is the M:** one stroke through a training block. It climbs a step each week, drops for the deload, runs flat, then climbs again from higher up, which closes into an M. The same shape fits any sport that trains in blocks, so it outlives lifting-only imagery.
+
+- **Geometry:** Lucide's 24 grid, path `M4 19.25V11.75L10 6.75V15.25H14V9.75L20 4.75V19.25`, stroke 2.5, round caps and joins. The deload notch is drawn deeper than true scale so it survives at 16px. Don't "correct" it.
+- **In the tile:** white on `ink`, `rounded-tile`. The mark is 18px in the 28px nav tile and 20px in the 32px landing tile. The favicon (`src/app/icon.svg`) is its own 16px cut with the stroke raised to 2.8. The home-screen icon (`src/app/apple-icon.tsx`) is the ink M on canvas under the atmosphere's two hues.
+- **Type:** the name is set in the system stack with the `Wordmark` component. There's no brand typeface and no logo file to outline. The mark and the atmosphere carry the identity.
+
+**The Ink Mark Rule.** The mark is always ink (or white on ink) inside the product. It is never `accent`, so blue keeps its one job.
+**The One Mark Rule.** Use `Wordmark` or `Mark` from the kit. Never redraw the M, stretch it, add a second weight or animate it in product chrome.
+
 ## Components
 
 All of these come from `~/components/ui-kit/app-shell-kit`.
@@ -184,7 +195,8 @@ All of these come from `~/components/ui-kit/app-shell-kit`.
 - **PageHeader:** eyebrow, H1, description and `actions` (one Button or a Segmented). Exactly one per page.
 - **SectionHeading:** the H2 with `mt-10` and an optional "View all →" link.
 - **NavItem / TabStrip / PageToc:** navigation. The active row is `bg-surface-raised shadow-control` (neutral) or `bg-selection text-accent` (contextual), and always carries `aria-current`.
-- **Wordmark:** the ink tile with a Dumbbell, plus the name. `md` for nav, `lg` for landing.
+- **Wordmark:** the ink tile with the M, plus the name. `md` for nav, `lg` for landing.
+- **Mark:** the M alone, in `currentColor`. Reach for `Wordmark` first.
 - **Skeleton:** `<Skeleton className="h-4 w-32" />`.
 
 ## Component recipes

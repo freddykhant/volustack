@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Mesodapt favicon: the M on the ink tile. 16px cut: stroke raised to 2.8 grid units so the deload notch holds. -->
+  <rect width="16" height="16" rx="4" fill="#17181a"/>
+  <g transform="translate(2 2) scale(0.5)">
+    <path d="M4 19.25V11.75L10 6.75V15.25H14V9.75L20 4.75V19.25" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

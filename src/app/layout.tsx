@@ -7,7 +7,6 @@ import { TRPCReactProvider } from "~/trpc/react";
 export const metadata: Metadata = {
   title: "Mesodapt",
   description: "The AI operating system for self-coached athletes.",
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
 export const viewport: Viewport = {

@@ -13,3 +13,4 @@ export { Chip } from "./components/chip";
 export { Segmented, type SegmentedOption } from "./components/segmented";
 export { Panel, Skeleton } from "./components/panel";
 export { Wordmark } from "./components/wordmark";
+export { Mark } from "./components/mark";

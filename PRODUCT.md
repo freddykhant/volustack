@@ -56,7 +56,7 @@ The athlete uses this self-coached, primarily around gym sessions, across a mult
 ## Brand Commitments
 
 - **Name:** Mesodapt (from "mesocycle" + "adapt").
-- **Wordmark:** the name set beside an ink tile carrying the Dumbbell mark (lucide `Dumbbell`), via the kit's `Wordmark`; typographic identity, no separate logo asset yet.
+- **Mark and wordmark:** the M, one stroke through a training block (it climbs, deloads and climbs again from higher up), in an ink tile beside the name set in the system font, via the kit's `Wordmark`. Chosen 2026-10-21 from the brand exploration on `freddy/brand`. See DESIGN.md → Brand.
 - **Signature accent:** `#0a6fe0` (blue), the one live signal, used scarcely against a light ground.
 - **Theme:** light by default (warm off-white canvas `#faf9f7`, Luma-inspired); a dark theme is deferred and will override the same tokens via `[data-theme=dark]`. See DESIGN.md.
 - **Target voice — motivational & high-energy:** punchy, encouraging, momentum-driven; the Coach and product copy should energize the athlete. This holds even where the engine's numbers are the source of truth — the voice frames the data, never invents it.
@@ -66,7 +66,7 @@ The athlete uses this self-coached, primarily around gym sessions, across a mult
 
 - Pre-release, single-developer project on the `freddy/experimental` branch; **no real users, testimonials, benchmarks, customer counts, or press exist** — future work must not fabricate any.
 - Real product surfaces exist and read from Postgres for blocks/weeks/sessions; Readiness and swap render from fixtures pending the logged-load slice.
-- Assets: `public/favicon.ico` only. No logo, illustration, or photography assets on hand.
+- Assets: the M (kit `Mark` / `Wordmark`, `src/app/icon.svg`, `src/app/apple-icon.tsx`). No illustration or photography assets on hand.
 
 ## Product Principles
 

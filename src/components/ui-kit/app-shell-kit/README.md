@@ -36,7 +36,8 @@ token becomes a utility (`bg-surface`, `text-fg-muted`, `rounded-card`, `shadow-
 | `TabStrip` | Underline tabs for the top bar. |
 | `PageToc` | A right-hand table of contents. |
 | `WorkspaceSwitcher` | A legacy menu from the original kit, not used by Mesodapt. |
-| `Wordmark` | The ink Dumbbell tile and the name. |
+| `Wordmark` | The ink tile with the M, and the name. |
+| `Mark` | The M on its own, in `currentColor`. For the rare place that needs the mark without the name. |
 
 ## House rules (short form; DESIGN.md has the full set)
 

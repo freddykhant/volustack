@@ -262,7 +262,7 @@ export default function StyleguidePage() {
           </div>
         </div>
         <p className="max-w-[34ch] text-card-desc text-fg-muted">
-          An ink tile carrying the Dumbbell, set beside the name. There&apos;s no logo file. Use the component everywhere.
+          An ink tile carrying the M, set beside the name. The M is one stroke through a block: it climbs, drops for the deload and climbs again from higher up. It stays ink, never blue. Use the component everywhere.
         </p>
       </Panel>
 
