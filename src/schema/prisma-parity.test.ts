@@ -42,6 +42,8 @@ const PAIRS: ReadonlyArray<
   ["DecisionStatus", Prisma.DecisionStatus, Domain.DecisionStatusEnum.options],
   ["ScheduleMode", Prisma.ScheduleMode, Domain.ScheduleModeEnum.options],
   ["Daypart", Prisma.Daypart, Domain.DaypartEnum.options],
+  ["ActivityKind", Prisma.ActivityKind, Domain.ActivityKindEnum.options],
+  ["ActivityIntensity", Prisma.ActivityIntensity, Domain.ActivityIntensityEnum.options],
   ["AvailabilityState", Prisma.AvailabilityState, Domain.AvailabilityStateEnum.options],
 ];
 
