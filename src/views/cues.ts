@@ -54,15 +54,25 @@ export function toCueView(fact: CueFact, when: CueWhen): CueView {
     case "recovery_overlap": {
       const [before, day] = when === "today" ? ["yesterday", "today"] : ["today", "tomorrow"];
       const title = `${cap(named(fact.yesterday))} ${before}, ${named(fact.today)} ${day}`;
-      const line = fact.proteinG
-        ? pick(id, [
-            `Give the warm-up extra time and get ${grams(fact.proteinG)} of protein afterwards.`,
-            `Ease into the first sets and get ${grams(fact.proteinG)} of protein afterwards.`,
-          ])
-        : pick(id, [
-            "Give the warm-up extra time and make the next meal protein-rich.",
-            "Ease into the first sets and get a protein-rich meal afterwards.",
-          ]);
+      const line = fact.today.type === "lift"
+        ? fact.proteinG
+          ? pick(id, [
+              `Give the warm-up extra time and get ${grams(fact.proteinG)} of protein afterwards.`,
+              `Ease into the first sets and get ${grams(fact.proteinG)} of protein afterwards.`,
+            ])
+          : pick(id, [
+              "Give the warm-up extra time and make the next meal protein-rich.",
+              "Ease into the first sets and get a protein-rich meal afterwards.",
+            ])
+        : fact.proteinG
+          ? pick(id, [
+              `Keep the first part of it easy and get ${grams(fact.proteinG)} of protein afterwards.`,
+              `Start it gently and get ${grams(fact.proteinG)} of protein afterwards.`,
+            ])
+          : pick(id, [
+              "Keep the first part of it easy and make the next meal protein-rich.",
+              "Start it gently and get a protein-rich meal afterwards.",
+            ]);
       return { ...base, title, line, hasNumber: fact.proteinG !== null };
     }
     case "heavy_lower": {
@@ -70,10 +80,10 @@ export function toCueView(fact: CueFact, when: CueWhen): CueView {
       const sets = `${fact.lift.label} has ${fact.lowerSets} lower-body sets`;
       const line = fact.carbsG
         ? pick(id, [
-            `${sets}: aim for roughly ${grams(fact.carbsG)} of carbs in the meal ${hours} before.`,
-            `${sets}: get roughly ${grams(fact.carbsG)} of carbs in ${hours} beforehand.`,
+            `${sets}: eat roughly ${grams(fact.carbsG)} of carbs ${hours} before it.`,
+            `${sets}: get roughly ${grams(fact.carbsG)} of carbs in a meal ${hours} before it.`,
           ])
-        : pick(id, [`${sets}: make the meal ${hours} before carb-rich.`, `${sets}: get a carb-rich meal in ${hours} beforehand.`]);
+        : pick(id, [`${sets}: have a carb-rich meal ${hours} before it.`, `${sets}: build the meal ${hours} before it around carbs.`]);
       return { ...base, title: "Big lower-body day", line, hasNumber: fact.carbsG !== null };
     }
   }
