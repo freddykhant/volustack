@@ -17,6 +17,8 @@ cannot express. Migrations keep that raw SQL version-controlled and durable.
 - `0_init/` — **baseline**. The full schema as it already existed on Neon at the
   moment migrations were adopted. It is marked *already applied* (see below), not
   re-run, because the tables already exist.
+- `20261021000000_outside_activity/` — the coach-cues `outside_activity` table and
+  its two enums. It already exists on Neon (see step 2 below).
 - `20261020000000_accept_gate_unique/` — the actual change: two unique indexes
   closing the concurrent-write races parked in ④-A / ④-C-1:
   - `check_in (weekId, scope)` — one check-in per week+scope.
@@ -56,6 +58,10 @@ HAVING COUNT(*) > 1;
 ```bash
 # 2. Mark the baseline as already applied (tables already exist on Neon).
 pnpm prisma migrate resolve --applied 0_init
+#    The coach-cues table (outside_activity) was created on Neon with `db push`
+#    before migrations were adopted, so its migration is already applied too.
+#    Run this only from a branch that contains that migration folder.
+pnpm prisma migrate resolve --applied 20261021000000_outside_activity
 
 # 3. Apply the index migration.
 pnpm prisma migrate deploy
