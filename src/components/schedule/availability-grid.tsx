@@ -12,14 +12,54 @@ const STATE_LABEL = {
   BLOCKED: "Blocked",
 } as const;
 
-function Mark({ state }: { state: keyof typeof STATE_LABEL }) {
-  if (state === "PREFERRED") return <Star className="size-4" aria-hidden />;
-  if (state === "BLOCKED") return <Ban className="size-4" aria-hidden />;
-  return <span aria-hidden className="size-1 rounded-full bg-current" />;
+type CellState = keyof typeof STATE_LABEL;
+
+// Three tiers by depth, not colour: preferred is raised, available sits flat in a well,
+// blocked is an empty dashed outline. Keeps the One Signal accent free for real live state.
+const CELL: Record<CellState, string> = {
+  PREFERRED: "bg-surface-raised text-fg ring-1 ring-inset ring-border-strong shadow-control",
+  AVAILABLE: "bg-sunken text-fg-muted hover:bg-press",
+  BLOCKED: "border border-dashed border-border-strong text-fg-subtle hover:bg-hover",
+};
+
+/** One slot: a pill that names its own state, so the grid never needs a legend. */
+function Slot({
+  state,
+  daypart,
+  label,
+  disabled,
+  onClick,
+}: {
+  state: CellState;
+  daypart: Daypart | null;
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={label}
+      onClick={onClick}
+      className={
+        "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-pill px-3.5 text-meta font-medium transition-[background-color,color,box-shadow] active:scale-[0.98] disabled:opacity-60 " +
+        CELL[state]
+      }
+    >
+      {daypart ? <span className="w-6 shrink-0 text-left text-fg-subtle tabular-nums">{daypart}</span> : null}
+      {state === "PREFERRED" ? (
+        <Star className="size-3.5 shrink-0 fill-current" aria-hidden />
+      ) : state === "BLOCKED" ? (
+        <Ban className="size-3.5 shrink-0" aria-hidden />
+      ) : null}
+      <span className="truncate">{STATE_LABEL[state]}</span>
+    </button>
+  );
 }
 
-/** The athlete's standing week. Tap a cell to cycle Available → Preferred → Blocked.
- * State is carried by the mark and the label, not by colour alone. */
+/** The athlete's standing week, one row per day. Tap a slot to cycle Available → Preferred → Blocked.
+ * Each slot names its state in words (plus a mark), so state is never carried by colour alone. */
 export function AvailabilityGrid({
   mode,
   value,
@@ -31,60 +71,29 @@ export function AvailabilityGrid({
   onChange: (next: AvailabilityCellInput[]) => void;
   disabled?: boolean;
 }) {
-  const rows: (Daypart | null)[] = mode === "HALF_DAY" ? ["AM", "PM"] : [null];
+  const dayparts: (Daypart | null)[] = mode === "HALF_DAY" ? ["AM", "PM"] : [null];
   return (
-    <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[420px] grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] gap-1.5">
-          <span />
-          {DAY_NAMES.map((d) => (
-            <span
-              key={d}
-              className="text-eyebrow text-center font-medium text-fg-subtle"
-            >
-              {d}
-            </span>
-          ))}
-          {rows.map((daypart) => (
-            <div key={daypart ?? "day"} className="contents">
-              <span className="text-eyebrow self-center font-medium text-fg-subtle">
-                {daypart ?? ""}
-              </span>
-              {DAY_NAMES.map((name, day) => {
-                const state = cellState(value, mode, { day, daypart });
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    disabled={disabled}
-                    aria-label={`${name}${daypart ? ` ${daypart}` : ""}: ${STATE_LABEL[state]}`}
-                    onClick={() =>
-                      onChange(cycleCell(value, mode, day, daypart))
-                    }
-                    className={
-                      "flex h-11 items-center justify-center rounded-control border transition-colors disabled:opacity-60 " +
-                      (state === "PREFERRED"
-                        ? "border-accent/25 bg-selection text-accent"
-                        : state === "BLOCKED"
-                          ? "border-dashed border-border-strong text-fg-subtle hover:bg-hover"
-                          : "border-transparent bg-sunken text-fg-muted hover:bg-press")
-                    }
-                  >
-                    <Mark state={state} />
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-meta text-fg-muted">
-        <Star className="size-3.5" aria-hidden /> preferred
-        <span aria-hidden>·</span> available
-        <span aria-hidden>·</span>
-        <Ban className="size-3.5" aria-hidden /> blocked
-        <span aria-hidden>·</span> tap a cell to change it
-      </p>
-    </div>
+    <ul role="list" aria-label="Weekly availability" className="flex flex-col divide-y divide-border-subtle">
+      {DAY_NAMES.map((name, day) => (
+        <li key={name} className="flex items-center gap-4 py-2 first:pt-0 last:pb-0">
+          <span className="w-10 shrink-0 text-list text-fg">{name}</span>
+          <div className="flex min-w-0 flex-1 gap-2">
+            {dayparts.map((daypart) => {
+              const state = cellState(value, mode, { day, daypart });
+              return (
+                <Slot
+                  key={daypart ?? "day"}
+                  state={state}
+                  daypart={daypart}
+                  label={`${name}${daypart ? ` ${daypart}` : ""}: ${STATE_LABEL[state]}`}
+                  disabled={disabled}
+                  onClick={() => onChange(cycleCell(value, mode, day, daypart))}
+                />
+              );
+            })}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
