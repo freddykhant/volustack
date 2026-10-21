@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { RescheduleDialog } from "~/components/block/reschedule-dialog";
+import { Button, Panel } from "~/components/ui-kit/app-shell-kit";
 import { api } from "~/trpc/react";
 import type { ReplacementOptionView } from "~/views/schedule";
 
@@ -45,7 +46,7 @@ export function ReplacementPanel({
   );
   if (options.length === 0 && stranded && query.isFetching) {
     return (
-      <p className="text-nav text-fg-subtle" role="status">
+      <p className="text-card-desc text-fg-muted" role="status">
         Working out how the week could go…
       </p>
     );
@@ -53,92 +54,94 @@ export function ReplacementPanel({
   if (options.length === 0 || dismissed === signature) return null;
 
   return (
-    <div
-      className="rounded-card border-accent bg-selection flex flex-col gap-3 border p-4"
+    <Panel
+      padding="md"
+      className="animate-rise flex flex-col gap-4"
       role="region"
       aria-label="Ways to re-arrange this week"
     >
       <div>
-        <div className="text-accent text-[12px] font-medium">
+        <div className="text-eyebrow font-medium text-accent">
           A session is on time you&rsquo;ve blocked
         </div>
-        <div className="text-card-title text-fg mt-1">
+        <div className="mt-1 text-card-title text-fg">
           {options.length === 1
             ? "Here is how the week could go."
             : "Here are a few ways the week could go."}
         </div>
       </div>
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-2">
         {options.map((o) => (
           <li
             key={o.id}
-            className="rounded-control border-border-subtle bg-surface-raised flex flex-col gap-2 border p-3"
+            className="flex flex-col gap-2 rounded-callout bg-sunken p-4"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="text-nav text-fg font-medium">{o.title}</span>
+              <span className="text-list text-fg">{o.title}</span>
               {o.lead ? (
-                <span className="text-accent text-[12px] font-medium">
+                <span className="text-meta font-medium text-accent">
                   {o.judged ? "Coach’s pick" : "Suggested"}
                 </span>
               ) : null}
             </div>
             {o.kind !== "skip" && o.moves.length > 0 ? (
-              <ul className="text-nav text-fg-soft flex flex-col gap-0.5">
+              <ul className="flex flex-col gap-0.5 text-card-desc text-fg-soft">
                 {o.moves.map((m) => (
                   <li key={m}>{m}</li>
                 ))}
               </ul>
             ) : null}
             {o.reasons.length > 0 ? (
-              <ul className="text-fg-muted flex flex-col gap-0.5 text-[12px]">
+              <ul className="flex flex-col gap-0.5 text-meta text-fg-muted">
                 {o.reasons.map((r) => (
                   <li key={r}>{r}</li>
                 ))}
               </ul>
             ) : null}
-            <div className="flex items-center gap-3">
+            <div className="mt-1 flex items-center gap-2">
               {o.kind === "skip" ? (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   disabled={disabled || query.isFetching}
                   onClick={() => setSkipping(o.skipped[0]!.sessionId)}
-                  className="rounded-control bg-accent text-nav hover:bg-accent-strong px-3 py-1.5 font-medium text-white transition-colors disabled:opacity-60"
                 >
                   Skip {o.skipped[0]!.label}…
-                </button>
+                </Button>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  variant="accent"
+                  size="sm"
                   aria-label={`Accept: ${o.title}`}
                   disabled={disabled || query.isFetching}
                   onClick={() => onAccept(o)}
-                  className="rounded-control bg-accent text-nav hover:bg-accent-strong px-3 py-1.5 font-medium text-white transition-colors disabled:opacity-60"
                 >
                   Accept
-                </button>
+                </Button>
               )}
               {o.kind !== "skip" && o.moves.length > 0 ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   aria-label={`Show on board: ${o.title}`}
                   disabled={disabled || query.isFetching}
                   onClick={() => onShow(o)}
-                  className="text-nav text-fg-muted hover:text-fg transition-colors disabled:opacity-60"
                 >
                   Show on board
-                </button>
+                </Button>
               ) : null}
             </div>
           </li>
         ))}
       </ul>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => onDismiss(signature)}
-        className="text-nav text-fg-muted hover:text-fg self-start transition-colors"
+        className="self-start"
       >
         I&rsquo;ll arrange it myself
-      </button>
+      </Button>
       {skipping !== null ? (
         <RescheduleDialog
           sessionId={skipping}
@@ -151,6 +154,6 @@ export function ReplacementPanel({
           }}
         />
       ) : null}
-    </div>
+    </Panel>
   );
 }

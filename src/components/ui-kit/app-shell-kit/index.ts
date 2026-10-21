@@ -8,3 +8,8 @@ export { NavItem, isNavItemActive } from "./components/nav-item";
 export { TabStrip, type Tab } from "./components/tab-strip";
 export { WorkspaceSwitcher } from "./components/workspace-switcher";
 export { PageToc, type TocItem } from "./components/page-toc";
+export { Button, ButtonLink, IconButton, buttonClass } from "./components/button";
+export { Chip } from "./components/chip";
+export { Segmented, type SegmentedOption } from "./components/segmented";
+export { Panel, Skeleton } from "./components/panel";
+export { Wordmark } from "./components/wordmark";

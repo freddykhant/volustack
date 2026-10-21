@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { Chip, PageHeader } from "~/components/ui-kit/app-shell-kit";
 import { SessionPanel } from "~/components/block/session-panel";
 import { WeeklyCheckInFlow } from "~/components/checkin/weekly-checkin-flow";
 import { ScheduleBoard } from "~/components/schedule/schedule-board";
@@ -25,41 +26,40 @@ export default async function WeekDetail({
   ).length;
 
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="border-border-subtle border-b px-6 py-5">
-        <Link
-          href="/app/block"
-          className="text-nav text-fg-muted hover:text-fg mb-2 inline-flex items-center gap-1"
-        >
-          <ChevronLeft className="size-4" /> Block
-        </Link>
-        <h1 className="text-section text-fg">
-          {week.isDeload ? "Deload week" : `Week ${week.index}`}
-        </h1>
-        <div className="text-nav text-fg-muted mt-1">
-          {week.sessions.length} sessions · {week.totalSets} total sets
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
-          <span className="rounded-pill bg-zone-optimal-soft text-fg-soft px-2 py-0.5">
-            {optimal} muscles optimal
+    <div className="mx-auto w-full max-w-[800px] px-6 pt-10 pb-20 md:px-10">
+      <Link
+        href="/app/block"
+        className="mb-4 inline-flex items-center gap-1 text-nav text-fg-muted transition-colors hover:text-fg"
+      >
+        <ChevronLeft className="size-4" aria-hidden /> Block
+      </Link>
+      <PageHeader
+        eyebrow={week.isDeload ? "Deload" : "Block week"}
+        title={week.isDeload ? "Deload week" : `Week ${week.index}`}
+        description={
+          <span className="tabular-nums">
+            {week.sessions.length} sessions · {week.totalSets} total sets
           </span>
-          {nearMax > 0 ? (
-            <span className="rounded-pill bg-zone-max-soft text-fg-soft px-2 py-0.5">
-              {nearMax} near MRV
-            </span>
-          ) : null}
-        </div>
-      </header>
-      <div className="px-6 pt-6">
+        }
+      />
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Chip tone="optimal">
+          <span className="tabular-nums">{`${optimal} muscles optimal`}</span>
+        </Chip>
+        {nearMax > 0 ? (
+          <Chip tone="max">
+            <span className="tabular-nums">{`${nearMax} near MRV`}</span>
+          </Chip>
+        ) : null}
+      </div>
+      <div className="mt-8 flex flex-col gap-8">
         <WeeklyCheckInFlow weekIndex={week.index} />
-      </div>
-      <div className="px-6 pt-6">
         <ScheduleBoard weekIndex={week.index} />
-      </div>
-      <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
-        {week.sessions.map((s) => (
-          <SessionPanel key={s.slotId} session={s} />
-        ))}
+        <div className="grid gap-4 md:grid-cols-2">
+          {week.sessions.map((s) => (
+            <SessionPanel key={s.slotId} session={s} />
+          ))}
+        </div>
       </div>
     </div>
   );

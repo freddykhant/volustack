@@ -60,9 +60,9 @@ The athlete uses this self-coached, primarily around gym sessions, across a mult
 ## Brand Commitments
 
 - **Name:** Mesodapt (from "mesocycle" + "adapt").
-- **Wordmark:** the name set with a Dumbbell mark (lucide `Dumbbell`) in the accent color; typographic identity, no separate logo asset yet.
-- **Signature accent:** `#0092ff` (blue), used scarcely against a dark ground.
-- **Theme:** dark by default (canvas `#0b0c0d`), established across the app shell.
+- **Wordmark:** the name set beside an ink tile carrying the Dumbbell mark (lucide `Dumbbell`), via the kit's `Wordmark`; typographic identity, no separate logo asset yet.
+- **Signature accent:** `#0a6fe0` (blue), the one live signal, used scarcely against a light ground.
+- **Theme:** light by default (warm off-white canvas `#faf9f7`, Luma-inspired); a dark theme is deferred and will override the same tokens via `[data-theme=dark]`. See DESIGN.md.
 - **Target voice — motivational & high-energy:** punchy, encouraging, momentum-driven; the Coach and product copy should energize the athlete. This holds even where the engine's numbers are the source of truth — the voice frames the data, never invents it.
   - *Known gap to reconcile:* the current in-app copy (onboarding, empty states) reads calmer and warmer ("we'll fit the plan to it," "you can fine-tune later") than this target voice. Future copy work should move copy toward the chosen motivational voice, not treat the incumbent calm copy as the standard.
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Dumbbell, Home, LineChart, MessageSquare, Library, Settings, LogOut, HeartPulse } from "lucide-react";
-import { NavItem } from "~/components/ui-kit/app-shell-kit";
+import { IconButton, NavItem, Wordmark } from "~/components/ui-kit/app-shell-kit";
 import { authClient } from "~/server/better-auth/client";
 import { useRouter } from "next/navigation";
 
@@ -9,9 +9,8 @@ export function AppNav({ userName, userEmail }: { userName: string; userEmail: s
   const router = useRouter();
   return (
     <>
-      <div className="flex items-center gap-2 px-2.5 py-1.5 text-card-title text-fg">
-        <Dumbbell className="size-5 text-accent" />
-        Mesodapt
+      <div className="px-2.5 py-1.5">
+        <Wordmark />
       </div>
       <nav className="mt-6 flex flex-col gap-0.5">
         <NavItem appearance="neutral" href="/app" label="Now" icon={Home} matchPatterns={["/app"]} />
@@ -22,22 +21,19 @@ export function AppNav({ userName, userEmail }: { userName: string; userEmail: s
         <NavItem appearance="neutral" href="/app/library" label="Library" icon={Library} matchPatterns={["/app/library"]} />
         <NavItem appearance="neutral" href="/app/settings" label="Settings" icon={Settings} matchPatterns={["/app/settings"]} />
       </nav>
-      <div className="mt-auto flex items-center gap-3 border-t border-border-subtle pt-4">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-nav text-fg-muted">
+      <div className="mt-auto flex items-center gap-2.5 rounded-control px-2.5 py-2">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-aura text-meta font-semibold text-fg-soft">
           {userName.slice(0, 1).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-nav text-fg">{userName}</div>
           <div className="truncate text-[12px] text-fg-subtle">{userEmail}</div>
         </div>
-        <button
-          type="button"
+        <IconButton
+          icon={LogOut}
           aria-label="Sign out"
           onClick={() => authClient.signOut({ fetchOptions: { onSuccess: () => router.push("/") } })}
-          className="rounded-control p-1.5 text-fg-subtle transition-colors hover:text-fg"
-        >
-          <LogOut className="size-4" />
-        </button>
+        />
       </div>
     </>
   );

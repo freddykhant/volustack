@@ -22,12 +22,9 @@ export function AppFrame({
   const isAnalysis = pathname.startsWith("/app/analysis");
   return (
     <AppShell
-      slug="app"
-      workspaceName="Mesodapt"
       column1={<AppNav userName={userName} userEmail={userEmail} />}
       column2={isTraining && block ? <BlockNavigator block={block} /> : undefined}
       fullBleed={isTraining || isAnalysis}
-      topNav={<div className="text-nav text-fg-muted">Mesodapt</div>}
     >
       {children}
     </AppShell>

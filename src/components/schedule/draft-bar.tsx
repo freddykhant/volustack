@@ -1,5 +1,8 @@
 "use client";
 
+import { Info } from "lucide-react";
+import { Button, Panel } from "~/components/ui-kit/app-shell-kit";
+
 /** Shown while the athlete has unconfirmed moves. Nothing is saved until Confirm. */
 export function DraftBar({
   changeCount,
@@ -24,64 +27,67 @@ export function DraftBar({
   error: string | null;
 }) {
   return (
-    <div
-      className="rounded-card border-border bg-surface flex flex-col gap-3 border p-4"
+    <Panel
+      padding="sm"
+      className="animate-rise flex flex-col gap-3"
       role="region"
       aria-label="Unsaved schedule changes"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-nav text-fg font-medium">
+        <span className="text-list text-fg tabular-nums">
           {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
         </span>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onDiscard}
             disabled={pending}
-            className="text-nav text-fg-muted hover:text-fg transition-colors disabled:opacity-60"
           >
             Discard
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={onConfirm}
             disabled={pending || stale}
-            className="rounded-control bg-accent text-nav hover:bg-accent-strong px-4 py-2 font-medium text-white transition-colors disabled:opacity-60"
           >
             {pending ? "Saving…" : "Confirm"}
-          </button>
+          </Button>
         </div>
       </div>
       {stale ? (
-        <p className="rounded-control border-border bg-callout text-nav text-fg-soft border px-3 py-2">
+        <p className="flex gap-2 rounded-control bg-callout px-3 py-2 text-card-desc text-fg-soft">
+          <Info className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
           This week changed somewhere else. Discard to see the latest.
         </p>
       ) : null}
       {warnings.length > 0 ? (
-        <ul className="text-nav text-fg-soft flex flex-col gap-1">
+        <ul className="flex flex-col gap-1 text-card-desc text-fg-soft">
           {warnings.map((w) => (
             <li key={w}>{w}</li>
           ))}
         </ul>
       ) : (
-        <p className="text-nav text-fg-subtle">
+        <p className="text-card-desc text-fg-muted">
           No recovery concerns with this layout.
         </p>
       )}
-      <label className="text-nav text-fg-muted flex items-center gap-2">
+      <label className="flex items-center gap-2 border-t border-border-subtle pt-3 text-card-desc text-fg-muted">
         <input
           type="checkbox"
           checked={carryForward}
           onChange={(e) => onCarryForward(e.target.checked)}
           disabled={pending}
+          className="size-4 accent-accent"
         />
         Use this layout for the remaining weeks
       </label>
       {error ? (
-        <p className="rounded-control border-border bg-callout text-nav text-fg-soft border px-3 py-2">
+        <p className="rounded-control bg-callout px-3 py-2 text-card-desc text-fg-soft">
           {error}
         </p>
       ) : null}
-    </div>
+    </Panel>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { api } from "~/trpc/react";
+import { Button, Panel } from "~/components/ui-kit/app-shell-kit";
 
 /** End-of-week entry point. Renders only when the week is resolved and no terminal
  * progression decision exists yet. Accent CTA (scarce). `onOpen` is supplied by
@@ -12,29 +14,28 @@ export function WeeklyCheckInEntry({ weekIndex, onOpen }: { weekIndex: number; o
 
   if (view.status === "APPLIED") {
     return (
-      <div className="rounded-card border border-border-subtle bg-surface px-5 py-4 text-nav text-fg-muted">
-        Week {weekIndex} progression applied to Week {weekIndex + 1} ✓
-      </div>
+      <Panel padding="sm" className="flex items-center gap-2.5 px-5 text-card-desc text-fg-muted">
+        <Check className="size-4 shrink-0" aria-hidden />
+        <span className="tabular-nums">Week {weekIndex} progression applied to Week {weekIndex + 1}</span>
+      </Panel>
     );
   }
   if (view.status !== "READY" && view.status !== "SUBMITTED") return null;
 
   const submitted = view.status === "SUBMITTED";
   return (
-    <div className="rounded-card border border-border bg-surface-raised p-6">
-      <div className="text-card-title text-fg">Week {weekIndex} wrapped — how’d it land?</div>
-      <p className="mt-1 text-card-desc text-fg-muted">
-        {submitted
-          ? "Your proposal for next week is ready."
-          : "A quick read on recovery and joints sets up next week’s volume."}
-      </p>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="mt-4 inline-flex items-center gap-2 rounded-control bg-accent px-5 py-3 text-list font-medium text-white transition-colors hover:bg-accent-strong"
-      >
+    <Panel padding="lg" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+      <div className="min-w-0">
+        <div className="text-card-title text-fg">Week {weekIndex} wrapped — how’d it land?</div>
+        <p className="mt-1 text-card-desc text-fg-muted">
+          {submitted
+            ? "Your proposal for next week is ready."
+            : "A quick read on recovery and joints sets up next week’s volume."}
+        </p>
+      </div>
+      <Button variant="accent" onClick={onOpen}>
         {submitted ? "See proposal" : "Check in"}
-      </button>
-    </div>
+      </Button>
+    </Panel>
   );
 }

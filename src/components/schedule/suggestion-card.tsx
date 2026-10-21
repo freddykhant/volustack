@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, Panel } from "~/components/ui-kit/app-shell-kit";
 import { api } from "~/trpc/react";
 import type { MoveSuggestionView } from "~/views/schedule";
 
@@ -23,42 +24,43 @@ export function SuggestionCard({
   if (!top) return null;
 
   return (
-    <div
-      className="rounded-card border-accent bg-selection flex flex-col gap-3 border p-4"
+    <Panel
+      padding="md"
+      className="animate-rise flex flex-col gap-3"
       role="region"
       aria-label="Coach suggestion"
     >
       <div>
-        <div className="text-accent text-[12px] font-medium">
+        <div className="text-eyebrow font-medium text-accent">
           Coach suggests
         </div>
-        <div className="text-card-title text-fg mt-1">{top.headline}</div>
+        <div className="mt-1 text-card-title text-fg">{top.headline}</div>
       </div>
       {top.reasons.length > 0 ? (
-        <ul className="text-nav text-fg-soft flex flex-col gap-1">
+        <ul className="flex flex-col gap-1 text-card-desc text-fg-muted">
           {top.reasons.map((r) => (
             <li key={r}>{r}</li>
           ))}
         </ul>
       ) : null}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
+      <div className="flex items-center gap-2">
+        <Button
+          variant="accent"
+          size="sm"
           onClick={() => onAccept(top)}
           disabled={pending || dismiss.isPending}
-          className="rounded-control bg-accent text-nav hover:bg-accent-strong px-4 py-2 font-medium text-white transition-colors disabled:opacity-60"
         >
           Accept
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => dismiss.mutate({ weekIndex })}
           disabled={pending || dismiss.isPending}
-          className="text-nav text-fg-muted hover:text-fg transition-colors disabled:opacity-60"
         >
           Keep my layout
-        </button>
+        </Button>
       </div>
-    </div>
+    </Panel>
   );
 }

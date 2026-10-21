@@ -2,37 +2,32 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, PencilLine, CalendarX } from "lucide-react";
+import { Check, PencilLine, CalendarX, ArrowDownToLine } from "lucide-react";
 import type { PrescriptionView, SessionView } from "~/views/types";
 import { api } from "~/trpc/react";
 import { RescheduleDialog } from "~/components/block/reschedule-dialog";
+import { MuscleChips, PrescriptionLine, SessionMeta } from "~/components/block/session-card";
+import { Button, Chip, Panel } from "~/components/ui-kit/app-shell-kit";
 
 type SetRow = { weight: string; reps: string; rir: string };
-
-function short(m: string): string {
-  return m.replace(/_/g, " ").toLowerCase();
-}
 
 /** Session status pill. Neutral surface + icon shape carry the state — the
  * zone-* palette is data-only, so it never dresses status chrome. */
 function StatusBadge({ status }: { status: SessionView["status"] }) {
-  const base = "inline-flex items-center gap-1 rounded-pill bg-surface-raised px-2 py-0.5 text-[12px]";
-  if (status === "COMPLETED") {
-    return (
-      <span className={`${base} text-fg-soft`}>
-        <Check className="size-3" aria-hidden /> Completed
-      </span>
-    );
-  }
-  if (status === "MISSED") {
-    return (
-      <span className={`${base} text-fg`}>
-        <CalendarX className="size-3" aria-hidden /> Missed
-      </span>
-    );
-  }
-  return <span className={`${base} text-fg-subtle`}>Scheduled</span>;
+  if (status === "COMPLETED") return <Chip icon={Check}>Completed</Chip>;
+  if (status === "MISSED") return <Chip icon={CalendarX}>Missed</Chip>;
+  return <span className="text-meta text-fg-subtle">Scheduled</span>;
 }
+
+/** Inline note inside a session panel: draft restored, blank-set warning, errors. */
+function PanelNote({ children, role }: { children: React.ReactNode; role?: "alert" | "status" }) {
+  return (
+    <p role={role} className="rounded-callout bg-callout px-3.5 py-2.5 text-card-desc text-fg-soft">
+      {children}
+    </p>
+  );
+}
+
 
 function defaultRows(session: SessionView): SetRow[][] {
   return session.prescriptions.map((p) => {
@@ -160,110 +155,83 @@ export function SessionPanel({ session }: { session: SessionView }) {
     logSession.mutate({ sessionId: session.slotId, sets });
   }
 
+
   return (
-    <div className="rounded-card border border-border bg-surface p-4">
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <Panel className="flex flex-col">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
           <span className="text-card-title text-fg">{session.label}</span>
           <StatusBadge status={session.status} />
         </div>
-        <div className="text-[12px] text-fg-subtle">
-          {session.dayTag ? `${session.dayTag} · ` : ""}
-          {session.estimatedMinutes} min
+        <div className="pt-0.5">
+          <SessionMeta session={session} />
         </div>
       </div>
 
       {editing ? (
-        <div className="mt-4 flex flex-col gap-4">
-          {draftRestored && (
-            <p className="rounded-control border border-border-subtle bg-callout px-3 py-2 text-[12px] text-fg-soft">
-              Picked up where you left off — your typed sets were saved.
-            </p>
-          )}
+        <div className="mt-4 flex flex-col gap-5">
+          {draftRestored && <PanelNote role="status">Picked up where you left off — your typed sets were saved.</PanelNote>}
           {session.prescriptions.map((p, pi) => (
             <LogRows key={`${p.exerciseName}-${pi}`} p={p} rows={rows[pi]!} pi={pi} onCell={setCell} onFill={() => fillDown(pi)} />
           ))}
           {skipWarn !== null && (
-            <p className="rounded-control border border-border-subtle bg-callout px-3 py-2 text-nav text-fg-soft">
+            <PanelNote role="status">
               {skipWarn === 1 ? "1 set is" : `${skipWarn} sets are`} left blank and won’t be logged. Tap Finish again to log the rest.
-            </p>
+            </PanelNote>
           )}
-          {logSession.isError && (
-            <p className="rounded-control border border-border bg-callout px-3 py-2 text-nav text-fg-soft">
-              {logSession.error.message}
-            </p>
-          )}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={finish}
-              disabled={logSession.isPending}
-              className="inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2 text-nav font-medium text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
-            >
-              <Check className="size-4" aria-hidden />{" "}
+          {logSession.isError && <PanelNote role="alert">{logSession.error.message}</PanelNote>}
+          <div className="flex items-center gap-2 border-t border-border-subtle pt-4">
+            <Button variant="primary" icon={Check} loading={logSession.isPending} onClick={finish}>
               {logSession.isPending ? "Saving…" : skipWarn !== null ? "Finish anyway" : "Finish session"}
-            </button>
-            <button type="button" onClick={cancelEdit} className="text-nav text-fg-muted hover:text-fg">
+            </Button>
+            <Button variant="ghost" onClick={cancelEdit}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <>
-          <ul className="mt-3 flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col divide-y divide-border-subtle">
             {session.prescriptions.map((p, i) => (
-              <li key={`${p.exerciseName}-${i}`}>
-                <div className="text-body text-fg">
-                  {p.exerciseName} — {p.sets} × {p.repRangeLow}–{p.repRangeHigh} @ {p.targetRir} RIR
-                </div>
+              <li key={`${p.exerciseName}-${i}`} className="py-3 first:pt-1">
+                <PrescriptionLine p={p} />
                 {p.loggedSets && p.loggedSets.length > 0 ? (
-                  <div className="mt-1 text-nav text-fg-muted">
-                    {p.loggedSets.map((l) => `${l.weightKg}×${l.reps}${l.achievedRir === null ? "" : ` @${l.achievedRir}`}`).join(" · ")}
-                  </div>
-                ) : (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {p.muscles.map((c) => (
-                      <span key={c.muscle} className={"rounded-pill px-1.5 py-0.5 text-[12px] " + (c.role === "PRIMARY" ? "bg-surface-raised text-fg-soft" : "text-fg-subtle")}>
-                        {short(c.muscle)} {c.fraction}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {p.loggedSets.map((l, k) => (
+                      <span
+                        key={k}
+                        className="inline-flex h-6 items-center rounded-pill bg-sunken px-2.5 text-[12px] leading-none text-fg-soft tabular-nums"
+                      >
+                        {`${l.weightKg}×${l.reps}${l.achievedRir === null ? "" : ` @${l.achievedRir}`}`}
                       </span>
                     ))}
                   </div>
+                ) : (
+                  <MuscleChips p={p} />
                 )}
               </li>
             ))}
           </ul>
           {session.status === "SCHEDULED" ? (
-            <div className="mt-4 flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2 text-nav font-medium text-white transition-colors hover:bg-accent-strong"
-              >
-                <PencilLine className="size-4" aria-hidden /> Log session
-              </button>
-              <button
-                type="button"
-                onClick={() => setRescheduling(true)}
-                className="inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg"
-              >
-                <CalendarX className="size-4" aria-hidden /> Mark missed
-              </button>
+            <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border-subtle pt-4">
+              <Button variant="primary" icon={PencilLine} onClick={() => setEditing(true)}>
+                Log session
+              </Button>
+              <Button variant="ghost" icon={CalendarX} onClick={() => setRescheduling(true)}>
+                Mark missed
+              </Button>
             </div>
           ) : session.status === "COMPLETED" ? (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-1.5 text-nav text-fg-muted transition-colors hover:text-fg"
-              >
-                <PencilLine className="size-4" aria-hidden /> Edit log
-              </button>
+            <div className="mt-auto border-t border-border-subtle pt-3">
+              <Button variant="ghost" size="sm" icon={PencilLine} onClick={() => setEditing(true)} className="-ml-3">
+                Edit log
+              </Button>
             </div>
           ) : null}
           <RescheduleDialog sessionId={session.slotId} open={rescheduling} onClose={() => setRescheduling(false)} />
         </>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -282,20 +250,20 @@ function LogRows({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-nav text-fg">{p.exerciseName}</span>
-          <span className="text-[12px] text-fg-subtle">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-body font-medium text-fg">{p.exerciseName}</div>
+          <div className="text-meta text-fg-subtle tabular-nums">
             target {p.repRangeLow}–{p.repRangeHigh} reps @ {p.targetRir} RIR
-          </span>
+          </div>
         </div>
-        <button type="button" onClick={onFill} className="shrink-0 text-[12px] text-fg-subtle hover:text-fg">
+        <Button variant="ghost" size="sm" icon={ArrowDownToLine} onClick={onFill} className="-mr-2">
           fill down
-        </button>
+        </Button>
       </div>
       {rows.map((r, si) => (
-        <div key={si} className="flex items-center gap-2">
-          <span className="w-10 text-[12px] text-fg-subtle">Set {si + 1}</span>
+        <div key={si} className="grid grid-cols-[2.75rem_1fr_1fr_1fr] items-center gap-2">
+          <span className="text-meta text-fg-subtle tabular-nums">Set {si + 1}</span>
           <CellInput value={r.weight} onChange={(v) => onCell(pi, si, "weight", v)} unit="kg" ariaLabel={`Set ${si + 1} weight, kilograms`} inputMode="decimal" min={0} step={0.5} />
           <CellInput value={r.reps} onChange={(v) => onCell(pi, si, "reps", v)} unit="reps" ariaLabel={`Set ${si + 1} reps`} inputMode="numeric" min={0} step={1} />
           <CellInput value={r.rir} onChange={(v) => onCell(pi, si, "rir", v)} unit="RIR" ariaLabel={`Set ${si + 1} reps in reserve`} inputMode="numeric" min={0} max={10} step={1} />
@@ -325,7 +293,7 @@ function CellInput({
   step?: number;
 }) {
   return (
-    <div className="relative flex-1">
+    <div className="relative min-w-0">
       <input
         type="number"
         inputMode={inputMode}
@@ -335,9 +303,9 @@ function CellInput({
         step={step}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-control border border-border-subtle bg-canvas px-2 py-1.5 pr-9 text-body text-fg outline-none transition-colors focus:border-accent"
+        className="h-10 w-full [appearance:textfield] rounded-control border border-transparent bg-sunken px-3 pr-10 text-body text-fg tabular-nums transition-[background-color,border-color] duration-200 placeholder:text-fg-subtle focus:border-border-strong focus:bg-surface-raised [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
-      <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[12px] text-fg-subtle">{unit}</span>
+      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[12px] text-fg-subtle">{unit}</span>
     </div>
   );
 }

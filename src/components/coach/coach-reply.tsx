@@ -1,17 +1,11 @@
 "use client";
 
+import { Button, Panel } from "~/components/ui-kit/app-shell-kit";
 import type { CoachFinalReply, CoachReply } from "~/views/coach";
-
-const CARD =
-  "rounded-card border-border-subtle bg-surface-raised flex flex-col gap-3 border p-4";
-const PRIMARY =
-  "rounded-control bg-accent text-nav hover:bg-accent-strong px-3 py-1.5 font-medium text-white transition-colors disabled:opacity-60";
-const QUIET =
-  "text-nav text-fg-muted hover:text-fg transition-colors disabled:opacity-60";
 
 function Lines({ lines }: { lines: string[] }) {
   return (
-    <ul className="text-nav text-fg-soft flex flex-col gap-1">
+    <ul className="flex flex-col gap-1 text-card-desc text-fg-muted">
       {lines.map((l, i) => (
         <li key={`${i}:${l}`}>{l}</li>
       ))}
@@ -47,12 +41,12 @@ export function CoachReplyCard({
   onDismiss: () => void;
 }) {
   return (
-    <div className={CARD}>
+    <Panel padding="sm" className="animate-rise flex flex-col gap-3">
       {reply.kind === "confirm_block" || reply.kind === "confirm_unblock" ? (
         <>
           <p className="text-card-title text-fg">{reply.summary}</p>
           {reply.kind === "confirm_block" && reply.alreadyBlockedLine ? (
-            <p className="text-fg-muted text-[12px]">
+            <p className="text-meta text-fg-muted">
               {reply.alreadyBlockedLine}
             </p>
           ) : null}
@@ -60,43 +54,43 @@ export function CoachReplyCard({
             <Lines lines={reply.notes} />
           ) : null}
           {blocked ? (
-            <p className="text-fg-muted text-[12px]">{blocked}</p>
+            <p className="text-meta text-fg-muted">{blocked}</p>
           ) : null}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className={PRIMARY}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="accent"
+              size="sm"
               aria-label={`Confirm: ${reply.summary}`}
               disabled={pending || blocked !== null}
               onClick={() => onConfirm(reply)}
             >
               Confirm
-            </button>
-            <button
-              type="button"
-              className={QUIET}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={pending}
               onClick={onDismiss}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </>
       ) : reply.kind === "skip" ? (
         <>
           <p className="text-card-title text-fg">{reply.summary}</p>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className={PRIMARY}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
               disabled={pending}
               onClick={() => onSkip(reply.sessionId)}
             >
               Skip {reply.label}…
-            </button>
-            <button type="button" className={QUIET} onClick={onDismiss}>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onDismiss}>
               Cancel
-            </button>
+            </Button>
           </div>
         </>
       ) : reply.kind === "clarify" ? (
@@ -104,37 +98,39 @@ export function CoachReplyCard({
           <p className="text-card-title text-fg">{reply.question}</p>
           <div className="flex flex-wrap gap-2">
             {reply.choices.map((c, i) => (
-              <button
+              <Button
                 key={i}
-                type="button"
-                className="rounded-control border-border text-nav text-fg-soft hover:text-fg border px-3 py-1.5 transition-colors"
+                variant="secondary"
+                size="sm"
                 onClick={() => onChoose(c.reply)}
               >
                 {c.label}
-              </button>
+              </Button>
             ))}
           </div>
-          <button
-            type="button"
-            className={`${QUIET} self-start`}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
             onClick={onDismiss}
           >
             Never mind
-          </button>
+          </Button>
         </>
       ) : (
         <>
           <Lines lines={reply.lines} />
-          <button
-            type="button"
-            className={`${QUIET} self-start`}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
             onClick={onDismiss}
           >
             Dismiss
-          </button>
+          </Button>
         </>
       )}
-      {error ? <p className="text-nav text-fg-soft">{error}</p> : null}
-    </div>
+      {error ? <p className="text-card-desc text-fg-soft">{error}</p> : null}
+    </Panel>
   );
 }

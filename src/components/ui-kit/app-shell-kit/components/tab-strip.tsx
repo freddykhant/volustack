@@ -34,7 +34,7 @@ export function TabStrip({ tabs, currentPath }: { tabs: readonly Tab[]; currentP
             {t.icon ? <t.icon className="size-4" /> : null}
             <span>{t.label}</span>
             {active && !t.disabled ? (
-              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-accent" />
+              <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-fg" />
             ) : null}
           </>
         );
