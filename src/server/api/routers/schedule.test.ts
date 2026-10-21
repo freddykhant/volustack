@@ -123,6 +123,15 @@ function makeCaller(opts: Opts = {}) {
       create: vi.fn().mockResolvedValue({}),
       findMany: vi.fn().mockResolvedValue(opts.dismissed ?? []),
     },
+    // Outside activities are cues only: any scheduling code that reaches for them fails loudly.
+    outsideActivity: Object.fromEntries(
+      ["findMany", "findFirst", "count", "create", "delete"].map((m) => [
+        m,
+        vi.fn().mockImplementation(() => {
+          throw new Error(`scheduling must not touch outsideActivity.${m}`);
+        }),
+      ]),
+    ) as Record<"findMany" | "findFirst" | "count" | "create" | "delete", ReturnType<typeof vi.fn>>,
     $queryRaw: vi.fn().mockResolvedValue(opts.noLock ? [] : [{ id: "meso-1" }]),
     $transaction: vi.fn(),
   };
@@ -165,6 +174,15 @@ describe("getWeekSchedule", () => {
   it("is NOT_FOUND for a week the block does not have", async () => {
     const { caller } = makeCaller();
     await expect(caller.getWeekSchedule({ weekIndex: 9 })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("scheduling ignores outside activities", () => {
+  it("getWeekSchedule and getReplacementOptions never touch outsideActivity", async () => {
+    const { caller, db } = makeCaller({ exceptions: bothHalves("2026-10-08") });
+    await expect(caller.getWeekSchedule({ weekIndex: 1 })).resolves.toBeDefined();
+    await expect(caller.getReplacementOptions({ weekIndex: 1 })).resolves.toBeDefined();
+    for (const fn of Object.values(db.outsideActivity)) expect(fn).not.toHaveBeenCalled();
   });
 });
 
