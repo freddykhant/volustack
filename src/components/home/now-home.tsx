@@ -3,7 +3,9 @@ import { WeeklyCheckInFlow } from "~/components/checkin/weekly-checkin-flow";
 import { NextSessionCard } from "~/components/home/next-session-card";
 import { TrainingStatusCard } from "~/components/home/training-status-card";
 import { CoachCard } from "~/components/home/coach-card";
+import { CueCard } from "~/components/home/cue-card";
 import { ReadinessChip } from "~/components/readiness/readiness-chip";
+import type { CueView, CueWhen } from "~/views/cues";
 import type {
   CoachNote,
   ReadinessLabel,
@@ -23,6 +25,7 @@ export function NowHome({
   coachNotes,
   readiness,
   readinessLabel,
+  cueDays,
 }: {
   splitLabel: string;
   blockName: string;
@@ -33,6 +36,7 @@ export function NowHome({
   coachNotes: CoachNote[];
   readiness: ReadinessView;
   readinessLabel: ReadinessLabel | undefined;
+  cueDays: { date: string; when: CueWhen; cues: CueView[] }[];
 }) {
   const showCoach = coachNotes.length > 0;
   return (
@@ -53,6 +57,8 @@ export function NowHome({
       <div className="animate-rise [animation-delay:60ms]">
         <NextSessionCard session={session} weekIndex={weekIndex} readinessLabel={readinessLabel} />
       </div>
+
+      <CueCard days={cueDays} />
 
       {status || showCoach ? (
         <div

@@ -48,7 +48,9 @@ import {
   type DropTarget,
 } from "./draft";
 import { Button, Callout } from "~/components/ui-kit/app-shell-kit";
+import { ActivityStrip } from "./activity-strip";
 import { BoardSkeleton } from "./board-skeleton";
+import { CueMarker } from "./cue-marker";
 import { DraftBar } from "./draft-bar";
 import { blockState } from "./exceptions";
 import { ReplacementPanel } from "./replacement-panel";
@@ -211,6 +213,14 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
   const utils = api.useUtils();
   const query = api.schedule.getWeekSchedule.useQuery({ weekIndex });
   const coach = api.coach.status.useQuery();
+  const activities = api.activity.list.useQuery({ weekIndex });
+  const cues = api.cue.upcoming.useQuery(undefined, { staleTime: 60_000 });
+  // Any change to the saved week can change what today's and tomorrow's cues say.
+  const weekSavedAt = query.dataUpdatedAt;
+  useEffect(() => {
+    if (weekSavedAt === 0) return;
+    void utils.cue.upcoming.invalidate();
+  }, [weekSavedAt, utils]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [carryForward, setCarryForward] = useState(false);
@@ -543,12 +553,17 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
                 className="grid grid-cols-[84px_minmax(0,1fr)] sm:grid-cols-[112px_minmax(0,1fr)]"
               >
                 <div className="flex flex-col items-start pt-[15px] pr-3 pb-3">
-                  <span
-                    className={
-                      "text-list " + (isToday ? "text-accent" : "text-fg")
-                    }
-                  >
-                    {DAY_NAMES[d.weekday]}
+                  <span className="flex items-center gap-1">
+                    <span
+                      className={
+                        "text-list " + (isToday ? "text-accent" : "text-fg")
+                      }
+                    >
+                      {DAY_NAMES[d.weekday]}
+                    </span>
+                    <CueMarker
+                      cues={cues.data?.find((c) => c.date === d.date)?.cues ?? []}
+                    />
                   </span>
                   <span className="text-meta text-fg-subtle tabular-nums">
                     {isToday ? "Today" : shortDate(d.date)}
@@ -637,6 +652,16 @@ export function ScheduleBoard({ weekIndex }: { weekIndex: number }) {
                       );
                     })}
                   </div>
+                  {/* Outside every droppable cell: activities only feed coach cues. */}
+                  <ActivityStrip
+                    weekIndex={weekIndex}
+                    date={d.date}
+                    activities={(activities.data ?? []).filter(
+                      (a) => a.date === d.date,
+                    )}
+                    readOnly={data.readOnly}
+                    disabled={apply.isPending || blockPending}
+                  />
                 </div>
               </li>
             );

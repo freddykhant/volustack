@@ -1,4 +1,4 @@
-import { cueId, type CueFact, type CueKind, type CueSubject, type GramRange } from "~/engine";
+import { cueId, type CueFact, type CueKind, type CueSubject, type GramRange } from "~/engine/cues";
 
 export type CueWhen = "today" | "tomorrow";
 
@@ -9,7 +9,7 @@ export interface CueView {
   kind: CueKind;
   title: string;
   line: string;
-  /** Whether the line carries a number; the card shows its footer only then. */
+  /** Whether the line carries a gram figure; the card shows its footer only then. */
   hasNumber: boolean;
 }
 

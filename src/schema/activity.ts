@@ -2,6 +2,10 @@ import { z } from "zod";
 import { ActivityIntensityEnum, ActivityKindEnum, DaypartEnum } from "./enums";
 import { IsoDateSchema } from "./schedule";
 
+/** Bounds on a stated duration, in minutes. */
+export const ACTIVITY_MIN_MINUTES = 5;
+export const ACTIVITY_MAX_MINUTES = 600;
+
 /** Outside activities a single date may hold. */
 export const MAX_ACTIVITIES_PER_DAY = 3;
 
@@ -16,7 +20,7 @@ export const ActivityAddInputSchema = z.object({
   daypart: DaypartEnum.nullable(),
   kind: ActivityKindEnum,
   intensity: ActivityIntensityEnum,
-  durationMin: z.number().int().min(5).max(600).nullable(),
+  durationMin: z.number().int().min(ACTIVITY_MIN_MINUTES).max(ACTIVITY_MAX_MINUTES).nullable(),
 });
 export type ActivityAddInput = z.infer<typeof ActivityAddInputSchema>;
 
