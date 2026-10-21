@@ -129,11 +129,5 @@ export type ScheduleMode = z.infer<typeof ScheduleModeEnum>;
 export const DaypartEnum = z.enum(["AM", "PM"]);
 export type Daypart = z.infer<typeof DaypartEnum>;
 
-export const ActivityKindEnum = z.enum(["RUN", "RIDE", "SWIM", "SPORT", "OTHER"]);
-export type ActivityKind = z.infer<typeof ActivityKindEnum>;
-
-export const ActivityIntensityEnum = z.enum(["EASY", "MODERATE", "HARD"]);
-export type ActivityIntensity = z.infer<typeof ActivityIntensityEnum>;
-
 export const AvailabilityStateEnum = z.enum(["PREFERRED", "BLOCKED"]);
 export type AvailabilityState = z.infer<typeof AvailabilityStateEnum>;

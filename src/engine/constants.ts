@@ -104,29 +104,3 @@ export const PREFERENCE_LENS_FACTOR = 5;
 export const MAX_LAYOUT_OPTIONS = 3;
 /** Cost differences smaller than this are treated as equal. Not a tuning value. */
 export const SCHEDULE_EPS = 1e-6;
-
-// ─── Coach cues ───
-// Starting values, to be tuned by the product owner. The g/kg ranges follow published
-// sports-nutrition guidance; the rest are product judgement.
-
-/** Carbs in the meal between two demanding sessions on one day, g per kg (ACSM/ISSN refuelling). */
-export const CUE_CARBS_BETWEEN_G_PER_KG: readonly [number, number] = [1.0, 1.2];
-/** Carbs in the meal before a big lower-body session, g per kg (low end of ACSM's 1–4 g/kg). */
-export const CUE_CARBS_BEFORE_G_PER_KG: readonly [number, number] = [1.0, 1.5];
-/** Protein in the meal after a session, g per kg (ISSN, per meal). */
-export const CUE_PROTEIN_G_PER_KG: readonly [number, number] = [0.3, 0.4];
-/** Carb ranges scale with the training phase; protein does not. */
-export const CUE_PHASE_CARB_FACTOR = { CUT: 0.8, MAINTAIN: 1, BULK: 1.2 } as const;
-/** When the pre-session meal should be eaten, hours before. */
-export const CUE_PRE_MEAL_HOURS: readonly [number, number] = [2, 3];
-/** Quad + hamstring + glute sets at which a session counts as a big lower-body day. */
-export const CUE_HEAVY_LOWER_SETS = 10;
-/** An easy activity this long or longer still counts as demanding, minutes. */
-export const CUE_LONG_EASY_MIN = 60;
-/** Bodyweights outside this range give words, not numbers, kg. */
-export const CUE_WEIGHT_MIN_KG = 30;
-export const CUE_WEIGHT_MAX_KG = 250;
-/** Gram ranges are rounded to this step, and the high end is at least one step above the low. */
-export const CUE_ROUND_G = 5;
-/** Cues shown per day at most. */
-export const CUE_MAX_PER_DAY = 2;
