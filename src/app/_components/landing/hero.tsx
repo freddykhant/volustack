@@ -6,7 +6,7 @@ import { WeekDemo } from "./week-demo";
 export function Hero() {
   return (
     <section id="top" aria-labelledby="hero-title">
-      <Container className="grid items-center gap-12 pt-14 pb-16 sm:pt-20 lg:grid-cols-[1fr_1.1fr] lg:gap-14 lg:pt-[72px] lg:pb-24">
+      <Container className="grid items-center gap-12 pt-14 pb-16 sm:pt-20 lg:grid-cols-[1fr_1.25fr] lg:gap-14 lg:pt-[72px] lg:pb-14">
         <div className="animate-rise">
           <Eyebrow>Adaptive training, engineered</Eyebrow>
           <h1 id="hero-title" className="mt-3 max-w-[14ch] text-display text-balance text-fg">

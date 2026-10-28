@@ -144,7 +144,7 @@ export function WeekDemo() {
                 </div>
                 <div
                   className={
-                    "flex min-h-[76px] flex-col gap-1 rounded-tile p-1 transition-colors duration-300 sm:p-1.5 " +
+                    "flex min-h-[76px] flex-col gap-1 rounded-tile p-1 transition-colors duration-300 " +
                     (isThu && busy
                       ? "bg-[repeating-linear-gradient(135deg,var(--color-press)_0_5px,transparent_5px_10px)]"
                       : "bg-sunken")
@@ -179,7 +179,7 @@ export function WeekDemo() {
                   ) : null}
                   {planned ? <Session name={planned.name} sets={planned.sets} variant="planned" /> : null}
                   {d.day === "Sat" ? (
-                    <span className="truncate rounded-[7px] bg-press px-1.5 py-1 text-[11px] leading-4 text-fg-soft">
+                    <span className="rounded-[7px] bg-press px-1.5 py-1 text-[11px] leading-[14px] text-fg-soft">
                       Run · easy
                     </span>
                   ) : null}
@@ -238,7 +238,7 @@ function Session({ name, sets, variant }: { name: string; sets: number; variant:
   return (
     <div
       className={
-        "rounded-[7px] border px-1.5 py-1 text-[11px] leading-[14px] font-semibold break-words transition-colors duration-300 sm:px-2 sm:text-[12px] " +
+        "rounded-[7px] border px-1.5 py-1 text-[11px] leading-[14px] font-semibold break-normal hyphens-none transition-colors duration-300 sm:text-[12px] " +
         look
       }
     >
