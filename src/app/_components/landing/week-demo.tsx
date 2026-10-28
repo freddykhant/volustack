@@ -19,10 +19,11 @@ const DAYS = [
   { short: "S", day: "Sun", date: 16 },
 ] as const;
 
-const PLANNED: Record<string, { name: string; sets: number }> = {
-  Mon: { name: "Upper A", sets: 18 },
-  Tue: { name: "Lower A", sets: 16 },
-  Sat: { name: "Lower B", sets: 15 },
+// `short` is the phone label: a 7-day board leaves ~28px per session card at 360px.
+const PLANNED: Record<string, { name: string; short: string; sets: number }> = {
+  Mon: { name: "Upper A", short: "Up A", sets: 18 },
+  Tue: { name: "Lower A", short: "Lo A", sets: 16 },
+  Sat: { name: "Lower B", short: "Lo B", sets: 15 },
 };
 
 const at = (phase: DemoPhase, from: DemoPhase) => {
@@ -144,7 +145,7 @@ export function WeekDemo() {
                 </div>
                 <div
                   className={
-                    "flex min-h-[76px] flex-col gap-1 rounded-tile p-1 transition-colors duration-300 " +
+                    "flex min-h-[76px] flex-col gap-1 rounded-tile p-0.5 transition-colors duration-300 sm:p-1 " +
                     (isThu && busy
                       ? "bg-[repeating-linear-gradient(135deg,var(--color-press)_0_5px,transparent_5px_10px)]"
                       : "bg-sunken")
@@ -162,6 +163,7 @@ export function WeekDemo() {
                       </span>
                       <Session
                         name="Upper B"
+                        short="Up B"
                         sets={17}
                         variant={busy ? "ghost" : "planned"}
                       />
@@ -174,13 +176,13 @@ export function WeekDemo() {
                         (moved ? "translate-y-0 opacity-100" : "translate-y-1.5 opacity-0")
                       }
                     >
-                      <Session name="Upper B" sets={17} variant="moved" />
+                      <Session name="Upper B" short="Up B" sets={17} variant="moved" />
                     </div>
                   ) : null}
-                  {planned ? <Session name={planned.name} sets={planned.sets} variant="planned" /> : null}
+                  {planned ? <Session name={planned.name} short={planned.short} sets={planned.sets} variant="planned" /> : null}
                   {d.day === "Sat" ? (
-                    <span className="rounded-[7px] bg-press px-1.5 py-1 text-[11px] leading-[14px] text-fg-soft">
-                      Run · easy
+                    <span className="rounded-[7px] bg-press px-1 py-1 text-[11px] sm:px-1.5 leading-[14px] text-fg-soft">
+                      Run<span className="hidden sm:inline"> · easy</span>
                     </span>
                   ) : null}
                 </div>
@@ -228,7 +230,17 @@ export function WeekDemo() {
   );
 }
 
-function Session({ name, sets, variant }: { name: string; sets: number; variant: "planned" | "ghost" | "moved" }) {
+function Session({
+  name,
+  short,
+  sets,
+  variant,
+}: {
+  name: string;
+  short: string;
+  sets: number;
+  variant: "planned" | "ghost" | "moved";
+}) {
   const look = {
     planned: "border-border bg-surface-raised text-fg",
     ghost: "border-dashed border-border-strong bg-transparent text-fg-subtle",
@@ -238,11 +250,12 @@ function Session({ name, sets, variant }: { name: string; sets: number; variant:
   return (
     <div
       className={
-        "rounded-[7px] border px-1.5 py-1 text-[11px] leading-[14px] font-semibold break-normal hyphens-none transition-colors duration-300 sm:text-[12px] " +
+        "rounded-[7px] border px-1 py-1 text-[11px] leading-[14px] font-semibold break-normal hyphens-none transition-colors duration-300 sm:px-1.5 sm:text-[12px] " +
         look
       }
     >
-      {name}
+      <span className="sm:hidden">{short}</span>
+      <span className="hidden sm:inline">{name}</span>
       <span
         className={
           "hidden font-normal tabular-nums sm:block " + (variant === "ghost" ? "text-fg-subtle" : "text-fg-muted")

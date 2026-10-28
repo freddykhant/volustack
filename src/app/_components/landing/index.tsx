@@ -10,7 +10,7 @@ import { TopBar } from "./top-bar";
 /** Signed-out landing. The session redirect lives in `page.tsx`; this is markup only. */
 export function Landing() {
   return (
-    <div className="bg-atmosphere flex min-h-screen flex-col">
+    <div id="top" className="bg-atmosphere flex min-h-screen flex-col">
       <TopBar />
       <main id="main" className="flex-1">
         <Hero />
