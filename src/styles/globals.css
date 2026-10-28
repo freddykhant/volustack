@@ -9,3 +9,14 @@ html {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "ss01", "cv11";
 }
+
+/* In-page anchors (landing): glide unless the visitor asked for less motion, and land with room above. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+[id] {
+  scroll-margin-top: 24px;
+}
