@@ -53,6 +53,7 @@
   --color-ink-raised: rgba(255, 255, 255, 0.05); /* cards on ink */
   --color-ink-well: rgba(255, 255, 255, 0.06); /* wells inside cards on ink */
   --color-ink-border: rgba(255, 255, 255, 0.1); /* hairlines on ink */
+  --color-accent-on-ink: #7fb6ff; /* the live signal on ink: accent fails contrast there */
 
   /* ── Shape ─────────────────────────────────────────────────────────── */
   --radius-tile: 9px; /* small icon tiles (wordmark, icon chips) */
