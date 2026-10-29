@@ -6,7 +6,17 @@ import { FaGoogle } from "react-icons/fa";
 import { Button } from "~/components/ui-kit/app-shell-kit";
 import { authClient } from "~/server/better-auth/client";
 
-export function SignInButton() {
+export function SignInButton({
+  variant = "primary",
+  size = "lg",
+  label = "Continue with Google",
+  showIcon = true,
+}: {
+  variant?: "primary" | "secondary";
+  size?: "md" | "lg";
+  label?: string;
+  showIcon?: boolean;
+} = {}) {
   const [pending, setPending] = useState(false);
 
   // Coming back from Google restores this page from the bfcache with the spinner still on; clear it.
@@ -33,10 +43,10 @@ export function SignInButton() {
   }
 
   return (
-    <Button variant="primary" size="lg" loading={pending} onClick={() => void signIn()}>
+    <Button variant={variant} size={size} loading={pending} onClick={() => void signIn()}>
       {/* The kit's `icon` prop takes a Lucide icon; the brand mark is passed as a child and yields to the spinner. */}
-      {pending ? null : <FaGoogle className="size-4" aria-hidden />}
-      Continue with Google
+      {pending || !showIcon ? null : <FaGoogle className="size-4" aria-hidden />}
+      {label}
     </Button>
   );
 }

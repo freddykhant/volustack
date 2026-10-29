@@ -47,11 +47,20 @@
   --color-zone-max: #d97706;
   --color-zone-max-soft: rgba(217, 119, 6, 0.14);
 
+  /* Ink ground: landing "Under the hood" sheet + site footer only. re-review: colour scheme */
+  --color-on-ink-muted: rgba(255, 255, 255, 0.68); /* body text on ink */
+  --color-on-ink-subtle: rgba(255, 255, 255, 0.64); /* eyebrows, column headings on ink */
+  --color-ink-raised: rgba(255, 255, 255, 0.05); /* cards on ink */
+  --color-ink-well: rgba(255, 255, 255, 0.06); /* wells inside cards on ink */
+  --color-ink-border: rgba(255, 255, 255, 0.1); /* hairlines on ink */
+  --color-accent-on-ink: #7fb6ff; /* the live signal on ink: accent fails contrast there */
+
   /* ── Shape ─────────────────────────────────────────────────────────── */
   --radius-tile: 9px; /* small icon tiles (wordmark, icon chips) */
   --radius-control: 10px; /* inputs, small square buttons, nav rows */
   --radius-card: 20px; /* cards, panels */
   --radius-sheet: 24px; /* dialogs, sheets */
+  --radius-sheet-xl: 40px; /* landing only: the rounded top edge where a section slides over the one before */
   --radius-pill: 9999px; /* buttons, chips, segmented controls */
   --radius-callout: 14px;
 
@@ -70,6 +79,16 @@
   --text-display--line-height: 1.04;
   --text-display--font-weight: 680;
   --text-display--letter-spacing: -0.035em;
+
+  --text-landing-h2: clamp(32px, 2.4vw + 14px, 44px); /* landing only: section headlines */
+  --text-landing-h2--line-height: 1.06;
+  --text-landing-h2--font-weight: 680;
+  --text-landing-h2--letter-spacing: -0.032em;
+
+  --text-landing-h3: clamp(26px, 1.4vw + 14px, 34px); /* landing only: feature-row headlines */
+  --text-landing-h3--line-height: 1.08;
+  --text-landing-h3--font-weight: 660;
+  --text-landing-h3--letter-spacing: -0.03em;
 
   --text-page-title: 30px;
   --text-page-title--line-height: 36px;

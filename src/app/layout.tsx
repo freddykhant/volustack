@@ -4,9 +4,12 @@ import { type Metadata, type Viewport } from "next";
 
 import { TRPCReactProvider } from "~/trpc/react";
 
+const description = "Training blocks that adapt when your week changes. You approve every change.";
+
 export const metadata: Metadata = {
   title: "Mesodapt",
-  description: "The AI operating system for self-coached athletes.",
+  description,
+  openGraph: { title: "Mesodapt", description },
 };
 
 export const viewport: Viewport = {
