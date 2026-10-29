@@ -101,8 +101,9 @@ export default function PrivacyPage() {
 
         <LegalSection n={7} title="How long it's kept">
           <p>
-            Your account and training data stay until you ask me to delete them. Sessions expire after seven days of
-            not being used.
+            Your account and training data stay until you ask me to delete them. A session stops working after seven
+            days without use, but the record of it (the IP address and browser) stays until you sign out or delete your
+            account.
           </p>
         </LegalSection>
 

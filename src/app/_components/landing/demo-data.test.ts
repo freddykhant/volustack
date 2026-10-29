@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { readinessState } from "~/components/viz/readiness-state";
+import { DEMO_CUE } from "./demo-cue";
 import { BLOCK_GRID, PROGRESSION, READINESS_SERIES, formPercent, zoneFor } from "./demo-data";
 
 // The landing's numbers are illustrative, but they must look like something the engine would produce.
@@ -32,8 +34,18 @@ describe("landing demo data", () => {
     expect(formPercent(last)).toBe(Math.round((last.form / last.fitness) * 100));
   });
 
-  it("proposes chest up and holds quads on low recovery", () => {
-    expect(PROGRESSION).toContainEqual({ muscle: "Chest", from: 16, to: 18 });
+  it("proposes week 4's chest volume from week 3's, as the block grid shows them", () => {
+    const chest = BLOCK_GRID.find((r) => r.muscle === "Chest")!;
+    expect(PROGRESSION).toContainEqual({ muscle: "Chest", from: chest.weeks[2], to: chest.weeks[3] });
     expect(PROGRESSION).toContainEqual({ muscle: "Quads", from: 14, to: null, note: "hold, recovery low" });
+  });
+
+  it("shows a coach cue the app itself would produce: a lift then a run, carbs between, in grams", () => {
+    expect(DEMO_CUE.kind).toBe("fuel_between");
+    expect(DEMO_CUE.title).toMatch(/^Lower B, then .*run$/);
+    expect(DEMO_CUE.line).toMatch(/\d+–\d+ g of carbs (between them|in between the two)/);
+    const src = readFileSync("src/app/_components/landing/vignettes/coach-cue.tsx", "utf8");
+    expect(src).toContain("DEMO_CUE");
+    expect(src).not.toMatch(/g\/kg|Two big days/);
   });
 });

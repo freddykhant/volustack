@@ -42,6 +42,6 @@ export function formPercent(point: { fitness: number; form: number }): number {
 }
 
 export const PROGRESSION: { muscle: string; from: number; to: number | null; note?: string }[] = [
-  { muscle: "Chest", from: 16, to: 18 },
+  { muscle: "Chest", from: 14, to: 16 },
   { muscle: "Quads", from: 14, to: null, note: "hold, recovery low" },
 ];
