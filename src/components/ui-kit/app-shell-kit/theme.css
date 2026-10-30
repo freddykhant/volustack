@@ -55,6 +55,14 @@
   --color-ink-border: rgba(255, 255, 255, 0.1); /* hairlines on ink */
   --color-accent-on-ink: #7fb6ff; /* the live signal on ink: accent fails contrast there */
 
+  /* Prism: the "AI" accent, landing ink sheet only (owner request 2026-10-30). Never on chrome or data.
+     re-review: colour scheme */
+  --color-prism-rose: #ff7ab6;
+  --color-prism-amber: #ffc46b;
+  --color-prism-mint: #6ff0c4;
+  --color-prism-sky: #6cc8ff;
+  --color-prism-violet: #a98bff;
+
   /* ── Shape ─────────────────────────────────────────────────────────── */
   --radius-tile: 9px; /* small icon tiles (wordmark, icon chips) */
   --radius-control: 10px; /* inputs, small square buttons, nav rows */
@@ -178,6 +186,79 @@
   background-image: linear-gradient(135deg, #ffd9b8, #c9d3ff);
 }
 
+/* ── Landing ink sheet: prism, grain and glass (the one sanctioned exception to the No Glass Rule,
+   owner request 2026-10-30). Only inside the "Under the hood" section. re-review: colour scheme ── */
+@property --prism-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* A slow-turning, heavily blurred colour wheel: the model "thinking" behind the glass. Decorative. */
+.bg-prism {
+  pointer-events: none;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from var(--prism-angle),
+    var(--color-prism-rose),
+    var(--color-prism-amber),
+    var(--color-prism-mint),
+    var(--color-prism-sky),
+    var(--color-prism-violet),
+    var(--color-prism-rose)
+  );
+  filter: blur(90px) saturate(1.4);
+  animation: prism-turn 28s linear infinite;
+}
+
+/* Fractal-noise grain so the glass reads as a material, not a flat tint. */
+.bg-grain {
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+/* Frosted glass on ink: the prism shows through, softened. */
+.glass-ink {
+  background-color: var(--color-ink-raised);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  backdrop-filter: blur(22px) saturate(1.5);
+  box-shadow: inset 0 1px 0 var(--color-ink-border);
+}
+
+/* An iridescent 1px edge: marks the one card where the language model works. */
+.border-prism {
+  position: relative;
+  border-color: transparent;
+}
+.border-prism::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--prism-angle),
+    var(--color-prism-rose),
+    var(--color-prism-amber),
+    var(--color-prism-mint),
+    var(--color-prism-sky),
+    var(--color-prism-violet),
+    var(--color-prism-rose)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: prism-turn 8s linear infinite;
+}
+
+@keyframes prism-turn {
+  to {
+    --prism-angle: 360deg;
+  }
+}
+
 /* Skeleton: loading placeholder. Shape it with size + rounded-* utilities. */
 .skeleton {
   border-radius: 8px;
@@ -193,6 +274,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
+  /* Infinite loops must stop outright: the 1ms rule below would make them strobe. */
+  .bg-prism,
+  .border-prism::before { animation: none !important; }
   *, *::before, *::after {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;

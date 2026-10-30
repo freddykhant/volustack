@@ -33,6 +33,17 @@ function sources(dir: string): string[] {
 
 const files = ROOTS.flatMap(sources);
 
+// Landing only: the owner found "not X, but Y" contrasts and stacked full-stop fragments robotic.
+const LANDING_TELLS = [
+  /, not (just )?[a-z]/i,
+  /\bnot just\b/i,
+  /, never [a-z]/i,
+  /\b(doesn|isn|don)['’]t\. /,
+  // A headline written as fragments: "Climb. Deload." (two short capitalised sentences in a row).
+  />[^<>{}]*\b[A-Z][a-z]+\. [A-Z][a-z]+\./,
+];
+const landingFiles = sources(ROOTS[0]!);
+
 describe("landing and legal copy", () => {
   it("scans the landing sources", () => {
     expect(files.length).toBeGreaterThanOrEqual(1);
@@ -40,5 +51,9 @@ describe("landing and legal copy", () => {
 
   it.each(BANNED.map((re) => [re.source, re] as const))("never says %s", (_label, re) => {
     for (const f of files) expect(readFileSync(f, "utf8"), f).not.toMatch(re);
+  });
+
+  it.each(LANDING_TELLS.map((re) => [re.source, re] as const))("landing copy avoids %s", (_label, re) => {
+    for (const f of landingFiles) expect(readFileSync(f, "utf8"), f).not.toMatch(re);
   });
 });

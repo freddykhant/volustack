@@ -10,11 +10,11 @@ export function Hero() {
         <div className="animate-rise">
           <Eyebrow>Adaptive training, engineered</Eyebrow>
           <h1 id="hero-title" className="mt-3 max-w-[14ch] text-display text-balance text-fg">
-            Your week rewrites itself. You stay in charge.
+            Your training week rewrites itself, and you stay in charge
           </h1>
           <p className="mt-5 max-w-[46ch] text-body text-fg-muted sm:text-[17px] sm:leading-[26px]">
-            An engine works out every set, rep and recovery number. A small model reads what you tell it. Miss a
-            day and the block moves around it, and nothing changes until you tap.
+            Tell Mesodapt you can&apos;t make Thursday and your block quietly reshuffles around you, with every set,
+            rep and recovery number worked out by the engine and nothing changing until you say yes
           </p>
           <div className="mt-8 flex flex-wrap gap-2.5">
             <SignInButton />

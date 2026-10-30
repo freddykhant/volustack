@@ -16,12 +16,12 @@ export function HowItWorks() {
         <FeatureRow
           headingId="feature-reschedule"
           tag="Missed a session"
-          title={["Miss a day.", "The week reflows."]}
-          lede="Work ate Monday. The engine works out three ways to get that volume back, picks the one it would choose, and waits for you to decide."
+          title={["Missed a session?", "Your week sorts itself out"]}
+          lede="When work eats your Monday, the engine finds a few ways to fit that volume back in, suggests the one it likes best and leaves the final call to you"
           ticks={[
-            "Make it up, do half of it, or let it go",
-            "Volume gets moved, not just dropped",
-            "Nothing moves until you tap",
+            "Make it up, do half of it or let it go",
+            "Missed sets get carried into the rest of your week",
+            "Nothing moves until you say so",
           ]}
           visual={<RescheduleVignette />}
         />
@@ -30,12 +30,12 @@ export function HowItWorks() {
           flip
           headingId="feature-engine"
           tag="The engine"
-          title={["Every set", "has a reason."]}
-          lede="Your block is built from volume landmarks for each muscle. It adds sets week by week, keeps you in the range that grows muscle, and backs off for a deload before you burn out."
+          title={["Every set is there", "for a reason"]}
+          lede="Your block is built from volume landmarks for each muscle, adding sets week by week so you stay in the range that actually grows muscle, then backing off for a deload before fatigue catches up with you"
           ticks={[
-            "Sets per muscle, per week, set by your experience",
+            "Weekly sets for each muscle, tuned to your experience",
             "Priority muscles get the extra volume",
-            "Same inputs, same plan, every time",
+            "The same inputs always give you the same plan",
           ]}
           visual={<BlockGridVignette />}
         />
@@ -43,12 +43,12 @@ export function HowItWorks() {
         <FeatureRow
           headingId="feature-readiness"
           tag="Readiness"
-          title={["Know when to push.", "Know when to back off."]}
-          lede="Fitness, Fatigue and Form come from what you actually logged, set by set. Form is your readiness, and it moves when you do."
+          title={["Know when to push", "and when to ease off"]}
+          lede="Fitness, Fatigue and Form are worked out from the sets you actually log, so Form gives you an honest read on how ready you are for the next session"
           ticks={[
-            "Built from your logged sets and how hard they were (RIR)",
-            "Your weekly check-in nudges it",
-            "Calls an early deload when you need one",
+            "Built from your logged sets and how hard they felt (RIR)",
+            "Your weekly check-in fine-tunes it",
+            "Suggests an early deload when you need one",
           ]}
           visual={<ReadinessVignette />}
         />
@@ -60,11 +60,11 @@ export function HowItWorks() {
           >
             <Tag>Progression</Tag>
             <h3 id="feature-progression" className="mt-4 text-section text-fg sm:text-[22px] sm:leading-7">
-              Check in. Level up.
+              Check in and level up
             </h3>
             <p className="mt-2 text-body text-fg-muted">
-              At the end of the week, rate how each muscle recovered. The engine checks that against what you logged
-              and suggests next week&apos;s volume.
+              At the end of each week you rate how every muscle recovered, and the engine weighs that against what you
+              logged to suggest next week&apos;s volume
             </p>
             <ProgressionVignette />
           </article>
@@ -74,11 +74,11 @@ export function HowItWorks() {
           >
             <Tag>Coach cues</Tag>
             <h3 id="feature-cues" className="mt-4 text-section text-fg sm:text-[22px] sm:leading-7">
-              Running Saturday? It noticed.
+              Got a run on Saturday? It&apos;s on it
             </h3>
             <p className="mt-2 text-body text-fg-muted">
-              Add the run, the game or the ride. Mesodapt looks at what&apos;s stacked on today and tomorrow and tells
-              you how to fuel and recover around it.
+              Add your runs, rides and games to the week and Mesodapt looks at what&apos;s coming up today and
+              tomorrow, then tells you how to fuel and recover around them
             </p>
             <CoachCueVignette />
           </article>

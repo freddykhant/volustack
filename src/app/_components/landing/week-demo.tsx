@@ -200,8 +200,8 @@ export function WeekDemo() {
         >
           <div className="text-card-title text-fg">Move Upper B to Friday?</div>
           <p className="mt-1 text-card-desc text-fg-muted">
-            Thursday&apos;s busy. Friday still gives your upper body 48 hours between sessions, and chest stays in its
-            optimal zone. Nothing changes until you accept.
+            Thursday&apos;s busy, but Friday still gives your upper body 48 hours to recover and keeps chest in its
+            optimal zone
           </p>
           <div className="mt-3 flex justify-end gap-1.5">
             <span className={buttonClass("ghost", "sm")}>Not now</span>
