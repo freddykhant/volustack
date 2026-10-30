@@ -5,7 +5,7 @@ import { DEMO_CUE } from "../demo-cue";
 /** A coach cue as it appears on the home page, worded by the app's own cue view. Static. */
 export function CoachCueVignette() {
   return (
-    <div className="mt-5">
+    <div>
       <p className="sr-only">
         Example cue: {DEMO_CUE.title}. {DEMO_CUE.line}
       </p>

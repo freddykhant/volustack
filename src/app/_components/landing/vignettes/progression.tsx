@@ -8,8 +8,11 @@ import { useReveal } from "../use-reveal";
 export function ProgressionVignette() {
   const { ref, revealed } = useReveal<HTMLDivElement>();
   return (
-    <div ref={ref} className="mt-5">
-      <p className="sr-only">Example proposal: chest goes from 16 to 18 sets next week; quads hold at 14 because recovery was low.</p>
+    <div ref={ref}>
+      <p className="sr-only">
+        Example proposal: chest goes from {PROGRESSION[0]!.from} to {PROGRESSION[0]!.to} sets next week; quads hold at{" "}
+        {PROGRESSION[1]!.from} because recovery was low.
+      </p>
       <div aria-hidden className="rounded-callout bg-sunken p-3.5">
         {PROGRESSION.map((p, i) => (
           <div

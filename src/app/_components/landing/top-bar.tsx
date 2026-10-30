@@ -18,8 +18,8 @@ export function TopBar() {
           <Wordmark />
         </Link>
         <nav aria-label="Page" className="flex items-center gap-6">
-          <a href="#how-it-works" className="hidden text-nav text-fg-muted transition-colors hover:text-fg sm:inline">
-            How it works
+          <a href="#week" className="hidden text-nav text-fg-muted transition-colors hover:text-fg sm:inline">
+            A normal week
           </a>
           <a href="#engine" className="hidden text-nav text-fg-muted transition-colors hover:text-fg sm:inline">
             The engine
