@@ -11,25 +11,26 @@ const CONNECT = [
   { label: "Portfolio", href: "https://freddykhant.com" },
 ];
 
-/** Shared by the landing and the legal pages. re-review: colour scheme (ink ground) */
+/** Shared by the landing and the legal pages. Sits on `night`, which `.theme-landing` turns navy. */
 export function SiteFooter() {
   return (
-    <footer className="bg-ink text-on-ink">
+    <footer className="bg-night text-on-ink">
       <Container className="pt-16 pb-9">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-8">
           <div>
             <Link href="/" className="inline-flex items-center gap-2.5 rounded-tile">
-              <span className="flex size-8 items-center justify-center rounded-tile bg-on-ink text-ink">
+              <span className="flex size-8 items-center justify-center rounded-tile bg-on-ink text-night">
                 <Mark className="size-5" />
               </span>
               <span className="text-section text-on-ink">Mesodapt</span>
             </Link>
             <p className="mt-3.5 max-w-[30ch] text-card-desc text-on-ink-muted">
-              A training plan that keeps up when your week doesn&apos;t go to plan.
+              Training blocks that rearrange themselves when your week changes.
             </p>
           </div>
           <Column title="Product">
-            <FooterLink href="/#how-it-works">How it works</FooterLink>
+            <FooterLink href="/#story">How it adapts</FooterLink>
+            <FooterLink href="/#week">A normal week</FooterLink>
             <FooterLink href="/#engine">The engine</FooterLink>
             <FooterLink href="/">Sign in</FooterLink>
           </Column>

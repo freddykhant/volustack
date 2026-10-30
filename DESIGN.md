@@ -30,6 +30,19 @@ colors:
   zone-building: "#0284c7"        # soft: rgba(2, 132, 199, 0.11)
   zone-optimal: "#059669"         # soft: rgba(5, 150, 105, 0.12)
   zone-max: "#d97706"             # soft: rgba(217, 119, 6, 0.14)
+  # Ink ground (landing "Under the hood" sheet + site footer; the candidate dark surface for the next UI pass)
+  on-ink-muted: "rgba(255, 255, 255, 0.68)"
+  on-ink-subtle: "rgba(255, 255, 255, 0.64)"
+  ink-raised: "rgba(255, 255, 255, 0.05)"
+  ink-well: "rgba(255, 255, 255, 0.06)"
+  ink-border: "rgba(255, 255, 255, 0.1)"
+  accent-on-ink: "#7fb6ff"        # the live signal on ink; #0a6fe0 is only ≈3.9:1 there
+  # Prism: the AI accent. See "Prism & glass" below.
+  prism-rose: "#ff7ab6"
+  prism-amber: "#ffc46b"
+  prism-mint: "#6ff0c4"
+  prism-sky: "#6cc8ff"
+  prism-violet: "#a98bff"
 typography:
   fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
   display:    { size: "clamp(40px, 4.2vw + 20px, 56px)", lineHeight: 1.04, weight: 680, tracking: "-0.035em" }
@@ -84,6 +97,86 @@ The engine holds a lot of numbers (volumes, zones, readiness, the week ahead). T
 Motion is quick and soft: 200–300ms on one curve, with no bounce. Loading uses skeletons shaped like the content they stand in for, never a spinner in the middle of the page.
 
 **What this is not:** gradient text, glass on everything, emoji icons, purple-to-blue buttons, cards inside cards, centred hero templates. If a screen looks like a landing-page kit, it's wrong.
+
+> **Heading into the app UI pass?** Read **Handover: the app UI pass** below first. The landing shipped on 2026-10-30 is now the reference for the whole product. The values in this file's front matter and in the Colors section are the app as it is *today*, and the pass replaces them.
+
+## Handover: the app UI pass
+
+**Status (2026-10-30).** The owner signed off the redesigned landing (`src/app/_components/landing/`) and named it **the design system for the app UI pass**. Where this section disagrees with older guidance further down, this section wins. Everything structural from the Luma facelift stays: the system font and type scale, radii, the 800px column, the elevation ladder, the component kit, skeletons and zone semantics. What changes is colour, the AI treatment, a few signature motions and the voice.
+
+**The new north star: "A white page, a sky-blue brand, one pink signal, and navy glass wherever the model speaks."**
+
+- **White and sky lead.** The page is `snow` `#fcffff`. Sky `#0593c6` is the brand: the primary pill, the mark tile, display accents, glows, chart bars.
+- **Hot pink is the one live signal.** `#d83995` (text and white-on-pink use `pink-strong` `#c92d88`) does exactly what blue does today: the accept confirm, the session that just moved, "this week", the focus ring, selection. Still rare, still one per thing.
+- **Navy glass is where the language model works.** The dark sheet (`night` `#071019`) with prism, grain and heavy frosted glass is the only dark surface, and it means "AI". Use it where the model's output appears, and keep numbers on light surfaces.
+
+### Where the system lives today
+
+Open `src/components/ui-kit/app-shell-kit/theme.css` and find the `.theme-landing` block. It re-points the existing role tokens, so every kit component already renders correctly inside it (the landing and legal pages wrap themselves in it). **The pass is mostly a token move.**
+
+1. **Promote the values.** Copy each `.theme-landing` declaration into the root `@theme` block, replacing the current value. Then delete `.theme-landing` along with its `.bg-atmosphere`, `.glass-ink` and `::selection` overrides (fold those in too), and drop the `theme-landing` class from `landing/index.tsx` and `(legal)/layout.tsx`.
+2. **Dark grounds use `bg-night`, never `bg-ink`.** `ink` is now the sky primary-button fill. Grep for `bg-ink` used as a background region (outside buttons and the mark tile) and switch it to `bg-night`. The landing footer and the AI sheet already do this.
+3. **Re-check every `accent` use.** Blue becomes pink with the same meaning, so a correct use stays correct. Pink is louder than blue, though, so any place leaning on accent for decoration will now shout. Remove those.
+4. **Refresh the brand assets.** `.bg-aura` (two-hue gradient), `src/app/apple-icon.tsx`, `src/app/icon.svg` and the `/app/styleguide` swatches still carry peach and periwinkle. Move them to sky and pink.
+5. **Update this file.** Rewrite the front matter, the Colors section and the Overview to the new values. Then delete this "Where the system lives today" subsection.
+
+### Token map (app today → after the pass)
+
+| Role token | Today | After the pass | Contrast / notes |
+|---|---|---|---|
+| `canvas` | `#faf9f7` | `#fcffff` (`snow`) | |
+| `surface` | white 82% | white 88% | |
+| `sunken` / `hover` / `press` | ink 3.5 / 4 / 7% | sky 6 / 7 / 12% | Wells and washes pick up a faint sky tint |
+| `selection` / `callout` | blue 8 / 6% | pink 9 / 6% | |
+| `fg` / `fg-soft` / `fg-muted` / `fg-subtle` | neutral greys | navy-tinted `#0c1b26` / `#2f4252` / `#4f6272` / `#637685` | `fg-muted` ≈6.3:1, `fg-subtle` ≈4.7:1 on snow |
+| `ink` / `ink-hover` | `#17181a` / `#2a2c30` | `#047aa6` (`sky-strong`) / `#03688e` | White on it ≈4.8:1 |
+| `accent` / `accent-strong` | `#0a6fe0` / `#0858b8` | `#c92d88` (`pink-strong`) / `#ad1f72` | White on it ≈5:1 |
+| `border*` | ink 8 / 6 / 14% | navy 9 / 6 / 16% | |
+| `shadow-card` / `shadow-pop` | neutral | sky-tinted (see `.theme-landing`) | |
+| `night` | `#17181a` | `#071019` | The dark ground |
+| `ink-raised` / `ink-well` / `ink-border` | white 5 / 6 / 10% | white 7 / 8 / 12% | Heavier glass |
+| `accent-on-ink` | `#7fb6ff` | `#ff7cc4` | The pink signal on navy |
+| `prism-rose…violet` | rose, amber, mint, sky, violet | `#d83995`, `#ff8fcf`, `#9ff0ff`, `#0593c6`, `#7c4dff` | Pink-led iridescence |
+| `zone-*` | unchanged | **unchanged, but see the decision below** | |
+
+Raw `sky` `#0593c6` is only ≈3.5:1 on white. Use it for fills, bars, glows, rings and display-size type (the landing's 56px headline accent), never for body text or a label someone must read. Raw `pink` `#d83995` is ≈4.3:1, so it's for marks and fills; text uses `pink-strong`.
+
+### Decisions the pass has to make first
+
+- **`zone-building` collides with the brand.** It's `#0284c7`, almost the same sky as the primary button, which breaks the Data-Only Zone Rule by eye. Recommendation: move Building off sky (an indigo near `#4f5bd5` keeps the cool-to-warm order of rest → building → optimal → max), then re-check the readiness chart's Fitness line and every Building chip. Owner call.
+- **Dark mode.** The navy `night` ground and the heavier glass are the natural seed for a `[data-theme=dark]` theme. That's not part of this pass unless the owner says so.
+
+### Signature patterns to carry into the app
+
+Each one exists on the landing, and each has a home in the product. Reuse the landing code as the reference implementation.
+
+| Pattern | Landing source | Where it goes in the app |
+|---|---|---|
+| **Prism edge on the coach box while the model reads.** `border-prism` on the input, on only while a message is being parsed, then off. This is the one place prism may sit on the light page. | `story.tsx` → `WeekCard` (`reading`) | The home page coach box, between send and the proposal arriving |
+| **Navy glass sheet for model output.** `bg-night` + two `.bg-prism` fields + `.bg-grain` + `.glass-ink` cards, with one `border-prism` card where the model works | `engine.tsx` | A coach-reply or "here's what I understood" sheet, and a parsed-request preview. One per screen. |
+| **The hop.** A moved session leaves a dashed ghost and slides one column with `translateX(calc(100% + var(--hop)))`, 700ms `--ease-out`, landing with the pink live ring | `story.tsx` → `Traveller`, `Session look="moved"` | The week board after an accepted move. Only after Accept, never as a preview. |
+| **Floating accept card.** The proposal floats over the board's edge on `shadow-pop` instead of pushing the layout down | `story.tsx` → `AcceptCard` | Every accept-gate that proposes a change to something visible behind it |
+| **The block and the M.** Weekly volume bars under the mark's own path. The current week is pink and the deload sits in the notch. | `story.tsx` → `BlockChart` | The block overview header, and onboarding's "here's your block" reveal |
+| **The spine.** A 1px `border-strong` line with sky ring nodes; each entry's words pin (`lg:sticky lg:top-24`) while its content scrolls | `week-diary.tsx` | The move log ("saved with the reason"), week history and block history |
+| **Pinned stage.** One object stays put while text scrolls and changes it. Position is read from the captions' boxes into a pure `storyStateAt(pos)`, so it runs both ways and is unit-testable. | `story.tsx`, `story-script.ts` | Onboarding and first-run explainers only. Never in working screens. |
+
+### Motion, adjusted
+
+The 200ms `--ease-soft` default and the Quiet Motion Rule stand. Two sanctioned exceptions came out of the landing:
+
+- **Spatial moves run 500–700ms on `--ease-out`.** That covers the hop, the board-to-block zoom and the accept card's rise. They explain where something went, so they need to be readable. Nothing else gets this long.
+- **Scroll-scrubbed drawing is allowed on explainers.** The typing and the M are driven by scroll position rather than time, so the visitor controls them and they reverse. Under reduced motion, transitions drop to 1ms and the scroll still steps through the states.
+
+### Voice
+
+Every string in the pass is written the way the landing is. Use first person from Freddy where a person is speaking (empty states, onboarding, settings explanations), and plain statements of what the engine did everywhere else. Say the specific thing ("Friday still gives your upper body 48 hours") instead of the category ("Optimised for recovery"). Avoid the AI tells: seamless, leverage, empower, unlock, elevate, journey, "not X but Y" contrasts, stacked one-word fragments ("Climb. Deload."), reflexive lists of three and em-dash chains. `copy-guard.test.ts` holds the banned list; consider pointing it at `src/app/app` during the pass.
+
+### Done looks like
+
+- No screen uses a value that isn't a role token, and no `.theme-landing` scope remains.
+- The landing, the legal pages and the app are visibly one product, with the same white, sky, pink and navy glass.
+- Pink appears at most once per thing on any app screen, and the navy glass sheet at most once per screen.
+- This file's front matter, Colors and Overview describe the new values, and this handover is trimmed to the patterns table.
 
 ## Colors
 
@@ -146,7 +239,7 @@ Elevation on a light page is a soft, low, wide shadow plus a hairline, never a h
 `shadow-control` is the 1px lift on secondary buttons, the segmented thumb and the active nav row.
 
 **The Flat Inside Rule.** A card never contains another shadowed card. Group inside a card with `bg-sunken` wells, `border-t border-border-subtle` dividers or whitespace.
-**The No Glass Rule.** No `backdrop-blur` on surfaces. The only blur in the system is the 2px blur on the dialog scrim.
+**The No Glass Rule.** No `backdrop-blur` on light surfaces. The only blur on the light page is the 2px blur on the dialog scrim. Glass is allowed in one place: on an ink ground, over a prism (see **Prism & glass** below).
 
 ## Motion
 
@@ -157,7 +250,58 @@ Every transition uses `--ease-soft` (`cubic-bezier(0.4, 0, 0.2, 1)`) at **200ms*
 - `active:scale-[0.98]`: the button press, built in.
 - `prefers-reduced-motion` reduces every animation and transition to 1ms and stops the shimmer. That's handled globally, so don't re-implement it.
 
-**The Quiet Motion Rule.** Motion confirms a change; it never decorates. Nothing loops except the skeleton shimmer.
+**The Quiet Motion Rule.** Motion confirms a change; it never decorates. Nothing loops except the skeleton shimmer and the prism's slow turn (see below), and both stop completely under reduced motion.
+
+## Prism & glass (the AI accent)
+
+Approved by the owner on 2026-10-30 from the landing page's "Under the hood" sheet (`src/app/_components/landing/engine.tsx`), and earmarked for the next UI pass. It's how Mesodapt shows *intelligence*: a slow, blurred colour wheel behind frosted glass, on the navy `night` ground. It is the one decorative effect in the system, so it stays rare and always means the same thing.
+
+**What it means.** The rainbow marks **where a language model is involved**: the coach box, a parsed message, the model's step in a flow. The accent (hot pink after the pass, blue in the app today) keeps its job as *you* and *live*. In the landing pipeline, step 02 ("A small model reads it") has the prism edge and step 04 ("You accept") has the pink one, side by side. Don't put prism on something the deterministic engine computed; that would blur the line the product is built on.
+
+**The pieces** (all in `theme.css`, all landing-scoped today):
+
+| Class / token | What it does |
+|---|---|
+| `.bg-prism` | A conic wheel of the five `prism-*` hues, `blur(90px) saturate(1.4)`, turning once every 28s via the `--prism-angle` custom property. Size and place it with utilities (`absolute size-[680px] -top-48 -right-40 opacity-40`); run a second, smaller one with `[animation-direction:reverse]` for depth. |
+| `.bg-grain` | An SVG `feTurbulence` fractal-noise tile in `overlay` blend. Lay it over the prisms at `opacity-[0.16]` so the glass reads as a material, not a flat tint. |
+| `.glass-ink` | Frosted glass on ink: `ink-raised` fill, `backdrop-filter: blur(22px) saturate(1.5)` and a 1px inner top highlight. Pair with `border border-ink-border rounded-card`. |
+| `.border-prism` | An iridescent 1px edge (masked conic gradient on `::before`, turning every 8s). One per view, on the model's element. |
+| `prism-*` tokens | `rose #ff7ab6 · amber #ffc46b · mint #6ff0c4 · sky #6cc8ff · violet #a98bff`. `text-prism-violet` is allowed for a small Lucide `Sparkles` beside a model label. |
+
+**Recipe** (the section must clip its glow and stack it behind content):
+
+```tsx
+<section className="isolate relative overflow-hidden rounded-t-sheet-xl bg-night text-on-ink">
+  <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+    <div className="bg-prism absolute -top-48 -right-40 size-[460px] opacity-40 sm:size-[680px]" />
+    <div className="bg-prism absolute top-[46%] left-[8%] size-[380px] opacity-25 [animation-direction:reverse] sm:size-[560px]" />
+    <div className="bg-grain absolute inset-0 opacity-[0.16]" />
+  </div>
+  {/* content: glass-ink cards; one border-prism card where the model works */}
+</section>
+```
+
+**The Prism Rules.**
+- **Night only.** Prism and glass live on the `night` ground (`bg-night`; it was `bg-ink` before `ink` became the sky button colour). On the light canvas the atmosphere glow is still the only colour wash. The one exception is the coach box's `border-prism` edge while the model reads (see the handover).
+- **Behind, never on.** The wheel sits behind glass; text never sits directly on a bright prism. Body text on glass stays `on-ink-muted` or brighter, at least 4.5:1.
+- **One prism field per screen**, and at most one `border-prism` element in it.
+- **Never on data or chrome.** No prism on buttons, chips, nav, charts or zone marks, and no gradient text.
+- **Reduced motion stops it.** `.bg-prism` and `.border-prism::before` set `animation: none` under `prefers-reduced-motion` (the global 1ms rule would make an infinite loop strobe). Keep that override if you add another looping effect.
+- **Re-review with the colour scheme.** The five hues were tuned against today's ink (`#17181a`); revisit them with the planned colour redesign.
+
+## Marketing palette (landing + legal)
+
+Owner pick, 2026-10-30: **mostly white and sky blue, with hot pink as the accent**, and a navy AI sheet that leans on glass and pink. It's scoped to the marketing pages through `.theme-landing` in `theme.css`, which re-points the role tokens, so kit components repaint with no new props. The app keeps its ink-and-blue scheme until the colour redesign reaches it.
+
+| Role | Marketing value | Notes |
+|---|---|---|
+| `canvas` | `snow` `#fcffff` | |
+| `ink` (primary pill, mark tile) | `sky-strong` `#047aa6` | White on it ≈4.8:1. Raw `sky` `#0593c6` is for fills, bars, glows and display type (≈3.5:1, large text only). |
+| `accent` (the live signal) | `pink-strong` `#c92d88` | Same job as blue in the app: accept confirms, the session that just moved, the current week. Raw `pink` `#d83995` is for marks and fills. |
+| `night` (AI sheet, footer) | `#071019` | Ink in the app scheme. Use `bg-night` for dark ground, never `bg-ink`, which is a button colour here. |
+| `prism-*` | pink, light pink, ice, sky, violet | Prism still means "a language model is involved". Pink is the live signal on the sheet too (`accent-on-ink` `#ff7cc4`). |
+
+The landing's scroll story (`story.tsx`) gives the coach box a `border-prism` edge on the light page while the model reads the message. That's the one sanctioned exception to **Night only**, and it appears only on that one element.
 
 ## Loading & empty states
 
@@ -178,7 +322,7 @@ Icons are **Lucide, outlined**: `size-4` in controls, `size-[18px]` in tiles and
 - **In the tile:** white on `ink`, `rounded-tile`. The mark is 18px in the 28px nav tile and 20px in the 32px landing tile. The favicon (`src/app/icon.svg`) is its own 16px cut with the stroke raised to 2.8. The home-screen icon (`src/app/apple-icon.tsx`) is the ink M on canvas under the atmosphere's two hues.
 - **Type:** the name is set in the system stack with the `Wordmark` component. There's no brand typeface and no logo file to outline. The mark and the atmosphere carry the identity.
 
-**The Ink Mark Rule.** The mark is always ink (or white on ink) inside the product. It is never `accent`, so blue keeps its one job.
+**The Ink Mark Rule.** The mark is always `fg`, or white on its `ink` tile (sky after the pass). It is never `accent`, so the live signal keeps its one job.
 **The One Mark Rule.** Use `Wordmark` or `Mark` from the kit. Never redraw the M, stretch it, add a second weight or animate it in product chrome.
 
 ## Components
@@ -283,6 +427,6 @@ Canonical className patterns. Copy them; don't improvise variants.
 - Go above 300ms, overshoot easing or add decorative loops.
 - Write a raw hex or Tailwind palette class (`gray-500`, `blue-600`) in a component.
 
-**Named rules, recap:** One Signal · Data-Only Zone · No New Hex · Tabular · One H1 · 800 · Flat Inside · No Glass · Quiet Motion.
+**Named rules, recap:** One Signal · Data-Only Zone · No New Hex · Tabular · One H1 · 800 · Flat Inside · No Glass (except Prism & glass on night) · Quiet Motion · Prism Rules.
 
 **Theming later:** dark mode will arrive as `[data-theme=dark]` overriding these same token names. Components never branch on the theme.
