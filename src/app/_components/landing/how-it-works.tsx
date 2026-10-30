@@ -16,12 +16,11 @@ export function HowItWorks() {
         <FeatureRow
           headingId="feature-reschedule"
           tag="Missed a session"
-          title={["Missed a session?", "Your week sorts itself out"]}
-          lede="When work eats your Monday, the engine finds a few ways to fit that volume back in, suggests the one it likes best and leaves the final call to you"
+          title={["Missed Monday?", "Your week gets rearranged"]}
+          lede="Say work ran late and you skipped Upper A. The engine looks at what's left of the week and gives you a few ways to fit that volume back in, with the one it would pick marked."
           ticks={[
-            "Make it up, do half of it or let it go",
-            "Missed sets get carried into the rest of your week",
-            "Nothing moves until you say so",
+            "Make it up on another day, fold part of it into a later session or let it go",
+            "Your plan stays exactly as it was until you pick one",
           ]}
           visual={<RescheduleVignette />}
         />
@@ -30,12 +29,11 @@ export function HowItWorks() {
           flip
           headingId="feature-engine"
           tag="The engine"
-          title={["Every set is there", "for a reason"]}
-          lede="Your block is built from volume landmarks for each muscle, adding sets week by week so you stay in the range that actually grows muscle, then backing off for a deload before fatigue catches up with you"
+          title={["Volume that climbs", "week by week"]}
+          lede="Each muscle gets a weekly set count based on where its volume landmarks sit for someone at your level. It goes up a little each week, then drops right down for the deload."
           ticks={[
-            "Weekly sets for each muscle, tuned to your experience",
-            "Priority muscles get the extra volume",
-            "The same inputs always give you the same plan",
+            "Pick up to three priority muscles and they get the extra sets",
+            "Give it the same answers twice and you'll get the same block back",
           ]}
           visual={<BlockGridVignette />}
         />
@@ -43,12 +41,12 @@ export function HowItWorks() {
         <FeatureRow
           headingId="feature-readiness"
           tag="Readiness"
-          title={["Know when to push", "and when to ease off"]}
-          lede="Fitness, Fatigue and Form are worked out from the sets you actually log, so Form gives you an honest read on how ready you are for the next session"
+          title={["See how fresh you are", "before you train"]}
+          lede="Fitness, Fatigue and Form are calculated from the sets you log and how close to failure you took them. If your recovery ratings stay low two weeks running while volume is near its limit, Mesodapt suggests deloading early."
           ticks={[
-            "Built from your logged sets and how hard they felt (RIR)",
-            "Your weekly check-in fine-tunes it",
-            "Suggests an early deload when you need one",
+            "Uses the RIR from every set you log",
+            "Your weekly recovery ratings nudge it up or down",
+            "Charted across the whole block so you can see the trend",
           ]}
           visual={<ReadinessVignette />}
         />
@@ -58,13 +56,13 @@ export function HowItWorks() {
             aria-labelledby="feature-progression"
             className="rounded-card border border-border bg-surface p-6 shadow-card sm:p-7"
           >
-            <Tag>Progression</Tag>
+            <Tag>Weekly check-in</Tag>
             <h3 id="feature-progression" className="mt-4 text-section text-fg sm:text-[22px] sm:leading-7">
-              Check in and level up
+              Rate your recovery, get next week&apos;s numbers
             </h3>
             <p className="mt-2 text-body text-fg-muted">
-              At the end of each week you rate how every muscle recovered, and the engine weighs that against what you
-              logged to suggest next week&apos;s volume
+              Once every session in the week is logged or rescheduled, you rate how each muscle held up. The engine
+              compares that with what you lifted and proposes next week&apos;s sets for you to accept.
             </p>
             <ProgressionVignette />
           </article>
@@ -74,11 +72,11 @@ export function HowItWorks() {
           >
             <Tag>Coach cues</Tag>
             <h3 id="feature-cues" className="mt-4 text-section text-fg sm:text-[22px] sm:leading-7">
-              Got a run on Saturday? It&apos;s on it
+              Fuel tips for the run on Saturday
             </h3>
             <p className="mt-2 text-body text-fg-muted">
-              Add your runs, rides and games to the week and Mesodapt looks at what&apos;s coming up today and
-              tomorrow, then tells you how to fuel and recover around them
+              Put a run or a game on the board and Mesodapt checks what else is on that day and the next. Lifting
+              legs and then running? It tells you roughly how many grams of carbs to get in between.
             </p>
             <CoachCueVignette />
           </article>

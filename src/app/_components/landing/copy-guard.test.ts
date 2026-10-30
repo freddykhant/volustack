@@ -41,6 +41,17 @@ const LANDING_TELLS = [
   /\b(doesn|isn|don)['’]t\. /,
   // A headline written as fragments: "Climb. Deload." (two short capitalised sentences in a row).
   />[^<>{}]*\b[A-Z][a-z]+\. [A-Z][a-z]+\./,
+  // Stock marketing phrases that could sit on any product's page.
+  /\bactually\b/i,
+  /deserves a real/i,
+  /off your plate/i,
+  /life gets in the way/i,
+  /level up/i,
+  /just focus/i,
+  /it(&apos;|['’])s on it/i,
+  /you can trust/i,
+  /flexibility of AI/i,
+  /stay in charge/i,
 ];
 const landingFiles = sources(ROOTS[0]!);
 

@@ -30,6 +30,19 @@ colors:
   zone-building: "#0284c7"        # soft: rgba(2, 132, 199, 0.11)
   zone-optimal: "#059669"         # soft: rgba(5, 150, 105, 0.12)
   zone-max: "#d97706"             # soft: rgba(217, 119, 6, 0.14)
+  # Ink ground (landing "Under the hood" sheet + site footer; the candidate dark surface for the next UI pass)
+  on-ink-muted: "rgba(255, 255, 255, 0.68)"
+  on-ink-subtle: "rgba(255, 255, 255, 0.64)"
+  ink-raised: "rgba(255, 255, 255, 0.05)"
+  ink-well: "rgba(255, 255, 255, 0.06)"
+  ink-border: "rgba(255, 255, 255, 0.1)"
+  accent-on-ink: "#7fb6ff"        # the live signal on ink; #0a6fe0 is only ≈3.9:1 there
+  # Prism: the AI accent. See "Prism & glass" below.
+  prism-rose: "#ff7ab6"
+  prism-amber: "#ffc46b"
+  prism-mint: "#6ff0c4"
+  prism-sky: "#6cc8ff"
+  prism-violet: "#a98bff"
 typography:
   fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
   display:    { size: "clamp(40px, 4.2vw + 20px, 56px)", lineHeight: 1.04, weight: 680, tracking: "-0.035em" }
@@ -146,7 +159,7 @@ Elevation on a light page is a soft, low, wide shadow plus a hairline, never a h
 `shadow-control` is the 1px lift on secondary buttons, the segmented thumb and the active nav row.
 
 **The Flat Inside Rule.** A card never contains another shadowed card. Group inside a card with `bg-sunken` wells, `border-t border-border-subtle` dividers or whitespace.
-**The No Glass Rule.** No `backdrop-blur` on surfaces. The only blur in the system is the 2px blur on the dialog scrim.
+**The No Glass Rule.** No `backdrop-blur` on light surfaces. The only blur on the light page is the 2px blur on the dialog scrim. Glass is allowed in one place: on an ink ground, over a prism (see **Prism & glass** below).
 
 ## Motion
 
@@ -157,7 +170,44 @@ Every transition uses `--ease-soft` (`cubic-bezier(0.4, 0, 0.2, 1)`) at **200ms*
 - `active:scale-[0.98]`: the button press, built in.
 - `prefers-reduced-motion` reduces every animation and transition to 1ms and stops the shimmer. That's handled globally, so don't re-implement it.
 
-**The Quiet Motion Rule.** Motion confirms a change; it never decorates. Nothing loops except the skeleton shimmer.
+**The Quiet Motion Rule.** Motion confirms a change; it never decorates. Nothing loops except the skeleton shimmer and the prism's slow turn (see below), and both stop completely under reduced motion.
+
+## Prism & glass (the AI accent)
+
+Approved by the owner on 2026-10-30 from the landing page's "Under the hood" sheet (`src/app/_components/landing/engine.tsx`), and earmarked for the next UI pass. It's how Mesodapt shows *intelligence*: a slow, blurred colour wheel behind frosted glass, on ink. It is the one decorative effect in the system, so it stays rare and always means the same thing.
+
+**What it means.** The rainbow marks **where a language model is involved**: the coach box, a parsed message, the model's step in a flow. Blue keeps its job as *you* and *live*. In the landing pipeline, step 02 ("A small model parses") has the prism edge and step 04 ("You accept") has the blue one, side by side. Don't put prism on something the deterministic engine computed; that would blur the line the product is built on.
+
+**The pieces** (all in `theme.css`, all landing-scoped today):
+
+| Class / token | What it does |
+|---|---|
+| `.bg-prism` | A conic wheel of the five `prism-*` hues, `blur(90px) saturate(1.4)`, turning once every 28s via the `--prism-angle` custom property. Size and place it with utilities (`absolute size-[680px] -top-48 -right-40 opacity-40`); run a second, smaller one with `[animation-direction:reverse]` for depth. |
+| `.bg-grain` | An SVG `feTurbulence` fractal-noise tile in `overlay` blend. Lay it over the prisms at `opacity-[0.16]` so the glass reads as a material, not a flat tint. |
+| `.glass-ink` | Frosted glass on ink: `ink-raised` fill, `backdrop-filter: blur(22px) saturate(1.5)` and a 1px inner top highlight. Pair with `border border-ink-border rounded-card`. |
+| `.border-prism` | An iridescent 1px edge (masked conic gradient on `::before`, turning every 8s). One per view, on the model's element. |
+| `prism-*` tokens | `rose #ff7ab6 · amber #ffc46b · mint #6ff0c4 · sky #6cc8ff · violet #a98bff`. `text-prism-violet` is allowed for a small Lucide `Sparkles` beside a model label. |
+
+**Recipe** (the section must clip its glow and stack it behind content):
+
+```tsx
+<section className="isolate relative overflow-hidden rounded-t-sheet-xl bg-ink text-on-ink">
+  <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+    <div className="bg-prism absolute -top-48 -right-40 size-[460px] opacity-40 sm:size-[680px]" />
+    <div className="bg-prism absolute top-[46%] left-[8%] size-[380px] opacity-25 [animation-direction:reverse] sm:size-[560px]" />
+    <div className="bg-grain absolute inset-0 opacity-[0.16]" />
+  </div>
+  {/* content: glass-ink cards; one border-prism card where the model works */}
+</section>
+```
+
+**The Prism Rules.**
+- **Ink only.** Prism and glass live on an `ink` ground. On the light canvas the atmosphere glow is still the only colour wash.
+- **Behind, never on.** The wheel sits behind glass; text never sits directly on a bright prism. Body text on glass stays `on-ink-muted` or brighter, at least 4.5:1.
+- **One prism field per screen**, and at most one `border-prism` element in it.
+- **Never on data or chrome.** No prism on buttons, chips, nav, charts or zone marks, and no gradient text.
+- **Reduced motion stops it.** `.bg-prism` and `.border-prism::before` set `animation: none` under `prefers-reduced-motion` (the global 1ms rule would make an infinite loop strobe). Keep that override if you add another looping effect.
+- **Re-review with the colour scheme.** The five hues were tuned against today's ink (`#17181a`); revisit them with the planned colour redesign.
 
 ## Loading & empty states
 
@@ -283,6 +333,6 @@ Canonical className patterns. Copy them; don't improvise variants.
 - Go above 300ms, overshoot easing or add decorative loops.
 - Write a raw hex or Tailwind palette class (`gray-500`, `blue-600`) in a component.
 
-**Named rules, recap:** One Signal · Data-Only Zone · No New Hex · Tabular · One H1 · 800 · Flat Inside · No Glass · Quiet Motion.
+**Named rules, recap:** One Signal · Data-Only Zone · No New Hex · Tabular · One H1 · 800 · Flat Inside · No Glass (except Prism & glass on ink) · Quiet Motion · Prism Rules.
 
 **Theming later:** dark mode will arrive as `[data-theme=dark]` overriding these same token names. Components never branch on the theme.

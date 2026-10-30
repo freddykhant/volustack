@@ -8,13 +8,13 @@ export function Hero() {
     <section aria-labelledby="hero-title">
       <Container className="grid items-center gap-12 pt-14 pb-16 sm:pt-20 lg:grid-cols-[1fr_1.25fr] lg:gap-14 lg:pt-[72px] lg:pb-14">
         <div className="animate-rise">
-          <Eyebrow>Adaptive training, engineered</Eyebrow>
+          <Eyebrow>For people who program their own training</Eyebrow>
           <h1 id="hero-title" className="mt-3 max-w-[14ch] text-display text-balance text-fg">
-            Your training week rewrites itself, and you stay in charge
+            Training plans that move when your week does
           </h1>
           <p className="mt-5 max-w-[46ch] text-body text-fg-muted sm:text-[17px] sm:leading-[26px]">
-            Tell Mesodapt you can&apos;t make Thursday and your block quietly reshuffles around you, with every set,
-            rep and recovery number worked out by the engine and nothing changing until you say yes
+            Type something like &ldquo;can&apos;t make Thursday&rdquo; and Mesodapt works out where the rest of your
+            week&apos;s sessions should go. You tap to accept the new week, or leave things as they were.
           </p>
           <div className="mt-8 flex flex-wrap gap-2.5">
             <SignInButton />

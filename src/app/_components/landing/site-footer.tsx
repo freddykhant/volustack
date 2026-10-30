@@ -25,7 +25,7 @@ export function SiteFooter() {
               <span className="text-section text-on-ink">Mesodapt</span>
             </Link>
             <p className="mt-3.5 max-w-[30ch] text-card-desc text-on-ink-muted">
-              A training plan that keeps up when your week doesn&apos;t go to plan.
+              Training blocks that rearrange themselves when your week changes.
             </p>
           </div>
           <Column title="Product">

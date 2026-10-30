@@ -21,21 +21,21 @@ const STEPS = [
   {
     n: "03",
     label: "The engine works it out",
-    body: "It lays out three ways to rearrange the week, from best recovery to fewest changes to keeping your preferred times",
+    body: "It builds three versions of the week and ranks them, so you can pick the least disruptive one or the one that's best for recovery.",
   },
-  { n: "04", label: "You accept", body: "Upper B moves to Friday and the reason gets logged right alongside it", live: true },
+  { n: "04", label: "You accept", body: "Upper B moves to Friday, and the move is logged with the reason so you can see why later.", live: true },
 ];
 
 const LAWS = [
   {
     n: "Law 1",
     title: "The engine owns every number",
-    body: "Sets, reps, effort, volume and readiness all come from real calculations, and the same inputs always give you the same plan",
+    body: "Weights, set counts and readiness are all computed. Put the same inputs in twice and you get the same plan out.",
   },
   {
     n: "Law 2",
-    title: "Nothing gets made up",
-    body: "The model only interprets what you say, so every weight, set count and readiness score you see comes straight from the engine",
+    title: "The model never invents a number",
+    body: "Its only job is working out what you meant. Anything you read on screen is written from what the engine calculated.",
   },
 ];
 
@@ -59,11 +59,12 @@ export function Engine() {
       <Container className="pt-20 pb-28 sm:pt-24 sm:pb-32">
         <Eyebrow onInk>Under the hood</Eyebrow>
         <h2 id="engine-title" className="mt-3 max-w-[18ch] text-landing-h2 text-balance text-on-ink">
-          The model listens, the engine decides and you get the final say
+          The AI reads your message and the engine does the maths
         </h2>
         <p className="mt-5 max-w-[56ch] text-body text-on-ink-muted sm:text-[17px] sm:leading-[26px]">
-          A small language model turns whatever you type into a structured request, then a deterministic engine does
-          all the maths behind your sets and reps, so you get the flexibility of AI with numbers you can actually trust
+          Language models are good at understanding &ldquo;can&apos;t make Thursday&rdquo; and unreliable with
+          numbers, so Mesodapt only uses one for the first part. A small model turns your message into a structured
+          request, and a deterministic engine works out the sets, reps and schedule from there.
         </p>
 
         <ol className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">

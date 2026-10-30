@@ -7,15 +7,15 @@ export function BlockStory() {
     <LandingSection labelledBy="block-title" className="-mt-10 rounded-t-sheet-xl bg-canvas">
       <Container className="grid items-center gap-12 pt-24 pb-20 lg:grid-cols-[1fr_1.2fr] lg:gap-16 lg:pt-28 lg:pb-24">
         <div>
-          <Eyebrow>Built around the block</Eyebrow>
+          <Eyebrow>About the logo</Eyebrow>
           <h2 id="block-title" className="mt-3 text-landing-h2 text-fg">
-            Build up, deload
+            The M is a
             <br />
-            and come back stronger
+            training block
           </h2>
           <p className="mt-5 max-w-[46ch] text-body text-fg-muted sm:text-[17px] sm:leading-[26px]">
-            Every block builds for a few weeks, eases off so you can recover and then starts again from a higher
-            floor, which is the whole method and also where the logo comes from
+            Trace it from the left and it climbs for a few weeks, dips for the deload, then climbs again from a
+            higher starting point. That&apos;s how every block in Mesodapt is built.
           </p>
         </div>
         <figure className="w-full max-w-[520px] lg:justify-self-end">

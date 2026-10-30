@@ -11,11 +11,11 @@ export function ClosingCta() {
           <Mark className="size-10" />
         </span>
         <h2 id="cta-title" className="mt-7 max-w-[16ch] text-display text-balance text-fg">
-          Your next block deserves a real plan
+          Set up your first block in a few minutes
         </h2>
         <p className="mt-5 max-w-[46ch] text-body text-fg-muted sm:text-[17px] sm:leading-[26px]">
-          Tell it how you like to train and it&apos;ll build your block, then keep it on track week after week so you
-          can just focus on lifting
+          Answer a few questions about your schedule, your split and your experience, and the engine builds a block
+          you can start this week.
         </p>
         <div className="mt-8 flex flex-wrap gap-2.5">
           <SignInButton />
