@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 
-import { Container, LandingSection } from "./primitives";
+import { GlassCard, GlassSheet } from "~/components/ui-kit/app-shell-kit";
+import { Container } from "./primitives";
 
 const STEPS = [
   {
@@ -41,17 +42,7 @@ const STEPS = [
  */
 export function Engine() {
   return (
-    <LandingSection
-      id="engine"
-      labelledBy="engine-title"
-      className="isolate overflow-hidden rounded-t-sheet-xl bg-night text-on-ink"
-    >
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="bg-prism absolute -top-56 -right-48 size-[520px] opacity-55 sm:size-[760px]" />
-        <div className="bg-prism absolute top-[38%] -left-40 size-[420px] opacity-35 [animation-direction:reverse] sm:size-[620px]" />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(60%_80%_at_70%_100%,color-mix(in_srgb,var(--color-pink)_30%,transparent),transparent_70%)]" />
-        <div className="bg-grain absolute inset-0 opacity-[0.18]" />
-      </div>
+    <GlassSheet size="page" id="engine" aria-labelledby="engine-title">
       <Container className="pt-24 pb-28 sm:pt-28 sm:pb-36">
         <p className="text-nav font-semibold text-accent-on-ink">Under the hood</p>
         <h2 id="engine-title" className="mt-3 max-w-[20ch] text-landing-h2 text-balance text-on-ink">
@@ -70,13 +61,7 @@ export function Engine() {
             className="absolute top-[38px] right-[12%] left-[12%] hidden h-px bg-[linear-gradient(90deg,transparent,var(--color-ink-border)_12%,var(--color-prism-violet)_38%,var(--color-pink)_88%,transparent)] lg:block"
           />
           {STEPS.map((s) => (
-            <li
-              key={s.n}
-              className={
-                "glass-ink relative rounded-card border p-6 " +
-                (s.model ? "border-prism" : s.live ? "border-pink/70" : "border-ink-border")
-              }
-            >
+            <GlassCard key={s.n} as="li" tone={s.model ? "model" : s.live ? "live" : "plain"}>
               <div className="flex items-center gap-2 text-meta tabular-nums">
                 <span
                   className={
@@ -94,7 +79,7 @@ export function Engine() {
                 {s.model ? <Sparkles className="size-3.5 text-prism-amber" aria-hidden /> : null}
               </div>
               <div className="mt-3 text-body text-on-ink-muted">{s.body}</div>
-            </li>
+            </GlassCard>
           ))}
         </ol>
 
@@ -103,6 +88,6 @@ export function Engine() {
           <span className="text-on-ink-subtle">The model has never made one up, because it isn&apos;t allowed to.</span>
         </p>
       </Container>
-    </LandingSection>
+    </GlassSheet>
   );
 }

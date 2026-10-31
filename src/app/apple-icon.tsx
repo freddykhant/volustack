@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-// The home-screen icon: the ink M on the warm canvas under the atmosphere's two hues (DESIGN.md → Brand).
+// The home-screen icon: the navy M on snow under the atmosphere's sky and pink (DESIGN.md → Brand).
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
@@ -14,15 +14,15 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#faf9f7",
+          backgroundColor: "#fcffff",
           backgroundImage:
-            "radial-gradient(circle at 24% -4%, rgba(255, 190, 150, 0.72), rgba(255, 190, 150, 0) 70%), radial-gradient(circle at 81% -4%, rgba(150, 168, 255, 0.6), rgba(150, 168, 255, 0) 64%)",
+            "radial-gradient(circle at 24% -4%, rgba(5, 147, 198, 0.55), rgba(5, 147, 198, 0) 70%), radial-gradient(circle at 81% -4%, rgba(216, 57, 149, 0.4), rgba(216, 57, 149, 0) 64%)",
         }}
       >
         <svg width="110" height="110" viewBox="0 0 24 24" fill="none">
           <path
             d="M4 19.25V11.75L10 6.75V15.25H14V9.75L20 4.75V19.25"
-            stroke="#17181a"
+            stroke="#0c1b26"
             strokeWidth={2.5}
             strokeLinecap="round"
             strokeLinejoin="round"

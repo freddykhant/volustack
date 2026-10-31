@@ -14,3 +14,7 @@ export { Segmented, type SegmentedOption } from "./components/segmented";
 export { Panel, Skeleton } from "./components/panel";
 export { Wordmark } from "./components/wordmark";
 export { Mark } from "./components/mark";
+export { GlassSheet, GlassCard } from "./components/glass-sheet";
+export { Spine, SpineItem } from "./components/spine";
+export { VolumeBars } from "./components/volume-bars";
+export { useFlip } from "./components/use-flip";

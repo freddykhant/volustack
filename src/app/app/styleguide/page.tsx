@@ -25,9 +25,14 @@ import {
   Panel,
   SectionHeading,
   Skeleton,
+  Spine,
+  SpineItem,
+  GlassCard,
+  GlassSheet,
+  VolumeBars,
   Wordmark,
 } from "~/components/ui-kit/app-shell-kit";
-import { MotionDemo, SegmentedDemo } from "./_components/interactive-demos";
+import { CoachBoxDemo, HopDemo, MotionDemo, SegmentedDemo, ThemeDemo } from "./_components/interactive-demos";
 import { TokenValue, TypeRow } from "./_components/live-value";
 
 export const metadata = { title: "Styleguide · Mesodapt" };
@@ -71,22 +76,33 @@ const COLOR_GROUPS: { title: string; note: string; swatches: Swatch[] }[] = [
   },
   {
     title: "Action",
-    note: "The ink primary, the one live signal, and danger.",
+    note: "The sky primary, the pink live signal, and danger.",
     swatches: [
       { token: "ink", cls: "bg-ink", role: "Primary pill", on: { token: "on-ink", cls: "text-on-ink" } },
       { token: "ink-hover", cls: "bg-ink-hover", role: "Primary hover" },
-      { token: "accent", cls: "bg-accent", role: "Next-up, links, focus", on: { token: "on-accent", cls: "text-on-accent" } },
+      { token: "accent", cls: "bg-accent", role: "Live: next-up, accept, focus", on: { token: "on-accent", cls: "text-on-accent" } },
       { token: "accent-strong", cls: "bg-accent-strong", role: "Accent pressed" },
       { token: "danger", cls: "bg-danger", role: "Destructive text" },
     ],
   },
   {
     title: "Lines",
-    note: "Hairlines in ink alpha.",
+    note: "Hairlines in navy alpha.",
     swatches: [
       { token: "border", cls: "bg-border", role: "Card hairline" },
       { token: "border-subtle", cls: "bg-border-subtle", role: "Dividers" },
       { token: "border-strong", cls: "bg-border-strong", role: "Input focus" },
+    ],
+  },
+  {
+    title: "Brand & night",
+    note: "Raw palette. Sky and pink for fills, bars and glows; night is the one dark ground.",
+    swatches: [
+      { token: "sky", cls: "bg-sky", role: "Brand fills, bars" },
+      { token: "sky-strong", cls: "bg-sky-strong", role: "= ink", on: { token: "on-ink", cls: "text-on-ink" } },
+      { token: "pink", cls: "bg-pink", role: "Live marks, fills" },
+      { token: "pink-strong", cls: "bg-pink-strong", role: "= accent", on: { token: "on-accent", cls: "text-on-accent" } },
+      { token: "night", cls: "bg-night", role: "Glass sheet, footer", on: { token: "on-ink", cls: "text-on-ink" } },
     ],
   },
 ];
@@ -125,6 +141,7 @@ const SECTIONS = [
   ["surfaces", "Surfaces"],
   ["loading", "Loading & empty"],
   ["dialog", "Dialog & form"],
+  ["ai", "AI & motion"],
 ] as const;
 
 /* ── Small page-local layout helpers (no new visual vocabulary) ─────────── */
@@ -262,7 +279,7 @@ export default function StyleguidePage() {
           </div>
         </div>
         <p className="max-w-[34ch] text-card-desc text-fg-muted">
-          An ink tile carrying the M, set beside the name. The M is one stroke through a block: it climbs, drops for the deload and climbs again from higher up. It stays ink, never blue. Use the component everywhere.
+          A sky tile carrying the M, set beside the name. The M is one stroke through a block: it climbs, drops for the deload and climbs again from higher up. It is never pink, so pink keeps its one job. Use the component everywhere.
         </p>
       </Panel>
 
@@ -270,9 +287,18 @@ export default function StyleguidePage() {
       <Section
         id="colour"
         title="Colour"
-        lede="Neutral by default. Accent is the one live signal, and the zone colours belong to data only. Values are read live from :root."
+        lede="White and sky by default. Pink is the one live signal, and the zone colours belong to data only. Values are read live from :root."
       >
         <div className="flex flex-col gap-4">
+          <Panel className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="text-card-title text-fg">Palette</div>
+              <p className="mt-0.5 text-card-desc text-fg-muted">
+                Classic is the Luma-era scheme, kept for A/B tests. This switch flips the whole app.
+              </p>
+            </div>
+            <ThemeDemo />
+          </Panel>
           {COLOR_GROUPS.map((g) => (
             <Panel key={g.title}>
               <div className="flex items-baseline justify-between gap-4">
@@ -440,7 +466,7 @@ export default function StyleguidePage() {
       <Section
         id="actions"
         title="Actions"
-        lede="Every button is a pill. Use one ink primary per view. Accent is only for the confirm on an accept-gate."
+        lede="Every button is a pill. Use one sky primary per view. The pink accent is only for the confirm on an accept-gate."
       >
         <Panel padding="lg">
           <div className="flex flex-col gap-5">
@@ -636,7 +662,7 @@ export default function StyleguidePage() {
       <Section
         id="dialog"
         title="Dialog & form"
-        lede="A dialog is a raised sheet over a light scrim. On an accept-gate the confirm is accent; anywhere else it's ink. Cancel is always ghost."
+        lede="A dialog is a raised sheet over a light scrim. On an accept-gate the confirm is the pink accent; anywhere else it's the sky primary. Cancel is always ghost."
       >
         <div className="relative overflow-hidden rounded-card border border-border bg-canvas">
           {/* Faux page behind the scrim */}
@@ -717,6 +743,91 @@ export default function StyleguidePage() {
             </label>
           </div>
         </Panel>
+      </Section>
+
+      {/* AI & motion */}
+      <Section
+        id="ai"
+        title="AI & motion"
+        lede="Navy glass is where the model speaks; the prism marks its step. The hop and the bars are the two longer motions, because they explain where something went."
+      >
+        <GlassSheet>
+          <p className="text-nav font-semibold text-accent-on-ink">GlassSheet · panel</p>
+          <h3 className="mt-2 max-w-[30ch] text-section text-on-ink">
+            Here&apos;s what I understood from your message
+          </h3>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <GlassCard>
+              <div className="text-meta text-on-ink-subtle">You typed</div>
+              <div className="mt-2 text-card-title text-on-ink">&ldquo;can&apos;t make Thursday, work trip&rdquo;</div>
+            </GlassCard>
+            <GlassCard tone="model">
+              <div className="text-meta text-on-ink">The model read it as</div>
+              <div className="mt-2 rounded-control bg-ink-well px-3 py-2.5 text-card-desc text-on-ink tabular-nums">
+                <span className="text-on-ink-subtle">intent</span> block · <span className="text-on-ink-subtle">date</span> Thu 13
+              </div>
+            </GlassCard>
+            <GlassCard tone="live">
+              <div className="text-meta text-accent-on-ink">You decide</div>
+              <div className="mt-2 text-body text-on-ink-muted">Upper B moves to Friday once you accept.</div>
+            </GlassCard>
+          </div>
+        </GlassSheet>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Panel padding="lg">
+            <div className="text-card-title text-fg">Coach box</div>
+            <p className="mt-1 text-card-desc text-fg-muted">The prism edge shows only while the model reads.</p>
+            <div className="mt-5">
+              <CoachBoxDemo />
+            </div>
+          </Panel>
+          <Panel padding="lg">
+            <div className="text-card-title text-fg">The hop</div>
+            <p className="mt-1 text-card-desc text-fg-muted">useFlip · 700ms ease-out · lands with the pink ring.</p>
+            <div className="mt-5">
+              <HopDemo />
+            </div>
+          </Panel>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Panel padding="lg">
+            <div className="text-card-title text-fg">VolumeBars</div>
+            <p className="mt-1 text-card-desc text-fg-muted">Sky climb, the deload in rest, this week in pink.</p>
+            <VolumeBars
+              className="mt-5"
+              current={3}
+              summary="Weekly sets climb from 44 in week 1 to 60 in week 5, then drop to 26 for the deload. You are in week 4."
+              weeks={[
+                { label: "W1", sets: 44 },
+                { label: "W2", sets: 48 },
+                { label: "W3", sets: 52 },
+                { label: "W4", sets: 56 },
+                { label: "W5", sets: 60 },
+                { label: "DL", sets: 26, deload: true },
+              ]}
+            />
+          </Panel>
+          <Panel padding="lg">
+            <div className="text-card-title text-fg">Spine</div>
+            <p className="mt-1 text-card-desc text-fg-muted">History in order: the move log, weeks, blocks.</p>
+            <Spine className="mt-5">
+              <SpineItem lead="Thu 13 · 9:41">
+                <div className="text-list text-fg">Upper B moved to Friday</div>
+                <p className="text-card-desc text-fg-muted">Thursday was busy with a work trip.</p>
+              </SpineItem>
+              <SpineItem lead="Mon 10 · 18:02">
+                <div className="text-list text-fg">Upper A logged</div>
+                <p className="text-card-desc text-fg-muted">18 sets, average RIR 2.</p>
+              </SpineItem>
+              <SpineItem lead="Sun 9 · 20:15">
+                <div className="text-list text-fg">Week 3 accepted</div>
+                <p className="text-card-desc text-fg-muted">Chest up to 16 sets, quads held at 14.</p>
+              </SpineItem>
+            </Spine>
+          </Panel>
+        </div>
       </Section>
     </>
   );

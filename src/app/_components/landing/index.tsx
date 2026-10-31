@@ -8,7 +8,7 @@ import { WeekDiary } from "./week-diary";
 /** Signed-out landing. The session redirect lives in `page.tsx`; this is markup only. */
 export function Landing() {
   return (
-    <div id="top" className="theme-landing bg-atmosphere flex min-h-screen flex-col bg-canvas text-fg">
+    <div id="top" className="bg-atmosphere flex min-h-screen flex-col">
       <TopBar />
       <main id="main" className="flex-1">
         <Story />

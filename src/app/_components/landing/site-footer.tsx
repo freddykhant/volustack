@@ -11,7 +11,7 @@ const CONNECT = [
   { label: "Portfolio", href: "https://freddykhant.com" },
 ];
 
-/** Shared by the landing and the legal pages. Sits on `night`, which `.theme-landing` turns navy. */
+/** Shared by the landing and the legal pages. Sits on `night`, the one dark ground. */
 export function SiteFooter() {
   return (
     <footer className="bg-night text-on-ink">

@@ -1,74 +1,74 @@
 /* Mesodapt design tokens (Tailwind v4 @theme). Source of truth: DESIGN.md.
-   Light, atmospheric, Luma-inspired (2026-10-20). Token NAMES are stable — every
+   White, sky and one pink signal, with navy glass where the model speaks (adopted from the landing,
+   2026-10-31). The Luma-era palette survives as `.theme-classic` below, for A/B tests. Token NAMES are stable — every
    component uses them by role (`bg-surface`, `text-fg-muted`, `rounded-card`),
    so changing a value here repaints the whole app. Never add a raw hex in a
    component; add a role token here first. */
 
 @theme {
   /* ── Ground & surfaces ─────────────────────────────────────────────── */
-  --color-canvas: #faf9f7; /* warm off-white page ground */
-  --color-surface: rgba(255, 255, 255, 0.82); /* cards, panels (sits on canvas) */
+  --color-canvas: #fcffff; /* snow: the page ground */
+  --color-surface: rgba(255, 255, 255, 0.88); /* cards, panels (sits on canvas) */
   --color-surface-raised: #ffffff; /* popovers, dialogs, active nav row */
-  --color-sunken: rgba(17, 18, 20, 0.035); /* wells: inputs, segmented tracks, grid cells */
-  --color-hover: rgba(17, 18, 20, 0.04); /* hover wash on rows/ghost buttons */
-  --color-press: rgba(17, 18, 20, 0.07); /* pressed wash */
-  --color-scrim: rgba(17, 18, 20, 0.28); /* behind dialogs */
-  --color-selection: rgba(10, 111, 224, 0.08); /* active contextual-list row */
-  --color-callout: rgba(10, 111, 224, 0.06); /* info banner fill */
+  --color-sunken: rgba(5, 147, 198, 0.06); /* wells: inputs, segmented tracks, grid cells */
+  --color-hover: rgba(5, 147, 198, 0.07); /* hover wash on rows/ghost buttons */
+  --color-press: rgba(5, 147, 198, 0.12); /* pressed wash */
+  --color-scrim: rgba(7, 16, 25, 0.3); /* behind dialogs */
+  --color-selection: rgba(216, 57, 149, 0.09); /* active contextual-list row */
+  --color-callout: rgba(216, 57, 149, 0.06); /* info banner fill */
 
   /* ── Ink (text) ────────────────────────────────────────────────────── */
-  --color-fg: #17181a; /* primary text, titles */
-  --color-fg-soft: #3d4148; /* eyebrows, strong secondary */
-  --color-fg-muted: #5f646c; /* descriptions, metadata, default icons (≈5.9:1) */
-  --color-fg-subtle: #70757c; /* timestamps, chevrons, supporting only (≈4.6:1) */
+  --color-fg: #0c1b26; /* primary text, titles (navy ink) */
+  --color-fg-soft: #2f4252; /* eyebrows, strong secondary */
+  --color-fg-muted: #4f6272; /* descriptions, metadata, default icons (≈6.3:1) */
+  --color-fg-subtle: #637685; /* timestamps, chevrons, supporting only (≈4.7:1) */
 
   /* ── Action ────────────────────────────────────────────────────────── */
-  --color-ink: #17181a; /* primary button fill (Luma: dark pill on light) */
-  --color-ink-hover: #2a2c30;
+  --color-ink: #047aa6; /* primary button + mark tile: sky-strong, white on it ≈4.8:1 */
+  --color-ink-hover: #03688e;
   --color-on-ink: #ffffff;
-  --color-accent: #0a6fe0; /* the one live signal: next-up, active, links, focus (≈4.9:1) */
-  --color-accent-strong: #0858b8; /* pressed / emphatic */
+  --color-accent: #c92d88; /* the one live signal, hot pink: next-up, active, links, focus (≈5:1) */
+  --color-accent-strong: #ad1f72; /* pressed / emphatic */
   --color-on-accent: #ffffff;
   --color-danger: #c4320a; /* destructive confirm text only */
 
   /* ── Lines ─────────────────────────────────────────────────────────── */
-  --color-border: rgba(17, 18, 20, 0.08);
-  --color-border-subtle: rgba(17, 18, 20, 0.06);
-  --color-border-strong: rgba(17, 18, 20, 0.14); /* input focus-less stroke, dividers that must read */
+  --color-border: rgba(12, 60, 90, 0.09);
+  --color-border-subtle: rgba(12, 60, 90, 0.06);
+  --color-border-strong: rgba(12, 60, 90, 0.16); /* input focus-less stroke, dividers that must read */
 
   /* ── Data-viz zone family — DATA ONLY, never chrome ────────────────── */
   /* Darkened from the dark-theme values so small marks hold ≥3:1 on canvas. */
   --color-zone-rest: #64748b;
   --color-zone-rest-soft: rgba(100, 116, 139, 0.12);
-  --color-zone-building: #0284c7;
-  --color-zone-building-soft: rgba(2, 132, 199, 0.11);
+  --color-zone-building: #4f5bd5; /* indigo, off the brand sky (2026-10-31) ≈5.5:1 */
+  --color-zone-building-soft: rgba(79, 91, 213, 0.12);
   --color-zone-optimal: #059669;
   --color-zone-optimal-soft: rgba(5, 150, 105, 0.12);
   --color-zone-max: #d97706;
   --color-zone-max-soft: rgba(217, 119, 6, 0.14);
 
-  /* Ink ground: landing "Under the hood" sheet + site footer only. re-review: colour scheme */
-  --color-on-ink-muted: rgba(255, 255, 255, 0.68); /* body text on ink */
+  /* Night ground: the navy glass sheet (where the model speaks) and the site footer. */
+  --color-on-ink-muted: rgba(255, 255, 255, 0.68); /* body text on night/ink */
   --color-on-ink-subtle: rgba(255, 255, 255, 0.64); /* eyebrows, column headings on ink */
-  --color-ink-raised: rgba(255, 255, 255, 0.05); /* cards on ink */
-  --color-ink-well: rgba(255, 255, 255, 0.06); /* wells inside cards on ink */
-  --color-ink-border: rgba(255, 255, 255, 0.1); /* hairlines on ink */
-  --color-accent-on-ink: #7fb6ff; /* the live signal on ink: accent fails contrast there */
+  --color-ink-raised: rgba(255, 255, 255, 0.07); /* glass cards on night */
+  --color-ink-well: rgba(255, 255, 255, 0.08); /* wells inside glass cards */
+  --color-ink-border: rgba(255, 255, 255, 0.12); /* hairlines on night */
+  --color-accent-on-ink: #ff7cc4; /* the live signal on night: accent fails contrast there */
 
-  /* Prism: the "AI" accent, landing ink sheet only (owner request 2026-10-30). Never on chrome or data.
-     re-review: colour scheme */
-  --color-prism-rose: #ff7ab6;
-  --color-prism-amber: #ffc46b;
-  --color-prism-mint: #6ff0c4;
-  --color-prism-sky: #6cc8ff;
-  --color-prism-violet: #a98bff;
+  /* Prism: the AI accent, pink-led. Behind glass on night, plus the coach box's edge while the model reads.
+     Never on data or other chrome. (Names are historical: rose=pink, amber=light pink, mint=ice.) */
+  --color-prism-rose: #d83995;
+  --color-prism-amber: #ff8fcf;
+  --color-prism-mint: #9ff0ff;
+  --color-prism-sky: #0593c6;
+  --color-prism-violet: #7c4dff;
 
-  /* Night: the dark ground under the marketing site's AI sheet and footer. Ink in the app's own scheme;
-     `.theme-landing` turns it navy. */
-  --color-night: #17181a;
+  /* Night: the one dark ground. */
+  --color-night: #071019;
 
-  /* Marketing palette (owner pick 2026-10-30): white and sky lead, hot pink is the accent. Wired into the
-     role tokens by `.theme-landing` below; the app itself does not use these yet. */
+  /* The palette behind the roles (owner pick 2026-10-30). Components use role tokens; reach for these raw
+     values only for brand fills, bars and glows. */
   --color-snow: #fcffff;
   --color-sky: #0593c6; /* fills, bars, glows, large type. Text on it or in it: sky-strong (≈4.8:1) */
   --color-sky-strong: #047aa6;
@@ -85,10 +85,10 @@
   --radius-callout: 14px;
 
   /* ── Elevation (light theme: soft, low, wide — never a hard drop) ──── */
-  --shadow-card: 0 1px 2px rgba(17, 18, 20, 0.04), 0 8px 24px -12px rgba(17, 18, 20, 0.1);
-  --shadow-card-hover: 0 1px 2px rgba(17, 18, 20, 0.05), 0 14px 32px -14px rgba(17, 18, 20, 0.16);
-  --shadow-pop: 0 2px 6px rgba(17, 18, 20, 0.05), 0 24px 56px -18px rgba(17, 18, 20, 0.22);
-  --shadow-control: 0 1px 2px rgba(17, 18, 20, 0.08);
+  --shadow-card: 0 1px 2px rgba(8, 50, 80, 0.05), 0 10px 28px -12px rgba(5, 110, 160, 0.16);
+  --shadow-card-hover: 0 1px 2px rgba(8, 50, 80, 0.06), 0 16px 36px -14px rgba(5, 110, 160, 0.24);
+  --shadow-pop: 0 2px 6px rgba(8, 50, 80, 0.06), 0 28px 60px -18px rgba(5, 110, 160, 0.3);
+  --shadow-control: 0 1px 2px rgba(8, 50, 80, 0.1);
 
   /* ── Type (system stack — SF Pro on Apple, like Luma) ──────────────── */
   --font-sans:
@@ -159,6 +159,7 @@
   --animate-shimmer: shimmer 1.6s var(--ease-soft) infinite;
   --animate-rise: rise 320ms var(--ease-soft) both;
   --animate-fade: fade 240ms var(--ease-soft) both;
+  --animate-grow: grow 500ms var(--ease-out) both; /* bars rising from their baseline (VolumeBars) */
 
   @keyframes shimmer {
     0% { background-position: 120% 0; }
@@ -172,6 +173,10 @@
     from { opacity: 0; }
     to { opacity: 1; }
   }
+  @keyframes grow {
+    from { transform: scaleY(0); }
+    to { transform: none; }
+  }
 }
 
 /* Eyebrow: the small uppercase label above titles and sections. Weight/colour
@@ -183,23 +188,23 @@
   text-transform: uppercase;
 }
 
-/* Atmosphere: the soft peach→periwinkle glow along the top edge of the page.
-   One per screen, on the scrolling content column only. Decorative. */
+/* Atmosphere: sky along the top edge, a little pink on the far side. One per screen, on the scrolling
+   content column only. Decorative. */
 .bg-atmosphere {
   background-image:
-    radial-gradient(56% 340px at 22% -60px, rgba(255, 190, 150, 0.34), transparent 70%),
-    radial-gradient(48% 300px at 82% -60px, rgba(150, 168, 255, 0.28), transparent 70%);
+    radial-gradient(60% 420px at 18% -80px, rgba(5, 147, 198, 0.2), transparent 70%),
+    radial-gradient(44% 360px at 88% -80px, rgba(216, 57, 149, 0.12), transparent 70%);
   background-repeat: no-repeat;
 }
 
 /* Aura: the atmosphere's two hues as a small solid fill (avatar, empty-state art).
    The only place the glow colours may appear outside .bg-atmosphere. */
 .bg-aura {
-  background-image: linear-gradient(135deg, #ffd9b8, #c9d3ff);
+  background-image: linear-gradient(135deg, #c8ecf8, #f7d3e8);
 }
 
-/* ── Landing ink sheet: prism, grain and glass (the one sanctioned exception to the No Glass Rule,
-   owner request 2026-10-30). Only inside the "Under the hood" section. re-review: colour scheme ── */
+/* ── Prism, grain and glass: the AI accent (the one sanctioned exception to the No Glass Rule).
+   On the night ground only, plus the coach box's prism edge while the model reads. ── */
 @property --prism-angle {
   syntax: "<angle>";
   inherits: false;
@@ -230,12 +235,16 @@
   mix-blend-mode: overlay;
 }
 
-/* Frosted glass on ink: the prism shows through, softened. */
+/* Heavy frosted glass on night: more blur, a brighter rim and a faint inner sheen; the prism shows through. */
 .glass-ink {
   background-color: var(--color-ink-raised);
-  -webkit-backdrop-filter: blur(22px) saturate(1.5);
-  backdrop-filter: blur(22px) saturate(1.5);
-  box-shadow: inset 0 1px 0 var(--color-ink-border);
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02) 55%);
+  -webkit-backdrop-filter: blur(28px) saturate(1.7);
+  backdrop-filter: blur(28px) saturate(1.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 24px 60px -24px rgba(0, 0, 0, 0.6);
 }
 
 /* An iridescent 1px edge: marks the one card where the language model works. */
@@ -271,66 +280,56 @@
   }
 }
 
-/* ── Marketing scope (landing + legal). Re-points role tokens so kit components repaint without new props:
-   ink pill → sky, the live signal → hot pink, night → navy, the prism → pink, sky and ice. ── */
-.theme-landing {
-  --color-canvas: var(--color-snow);
-  --color-surface: rgba(255, 255, 255, 0.88);
-  --color-sunken: rgba(5, 147, 198, 0.06);
-  --color-hover: rgba(5, 147, 198, 0.07);
-  --color-press: rgba(5, 147, 198, 0.12);
-  --color-selection: rgba(216, 57, 149, 0.09);
-  --color-callout: rgba(216, 57, 149, 0.06);
-
-  --color-fg: #0c1b26;
-  --color-fg-soft: #2f4252;
-  --color-fg-muted: #4f6272; /* ≈6.3:1 on snow */
-  --color-fg-subtle: #637685; /* ≈4.7:1 */
-
-  --color-ink: var(--color-sky-strong);
-  --color-ink-hover: #03688e;
-  --color-accent: var(--color-pink-strong);
-  --color-accent-strong: #ad1f72;
-
-  --color-border: rgba(12, 60, 90, 0.09);
-  --color-border-subtle: rgba(12, 60, 90, 0.06);
-  --color-border-strong: rgba(12, 60, 90, 0.16);
-
-  --shadow-card: 0 1px 2px rgba(8, 50, 80, 0.05), 0 10px 28px -12px rgba(5, 110, 160, 0.16);
-  --shadow-pop: 0 2px 6px rgba(8, 50, 80, 0.06), 0 28px 60px -18px rgba(5, 110, 160, 0.3);
-
-  --color-night: #071019;
-  --color-ink-raised: rgba(255, 255, 255, 0.07);
-  --color-ink-well: rgba(255, 255, 255, 0.08);
-  --color-ink-border: rgba(255, 255, 255, 0.12);
-  --color-accent-on-ink: #ff7cc4;
-
-  --color-prism-rose: #d83995;
-  --color-prism-amber: #ff8fcf;
-  --color-prism-mint: #9ff0ff;
-  --color-prism-sky: #0593c6;
-  --color-prism-violet: #7c4dff;
+/* ── Classic: the Luma-era palette (2026-10-20 → 2026-10-31), kept as a scope so an A/B test can put a user
+   on it with one class on the app root. Tokens only; structure is the same in both. ── */
+.theme-classic {
+  --color-canvas: #faf9f7;
+  --color-surface: rgba(255, 255, 255, 0.82);
+  --color-sunken: rgba(17, 18, 20, 0.035);
+  --color-hover: rgba(17, 18, 20, 0.04);
+  --color-press: rgba(17, 18, 20, 0.07);
+  --color-scrim: rgba(17, 18, 20, 0.28);
+  --color-selection: rgba(10, 111, 224, 0.08);
+  --color-callout: rgba(10, 111, 224, 0.06);
+  --color-fg: #17181a;
+  --color-fg-soft: #3d4148;
+  --color-fg-muted: #5f646c;
+  --color-fg-subtle: #70757c;
+  --color-ink: #17181a;
+  --color-ink-hover: #2a2c30;
+  --color-accent: #0a6fe0;
+  --color-accent-strong: #0858b8;
+  --color-border: rgba(17, 18, 20, 0.08);
+  --color-border-subtle: rgba(17, 18, 20, 0.06);
+  --color-border-strong: rgba(17, 18, 20, 0.14);
+  --color-zone-building: #0284c7;
+  --color-zone-building-soft: rgba(2, 132, 199, 0.11);
+  --color-night: #17181a;
+  --color-ink-raised: rgba(255, 255, 255, 0.05);
+  --color-ink-well: rgba(255, 255, 255, 0.06);
+  --color-ink-border: rgba(255, 255, 255, 0.1);
+  --color-accent-on-ink: #7fb6ff;
+  --color-prism-rose: #ff7ab6;
+  --color-prism-amber: #ffc46b;
+  --color-prism-mint: #6ff0c4;
+  --color-prism-sky: #6cc8ff;
+  --color-prism-violet: #a98bff;
+  --shadow-card: 0 1px 2px rgba(17, 18, 20, 0.04), 0 8px 24px -12px rgba(17, 18, 20, 0.1);
+  --shadow-card-hover: 0 1px 2px rgba(17, 18, 20, 0.05), 0 14px 32px -14px rgba(17, 18, 20, 0.16);
+  --shadow-pop: 0 2px 6px rgba(17, 18, 20, 0.05), 0 24px 56px -18px rgba(17, 18, 20, 0.22);
+  --shadow-control: 0 1px 2px rgba(17, 18, 20, 0.08);
 }
-.theme-landing ::selection {
-  background: rgba(216, 57, 149, 0.18);
-}
-/* Sky leads the glow, with a little pink on the far side. */
-.theme-landing .bg-atmosphere,
-.theme-landing.bg-atmosphere {
+.theme-classic .bg-atmosphere,
+.theme-classic.bg-atmosphere {
   background-image:
-    radial-gradient(60% 420px at 18% -80px, rgba(5, 147, 198, 0.2), transparent 70%),
-    radial-gradient(44% 360px at 88% -80px, rgba(216, 57, 149, 0.12), transparent 70%);
-  background-repeat: no-repeat;
+    radial-gradient(56% 340px at 22% -60px, rgba(255, 190, 150, 0.34), transparent 70%),
+    radial-gradient(48% 300px at 82% -60px, rgba(150, 168, 255, 0.28), transparent 70%);
 }
-/* Heavier frosted glass on the navy sheet: more blur, a brighter rim and a faint inner sheen. */
-.theme-landing .glass-ink {
-  -webkit-backdrop-filter: blur(28px) saturate(1.7);
-  backdrop-filter: blur(28px) saturate(1.7);
-  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02) 55%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
-    0 24px 60px -24px rgba(0, 0, 0, 0.6);
+.theme-classic .bg-aura {
+  background-image: linear-gradient(135deg, #ffd9b8, #c9d3ff);
+}
+.theme-classic ::selection {
+  background: rgba(10, 111, 224, 0.16);
 }
 
 /* Skeleton: loading placeholder. Shape it with size + rounded-* utilities. */
@@ -364,5 +363,5 @@
 }
 
 ::selection {
-  background: rgba(10, 111, 224, 0.16);
+  background: rgba(216, 57, 149, 0.18);
 }
