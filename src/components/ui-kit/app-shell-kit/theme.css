@@ -304,6 +304,12 @@
   --color-border-strong: rgba(17, 18, 20, 0.14);
   --color-zone-building: #0284c7;
   --color-zone-building-soft: rgba(2, 132, 199, 0.11);
+  /* Classic had no brand hues: raw sky reads as its blue, raw pink as its accent. */
+  --color-snow: #faf9f7;
+  --color-sky: #0a6fe0;
+  --color-sky-strong: #0858b8;
+  --color-pink: #0a6fe0;
+  --color-pink-strong: #0858b8;
   --color-night: #17181a;
   --color-ink-raised: rgba(255, 255, 255, 0.05);
   --color-ink-well: rgba(255, 255, 255, 0.06);

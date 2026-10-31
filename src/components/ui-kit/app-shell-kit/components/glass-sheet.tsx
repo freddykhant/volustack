@@ -59,7 +59,7 @@ export function GlassCard({
   className?: string;
   children: ReactNode;
 }) {
-  const edge = { plain: "border-ink-border", model: "border-prism", live: "border-pink/70" }[tone];
+  const edge = { plain: "border-ink-border", model: "border-prism", live: "border-accent-on-ink/60" }[tone];
   return (
     <Tag className={"glass-ink relative rounded-card border p-5 sm:p-6 " + edge + (className ? " " + className : "")}>
       {children}
